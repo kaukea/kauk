@@ -1,0 +1,5 @@
+# managed by orchids — CLI and AGENTS.md driven; do not edit by hand
+canonical = "/home/sudoku/src/serialseb/orchids"
+# Missing/empty sections = every skill installed as a link.
+# Tune per role: [dev] [infra] [org], or ["*"] for defaults, with
+#   skillname = "exclude" | "copy" | "link" | "local"

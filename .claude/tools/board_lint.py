@@ -1,0 +1,1 @@
+/home/sudoku/src/kauk/.ai/repositories/serialseb/orchids/tools/board_lint.py

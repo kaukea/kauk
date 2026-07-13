@@ -1,0 +1,35 @@
+# orchids-vendored canonical clone (fetched, never committed)
+.ai/repositories/
+
+# cross-session handover notes (local context for the next agent, not source)
+/HANDOVER.md
+/handover/
+
+# orchestrator mood snapshot (observational, on-box only, never committed)
+/MOOD.md
+/.claude/orchestrator-mode.local
+/.claude/.pending-subjob.local
+/.claude/worktrees/
+/.return-window
+
+# secrets — never committed (tokens, publish creds, signing keys)
+/keys/
+*.pem
+*.p12
+*.key
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+dist/
+build/
+
+# node
+node_modules/
+*.tgz
+
+# editor/OS noise
+*.swp
+.DS_Store
