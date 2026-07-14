@@ -1,1 +1,1 @@
-/home/sudoku/src/kauk/.ai/repositories/serialseb/orchids/AGENTS.shared.md
+/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/AGENTS.shared.md

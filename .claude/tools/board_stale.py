@@ -1,1 +1,1 @@
-/home/sudoku/src/kauk/.ai/repositories/serialseb/orchids/tools/board_stale.py
+/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/board_stale.py

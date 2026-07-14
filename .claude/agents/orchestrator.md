@@ -1,1 +1,1 @@
-/home/sudoku/src/kauk/.ai/repositories/serialseb/orchids/agents/orchestrator.md
+/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/agents/orchestrator.md
