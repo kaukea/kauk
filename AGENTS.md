@@ -41,5 +41,6 @@ Taxonomy.
   CHANGELOG.md, ARCHITECTURE.md). `main` is immutable; work on `f/<id>` branches; close per
   the `workflow-complete` skill.
 - Commit trailer: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` on agent commits.
-- This repo is orchids-managed: shared skills/agent-files are symlinks under `.ai/`; run
-  `orchids sync` to pull canonical updates. Never hand-edit `.ai.toml`'s managed section.
+- This repo is kauk-managed: shared skills/agent-files are symlinks under `.ai/`; run
+  `kauk sync` (the `kauk` skill) to converge with the sources. Never hand-edit
+  `.ai.toml`'s managed section.
