@@ -205,12 +205,17 @@ cmd_init() {
   # the repo being initialized gets its own self-clone either way
   script_repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
   self_clone=$(clone_of "$root" "$SELF_REPO")
-  if [ ! -d "$self_clone/.git" ]; then
+  local self_origin
+  if [ -d "$self_clone/.git" ]; then
+    self_origin=$(git -C "$self_clone" config --get remote.origin.url 2>/dev/null || true)
+    self_origin=${self_origin:-${KAUK_ORIGIN:-$script_repo}}
+  else
+    self_origin="${KAUK_ORIGIN:-$script_repo}"
     mkdir -p "$(dirname "$self_clone")"
-    git clone --quiet "${KAUK_ORIGIN:-$script_repo}" "$self_clone"
+    git clone --quiet "$self_origin" "$self_clone"
     say "clone: $self_clone"
   fi
-  register_source "$root" "$SELF_REPO" "${KAUK_ORIGIN:-$script_repo}"
+  register_source "$root" "$SELF_REPO" "$self_origin"
   lay_source "$root" "$SELF_REPO"
   prune_links "$root"
   say "init: done — add a data package with 'kauk-sync install <owner>/<repo> [<origin>]'"
