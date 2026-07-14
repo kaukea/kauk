@@ -1,1 +1,1 @@
-/home/sudoku/src/kauk/.ai/repositories/serialseb/orchids/agents/architect.md
+/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/agents/architect.md

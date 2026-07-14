@@ -1,1 +1,1 @@
-/home/sudoku/src/kauk/.ai/repositories/serialseb/orchids/hooks/architect-close.sh
+/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/hooks/architect-close.sh
