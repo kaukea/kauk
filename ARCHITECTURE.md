@@ -48,7 +48,7 @@ are signed/attested. *(components pending first feature.)*
 The `kauk` command — one grammar over the registry and federation. `publish`, `install`,
 `resolve`. *(components pending first feature.)*
 
-Until 0.1.0, `bin/kauk-sync` is the shipped **bash stopgap** (component `cli-core`,
+Until 0.1.0, `bin/kauk` is the shipped **bash stopgap** (component `cli-core`,
 Decision-007): the file-package half of the grammar — `init` / `install <owner>/<repo>`
 / `sync` — over git-vendored sources (`.ai/repositories/`, `.ai.toml`), each package
 self-described by its `manifest.conf`. The real CLI inherits the grammar and replaces it.

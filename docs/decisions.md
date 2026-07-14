@@ -89,3 +89,11 @@ the engine installs the tool's skill through the same path as any data package â
 dogfooding the source-generic design with a second real source from day one. `pull-only`
 means consumer-side edits to the tool package are NEVER pushed back; the tool changes
 only in its own repo. A dirty pull-only clone is warned about and skipped at sync.
+
+## [2026-07-14 10:58 CEST] Decision-009: The stopgap script is named `kauk`
+#naming #cli #stopgap #kauk
+
+Supersedes the naming half of Decision-007 (operator ruling): the stopgap ships as
+`bin/kauk`, not `bin/kauk-sync` â€” brand = command from day one. The 0.1.0 CLI replaces
+the file in place, same name, same grammar; "stopgap" remains a property of the
+implementation, not the name.

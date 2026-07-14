@@ -1,6 +1,6 @@
 ---
 name: kauk
-description: "Run whenever the operator says install/sync kauk, orchids, or a package, and at workflow start and end. Keeps this repo's vendored file packages (skills, agents, shared rule files) converged with their sources via the stopgap `kauk-sync` CLI: `kauk init` bootstraps the repo, `kauk install <owner>/<repo>` vendors a data package, `kauk sync` converges every installed source. Delivery per skill is tuned in .ai.toml (exclude|copy|link|local). Replaces the retired `skill-sync`/`orchids` flow."
+description: "Run whenever the operator says install/sync kauk, orchids, or a package, and at workflow start and end. Keeps this repo's vendored file packages (skills, agents, shared rule files) converged with their sources via the stopgap `kauk` CLI (stopgap): `kauk init` bootstraps the repo, `kauk install <owner>/<repo>` vendors a data package, `kauk sync` converges every installed source. Delivery per skill is tuned in .ai.toml (exclude|copy|link|local). Replaces the retired `skill-sync`/`orchids` flow."
 metadata:
   tags: [ kauk, sync, install, skills, drift, package, canonical, orchids, template ]
   share: github
@@ -34,7 +34,7 @@ The grammar is `kauk <verb>`; the stopgap binary lives in the vendored tool clon
 (the real `kauk` CLI ships at 0.1.0 with the same verbs):
 
 ```sh
-KAUK="$(git rev-parse --show-toplevel)/.ai/repositories/serialseb/kauk/bin/kauk-sync"
+KAUK="$(git rev-parse --show-toplevel)/.ai/repositories/serialseb/kauk/bin/kauk"
 
 "$KAUK" init                               # bootstrap THIS repo: .ai.toml, gitignore, the tool's own package
 "$KAUK" install <owner>/<repo> [<origin>]  # vendor + lay a data package (migrates existing real files)
