@@ -53,6 +53,11 @@ bootstrapped with `orchids init` — shared agent-rule files + skills vendored a
 under `.ai/`, project-owned `AGENTS.md`/`README`/`ARCHITECTURE`/`docs`. Matches TitanShield /
 Panopticon / SignMc. `orchids sync` pulls canonical updates.
 
+*Annotation (2026-07-14): the operator's repo reshuffle moved the checkout to
+`~/src/serialseb/kauk`; the house-style ruling stands. The bootstrap wording
+(`orchids init`/`orchids sync`) is superseded by Decision-007 — the flow is now
+`kauk init` / `kauk sync`.*
+
 ## [2026-07-13 22:46 CEST] Decision-006: License = MIT (placeholder, revisit before 0.1.0)
 #license #mit
 
@@ -60,3 +65,27 @@ Provisional: MIT, to match the reservation stubs and keep the platform permissiv
 public tooling (signmc, packages.serialseb.net) is GPLv3 — revisit and confirm before the
 first real (`0.1.0`) release. Marked so a future reader knows it was a default, not a
 deliberated final choice.
+
+## [2026-07-14 10:26 CEST] Decision-007: kauk owns the package-manager code; orchids is data-only
+#split #kauk-sync #orchids #cli #packages #stopgap
+
+The distribution tool moves out of orchids into this repo as `bin/kauk-sync` — a bash
+STOPGAP whose grammar (`init` / `install <owner>/<repo>` / `sync`) the real 0.1.0 CLI
+inherits; the command name `kauk` stays reserved for that CLI (Decision-004's
+reservations are unaffected). orchids keeps only what it distributes — skills, agents,
+hooks, tools, settings, AGENTS files, templates — and *exposes the files and their
+grouping* in its `manifest.conf` (typed lines: `skill`/`link`/`template`/`prefix`/
+`option`); the engine hardcodes no package layout. The tool is vendored per consumer
+repo at `.ai/repositories/serialseb/kauk/` and invoked by relative path; sources are
+recorded in `.ai.toml` `[sources."<owner>/<repo>"]` tables. The agent-facing surface is
+agent-agnostic (the `kauk` skill + the served install page) — no Claude-specific
+commands dir; a plugin only if it later demonstrably enforces the workflow better.
+
+## [2026-07-14 10:26 CEST] Decision-008: kauk is itself a package, pull-only
+#packages #pull-only #kauk-sync #dogfood
+
+The kauk repo exposes its own mini-manifest (`option pull-only` + `skill kauk all`), so
+the engine installs the tool's skill through the same path as any data package —
+dogfooding the source-generic design with a second real source from day one. `pull-only`
+means consumer-side edits to the tool package are NEVER pushed back; the tool changes
+only in its own repo. A dirty pull-only clone is warned about and skipped at sync.

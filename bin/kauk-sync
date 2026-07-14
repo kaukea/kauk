@@ -1,0 +1,391 @@
+#!/usr/bin/env bash
+# kauk-sync — stopgap distribution of file packages (skills, agents, shared rule
+# files) for AI-agent-driven repositories. The real `kauk` CLI ships at 0.1.0 and
+# inherits this grammar; until then this bash MVP dies gracefully: delete .ai/ and
+# the symlinks, nothing else breaks.
+#
+#   kauk-sync init                               bootstrap THIS repo (no data source)
+#   kauk-sync install <owner>/<repo> [<origin>]  vendor + lay a data package
+#   kauk-sync sync [--status]                    converge every installed source
+#
+# Sources are recorded in .ai.toml ([sources."<owner>/<repo>"] origin = "URL|path");
+# each is cloned at .ai/repositories/<owner>/<repo>/ (gitignored). A package repo
+# exposes what it distributes in its manifest.conf — typed lines, one per entry:
+#   skill <name> <role>    src=skills/<name>/ dst=.claude/skills/<name>; role-gated,
+#                          delivery tuned per-repo in .ai.toml (exclude|copy|link|local)
+#   link <src> <dst>       absolute symlink into the clone; everyone gets it
+#   template <src> <dst>   install-time copy, <project-name> substituted, then
+#                          project-owned: never overwritten, never sent back
+#   prefix <src> <dst>     block idempotently kept at the head of dst
+#                          (idempotence marker = the first line of src)
+#   option pull-only       code package: consumer edits are never pushed back
+#
+# Per-repo delivery config: .ai.toml [role] sections with skillname =
+# "exclude"|"copy"|"link"|"local" (["*"] for defaults). Missing/empty = all linked:
+#   exclude  not installed
+#   link     symlink into the clone (default; absolute, so git worktrees resolve)
+#   copy     real file; installed if absent, drift reported, never overwritten
+#   local    the repo's own version: never linked over, never sent back to the source —
+#            but canonical updates to it are still announced at sync
+set -euo pipefail
+
+SELF_REPO="serialseb/kauk"
+
+die() { printf 'kauk-sync: %s\n' "$1" >&2; exit 1; }
+say() { printf '%s\n' "$1"; }
+
+repo_root() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
+clone_of() { echo "$1/.ai/repositories/$2"; }
+
+# ---------- .ai.toml ----------
+resolve_mode() { # resolve_mode <root> <role> <skill> -> exclude|copy|link|local
+  local f="$1/.ai.toml"
+  [ -f "$f" ] || { echo link; return; }
+  awk -v role="$2" -v skill="$3" '
+    /^\[/   { sec=$0; gsub(/[][" \r]/,"",sec); next }
+    /^[^#=]+=/ {
+      key=$1; gsub(/["\r]/,"",key)
+      val=$0; sub(/^[^=]*= */,"",val); gsub(/[" \r]/,"",val)
+      if (sec==role && key==skill) a=val
+      else if (sec=="*" && key==skill) b=val
+      else if (sec==role && key=="*") c=val
+      else if (sec=="*" && key=="*") d=val
+    }
+    END { if(a!="")print a; else if(b!="")print b; else if(c!="")print c; else if(d!="")print d; else print "link" }
+  ' "$f"
+}
+
+sources_list() { # sources_list <root> -> "<owner>/<repo> <origin>" per line
+  local f="$1/.ai.toml"
+  [ -f "$f" ] || return 0
+  awk '
+    /^\[sources\."/ { s=$0; sub(/^\[sources\."/,"",s); sub(/"\].*$/,"",s); src=s; next }
+    /^\[/           { src="" }
+    src != "" && /^origin[ \t]*=/ {
+      v=$0; sub(/^origin[ \t]*=[ \t]*"/,"",v); sub(/".*$/,"",v)
+      print src " " v; src=""
+    }
+  ' "$f"
+}
+
+source_origin() { sources_list "$1" | awk -v id="$2" '$1==id{print $2; exit}'; }
+
+ensure_aitoml() { # create if missing; migrate v1 (canonical = "...") in place
+  local root=$1 f="$root/.ai.toml" c
+  if [ ! -f "$f" ]; then
+    cat > "$f" <<'EOF'
+# managed by kauk — CLI and AGENTS.md driven; do not edit by hand
+# Sources live in [sources."<owner>/<repo>"] tables (origin = "URL or local path");
+# clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
+# Delivery per role: [dev] [infra] [org], or ["*"] for defaults, with
+#   skillname = "exclude" | "copy" | "link" | "local"
+EOF
+    say ".ai.toml: created"
+    return 0
+  fi
+  c=$(sed -n 's/^canonical *= *"\(.*\)"/\1/p' "$f" | head -1)
+  if [ -n "$c" ]; then
+    sed -i '/^canonical *= */d; s/managed by orchids/managed by kauk/' "$f"
+    grep -q '^\[sources\."serialseb/orchids"\]' "$f" || \
+      printf '\n[sources."serialseb/orchids"]\norigin = "%s"\n' "$c" >> "$f"
+    say ".ai.toml: migrated v1 canonical → sources table"
+  fi
+}
+
+register_source() { # register_source <root> <owner>/<repo> <origin> — idempotent
+  local root=$1 id=$2 origin=$3 f="$root/.ai.toml"
+  grep -q "^\[sources\.\"$id\"\]" "$f" 2>/dev/null && return 0
+  printf '\n[sources."%s"]\norigin = "%s"\n' "$id" "$origin" >> "$f"
+  say ".ai.toml: registered source $id"
+}
+
+# ---------- manifest ----------
+manifest() { grep -Ev '^[[:space:]]*(#|$)' "$1/manifest.conf"; }
+
+manifest_role() { manifest "$1" | awk -v s="$2" '$1=="skill" && $2==s {print $3; exit}'; }
+
+manifest_has_option() { manifest "$1" | awk -v o="$2" '$1=="option" && $2==o {f=1} END {exit !f}'; }
+
+managed_paths() { # repo-relative paths the package manages (migration guard scope)
+  manifest "$1" | awk '$1=="skill" {print ".claude/skills/" $2} $1=="link" {print $3}' | sort -u
+}
+
+# ---------- layout ----------
+lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys real files)
+  local root=$1 id=$2 clone laid=0 t a b _rest mode
+  clone=$(clone_of "$root" "$id")
+  [ -f "$clone/manifest.conf" ] || { say "$id: no manifest.conf — nothing to lay"; return 0; }
+  while read -r t a b _rest; do
+    case "$t" in
+      skill)
+        mkdir -p "$root/.claude/skills"
+        mode=$(resolve_mode "$root" "$b" "$a")
+        case "$mode" in
+          exclude|local) ;;
+          copy) copy_one "$clone/skills/$a" "$root/.claude/skills/$a" && laid=$((laid+1)) ;;
+          *)    link_one "$clone/skills/$a" "$root/.claude/skills/$a" && laid=$((laid+1)) ;;
+        esac ;;
+      link)
+        mkdir -p "$root/$(dirname "$b")"
+        link_one "$clone/$a" "$root/$b" && laid=$((laid+1)) ;;
+      template)
+        template_one "$root" "$clone/$a" "$root/$b" ;;
+      prefix)
+        prefix_one "$clone/$a" "$root/$b" ;;
+      option) ;;
+      *) say "  WARN $id: unknown manifest entry type '$t'" ;;
+    esac
+  done < <(manifest "$clone")
+  say "links: $laid laid/verified ($id)"
+}
+
+link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
+  local target=$1 link=$2
+  [ -e "$target" ] || { say "  SKIP $link (target missing in package)"; return 1; }
+  if [ -L "$link" ]; then
+    [ "$(readlink "$link")" = "$target" ] || ln -sfn "$target" "$link"
+    return 0
+  fi
+  [ -e "$link" ] && { say "  BLOCKED $link (real file present — run 'kauk-sync install' to migrate, or mark it local/copy in .ai.toml)"; return 1; }
+  ln -s "$target" "$link"
+}
+
+copy_one() { # copy_one <src-dir> <dst-dir> — install if absent; report drift; never overwrite
+  local src=$1 dst=$2
+  [ -e "$src" ] || { say "  SKIP $dst (missing in package)"; return 1; }
+  if [ -L "$dst" ]; then rm "$dst"; fi                     # was linked, now copy mode
+  if [ ! -e "$dst" ]; then cp -r "$src" "$dst"; return 0; fi
+  cmp -s "$src/SKILL.md" "$dst/SKILL.md" || say "  DRIFT $dst (copy mode — differs from package; merge manually or switch to link)"
+}
+
+template_one() { # template_one <root> <src> <dst> — create once, then project-owned
+  local root=$1 src=$2 dst=$3
+  [ -e "$src" ] || { say "  SKIP $dst (template missing in package)"; return 0; }
+  [ -e "$dst" ] && return 0
+  sed "s/<project-name>/$(basename "$root")/" "$src" > "$dst"
+  say "${dst#"$root"/}: created from template (project-owned — fill it in)"
+}
+
+prefix_one() { # prefix_one <src-block> <dst> — marker = first line of src
+  local src=$1 dst=$2 marker tmp
+  [ -e "$src" ] || { say "  SKIP $dst (prefix template missing in package)"; return 0; }
+  marker=$(head -1 "$src")
+  grep -qF "$marker" "$dst" 2>/dev/null && return 0
+  if [ -f "$dst" ]; then
+    tmp=$(mktemp); { cat "$src"; printf '\n'; cat "$dst"; } > "$tmp"; mv "$tmp" "$dst"
+    say "${dst##*/}: prefix added (existing content preserved)"
+  else
+    cat "$src" > "$dst"
+    say "${dst##*/}: created"
+  fi
+}
+
+prune_links() { # remove dead symlinks that point into this repo's .ai/repositories/
+  local root=$1 l
+  while IFS= read -r l; do
+    [ -e "$l" ] && continue
+    case "$(readlink "$l")" in
+      "$root/.ai/repositories/"*) rm "$l"; say "  PRUNE ${l#"$root"/} (target gone from package)" ;;
+    esac
+  done < <(find "$root/.claude" -type l 2>/dev/null; find "$root" -maxdepth 1 -type l 2>/dev/null)
+}
+
+ensure_gitignore() {
+  local root=$1
+  grep -qx '\.ai/repositories/' "$root/.gitignore" 2>/dev/null || printf '.ai/repositories/\n' >> "$root/.gitignore"
+}
+
+# ---------- init ----------
+cmd_init() {
+  local root; root=$(repo_root)
+  local self_clone script_repo
+  ensure_aitoml "$root"
+  ensure_gitignore "$root"
+  # this script may run from the machine canonical or from any vendored clone;
+  # the repo being initialized gets its own self-clone either way
+  script_repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+  self_clone=$(clone_of "$root" "$SELF_REPO")
+  if [ ! -d "$self_clone/.git" ]; then
+    mkdir -p "$(dirname "$self_clone")"
+    git clone --quiet "${KAUK_ORIGIN:-$script_repo}" "$self_clone"
+    say "clone: $self_clone"
+  fi
+  register_source "$root" "$SELF_REPO" "${KAUK_ORIGIN:-$script_repo}"
+  lay_source "$root" "$SELF_REPO"
+  prune_links "$root"
+  say "init: done — add a data package with 'kauk-sync install <owner>/<repo> [<origin>]'"
+}
+
+# ---------- install ----------
+cmd_install() {
+  local id=${1:-} origin=${2:-}
+  [ -n "$id" ] || die "usage: kauk-sync install <owner>/<repo> [<origin>]"
+  case "$id" in */*) ;; *) die "source must be <owner>/<repo>" ;; esac
+  local root clone; root=$(repo_root); clone=$(clone_of "$root" "$id")
+  origin=${origin:-$(source_origin "$root" "$id")}
+  origin=${origin:-https://github.com/$id}
+
+  ensure_aitoml "$root"
+  ensure_gitignore "$root"
+  if [ ! -d "$clone/.git" ]; then
+    mkdir -p "$(dirname "$clone")"
+    git clone --quiet "$origin" "$clone"
+    say "clone: $clone"
+  else
+    say "clone: already present"
+  fi
+  [ -f "$clone/manifest.conf" ] || die "$id has no manifest.conf — not a kauk package"
+  [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
+  register_source "$root" "$id" "$origin"
+
+  # Local variants survive ONLY via this repo's git history — refuse to destroy uncommitted ones.
+  local line st p
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    st=${line:0:2}; p=${line:3}
+    case "$st" in *D*) continue ;; esac
+    [ -L "$root/$p" ] && continue
+    if [ -f "$root/$p" ]; then
+      die "uncommitted changes under managed paths ($p) — commit them first (migration preserves local variants via git history)"
+    fi
+  done < <(cd "$root" && git status --porcelain -uall -- $(managed_paths "$clone") 2>/dev/null)
+
+  # migrate real skill dirs: identical -> link · local-only -> adopt · diverged -> AI merge
+  # exclude/local/copy modes are repo-owned or unmanaged: never migrated, never sent back.
+  local pullonly=0 adopted=0 diverged=0 skill role mode src dst DIVERGED_LIST=""
+  manifest_has_option "$clone" pull-only && pullonly=1
+  if [ -d "$root/.claude/skills" ]; then
+    for dst in "$root"/.claude/skills/*/; do
+      [ -d "$dst" ] && [ ! -L "${dst%/}" ] || continue
+      skill=$(basename "$dst"); src="$clone/skills/$skill"
+      role=$(manifest_role "$clone" "$skill"); role=${role:--}
+      mode=$(resolve_mode "$root" "$role" "$skill")
+      case "$mode" in exclude|local|copy) continue ;; esac
+      if [ ! -e "$src/SKILL.md" ]; then
+        if [ -e "$dst/SKILL.md" ] && [ $pullonly = 0 ]; then      # local-only -> adopt into the package
+          mkdir -p "$src"; cp "$dst/SKILL.md" "$src/SKILL.md"
+          grep -q "^skill $skill " "$clone/manifest.conf" || printf 'skill %s dev\n' "$skill" >> "$clone/manifest.conf"
+          git -C "$clone" add -A
+          git -C "$clone" commit --quiet -m "📥 install: adopt $skill from $(basename "$root")"
+          adopted=$((adopted+1))
+        else
+          say "  SKIP $skill (not in this package)"; continue
+        fi
+      elif ! cmp -s "$dst/SKILL.md" "$src/SKILL.md"; then
+        diverged=$((diverged+1)); DIVERGED_LIST="$DIVERGED_LIST .claude/skills/$skill/SKILL.md"
+      fi
+      rm -rf "${dst%/}"                                       # byte-matched, adopted, or in git history for the merge
+    done
+  fi
+  # migrate real files at declared link destinations
+  local t a b _rest
+  while read -r t a b _rest; do
+    [ "$t" = link ] || continue
+    if [ -f "$root/$b" ] && [ ! -L "$root/$b" ]; then
+      if cmp -s "$root/$b" "$clone/$a"; then rm "$root/$b"
+      else rm "$root/$b"; diverged=$((diverged+1)); DIVERGED_LIST="$DIVERGED_LIST $b"; fi
+    fi
+  done < <(manifest "$clone")
+  [ $adopted -gt 0 ] && git -C "$clone" push --quiet origin HEAD
+
+  lay_source "$root" "$id"
+  prune_links "$root"
+
+  say "install: $id done — adopted $adopted local skill(s), $diverged diverged file(s)"
+  if [ $diverged -gt 0 ]; then
+    local kauk_sync="$root/.ai/repositories/$SELF_REPO/bin/kauk-sync"
+    say "MERGE REQUIRED (AI-driven) for:$DIVERGED_LIST"
+    say "The local variant is preserved in this repo's git history — read it with"
+    say "  git show HEAD:<path>"
+    say "and intelligently merge it (union of rules, reconciled prose) directly into the"
+    say "package file at the same path (now a symlink — Edit/Write follow symlinks fine),"
+    say "then run: kauk-sync sync"
+    if command -v claude >/dev/null 2>&1; then
+      say ""
+      say "claude detected — dispatching the merge headless; its response follows:"
+      claude -p "You are in the git repository $root. 'kauk-sync install' migrated it and left these diverged files:$DIVERGED_LIST. For EACH file: read the pre-migration local variant with 'git show HEAD:<path>', read the package version at <path> (a symlink — your Edit/Write tools follow symlinks), and intelligently merge them: union of rules, reconciled prose, nothing local lost. Write the result through the symlink. When all are merged, run '$kauk_sync sync'. Touch nothing else; commit nothing." --output-format text \
+        || say "claude run failed — merge manually per the instructions above"
+    fi
+  fi
+}
+
+# ---------- sync ----------
+sync_source() { # sync_source <root> <owner>/<repo>
+  local root=$1 id=$2 clone pre skill role mode
+  clone=$(clone_of "$root" "$id")
+  [ -d "$clone/.git" ] || { say "$id: no clone — run 'kauk-sync install $id' first"; return 0; }
+
+  if manifest_has_option "$clone" pull-only; then
+    if [ -n "$(git -C "$clone" status --porcelain)" ]; then
+      say "$id: pull-only package has local edits — never pushed back; resolve manually (pull skipped)"
+    else
+      git -C "$clone" pull --rebase --quiet origin main || say "$id: pull failed (offline?)"
+    fi
+    lay_source "$root" "$id"
+    say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — pull-only)"
+    return 0
+  fi
+
+  if [ -n "$(git -C "$clone" status --porcelain)" ]; then
+    git -C "$clone" add -A
+    git -C "$clone" commit --quiet -m "🔁 sync: local edits from $(basename "$root")"
+    say "$id: committed local edits"
+  fi
+  pre=$(git -C "$clone" rev-parse HEAD)
+  if ! git -C "$clone" pull --rebase --quiet origin main; then
+    say "CONFLICT — $id and this repo edited the same skill."
+    say "Resolve in $clone (skills change rarely, are added often — a union merge is usually right),"
+    say "then: git -C $clone rebase --continue && kauk-sync sync"
+    exit 1
+  fi
+  git -C "$clone" push --quiet origin main
+
+  # local/copy-mode skills: updates are announced, never applied
+  for skill in $(git -C "$clone" diff --name-only "$pre"..HEAD -- skills/ 2>/dev/null | cut -d/ -f2 | sort -u); do
+    role=$(manifest_role "$clone" "$skill"); role=${role:--}
+    mode=$(resolve_mode "$root" "$role" "$skill")
+    case "$mode" in
+      local|copy) say "UPDATE available: $skill (package moved; $mode mode — merge manually if wanted)" ;;
+    esac
+  done
+
+  lay_source "$root" "$id"
+  say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — in step with its source)"
+}
+
+status_source() { # status_source <root> <owner>/<repo>
+  local root=$1 id=$2 clone dirty ahead behind
+  clone=$(clone_of "$root" "$id")
+  [ -d "$clone/.git" ] || { say "$id: no clone"; return 0; }
+  git -C "$clone" fetch --quiet origin || { say "$id: fetch failed (offline?)"; return 0; }
+  dirty=$(git -C "$clone" status --porcelain | wc -l)
+  ahead=$(git -C "$clone" rev-list --count origin/main..HEAD)
+  behind=$(git -C "$clone" rev-list --count HEAD..origin/main)
+  say "$id: $behind incoming · $ahead outgoing · $dirty uncommitted local edit(s)"
+  lay_source "$root" "$id"
+}
+
+cmd_sync() {
+  local root; root=$(repo_root)
+  local status_only=0
+  [ "${1:-}" = "--status" ] && status_only=1
+  local list; list=$(sources_list "$root")
+  [ -n "$list" ] || die "no sources in .ai.toml — run 'kauk-sync init' first"
+  local id origin
+  # data sources first; the kauk self-clone (pull-only) last
+  while read -r id origin; do
+    [ -n "$id" ] || continue
+    if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id"; fi
+  done < <({ echo "$list" | grep -v "^$SELF_REPO " || true; echo "$list" | grep "^$SELF_REPO " || true; })
+  prune_links "$root"
+}
+
+main() {
+  case "${1:-}" in
+    init)    shift; cmd_init "$@" ;;
+    install) shift; cmd_install "$@" ;;
+    sync)    shift; cmd_sync "$@" ;;
+    *) die "usage: kauk-sync init | install <owner>/<repo> [<origin>] | sync [--status]" ;;
+  esac
+}
+main "$@"

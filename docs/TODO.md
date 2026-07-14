@@ -21,3 +21,4 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 ## cli
 
 - `feature · todo ·  · queued · cli-core · ` [kauk CLI skeleton (0.1.0 target)](TODO.md.d/cli-mvp.md)
+- `feature · done ·  · complete · cli-core · ` [kauk-sync bash stopgap (package manager moved from orchids)](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
