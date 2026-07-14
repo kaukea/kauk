@@ -14,7 +14,7 @@
 
 ## Findings
 
-- `bin/kauk-sync` is the ported, source-generic engine (ex `orchids/bin/orchids`): no
+- `bin/kauk` is the ported, source-generic engine (ex `orchids/bin/orchids`): no
   hardcoded package layout — packages expose `manifest.conf` typed lines
   (`skill`/`link`/`template`/`prefix`/`option pull-only`); sources recorded in `.ai.toml`
   `[sources."<owner>/<repo>"]`; new prune pass removes dead links into

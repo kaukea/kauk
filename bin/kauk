@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# kauk-sync — stopgap distribution of file packages (skills, agents, shared rule
+# kauk — stopgap distribution of file packages (skills, agents, shared rule
 # files) for AI-agent-driven repositories. The real `kauk` CLI ships at 0.1.0 and
 # inherits this grammar; until then this bash MVP dies gracefully: delete .ai/ and
 # the symlinks, nothing else breaks.
 #
-#   kauk-sync init                               bootstrap THIS repo (no data source)
-#   kauk-sync install <owner>/<repo> [<origin>]  vendor + lay a data package
-#   kauk-sync sync [--status]                    converge every installed source
+#   kauk init                               bootstrap THIS repo (no data source)
+#   kauk install <owner>/<repo> [<origin>]  vendor + lay a data package
+#   kauk sync [--status]                    converge every installed source
 #
 # Sources are recorded in .ai.toml ([sources."<owner>/<repo>"] origin = "URL|path");
 # each is cloned at .ai/repositories/<owner>/<repo>/ (gitignored). A package repo
@@ -31,7 +31,7 @@ set -euo pipefail
 
 SELF_REPO="serialseb/kauk"
 
-die() { printf 'kauk-sync: %s\n' "$1" >&2; exit 1; }
+die() { printf 'kauk: %s\n' "$1" >&2; exit 1; }
 say() { printf '%s\n' "$1"; }
 
 repo_root() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
@@ -146,7 +146,7 @@ link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
     [ "$(readlink "$link")" = "$target" ] || ln -sfn "$target" "$link"
     return 0
   fi
-  [ -e "$link" ] && { say "  BLOCKED $link (real file present — run 'kauk-sync install' to migrate, or mark it local/copy in .ai.toml)"; return 1; }
+  [ -e "$link" ] && { say "  BLOCKED $link (real file present — run 'kauk install' to migrate, or mark it local/copy in .ai.toml)"; return 1; }
   ln -s "$target" "$link"
 }
 
@@ -218,13 +218,13 @@ cmd_init() {
   register_source "$root" "$SELF_REPO" "$self_origin"
   lay_source "$root" "$SELF_REPO"
   prune_links "$root"
-  say "init: done — add a data package with 'kauk-sync install <owner>/<repo> [<origin>]'"
+  say "init: done — add a data package with 'kauk install <owner>/<repo> [<origin>]'"
 }
 
 # ---------- install ----------
 cmd_install() {
   local id=${1:-} origin=${2:-}
-  [ -n "$id" ] || die "usage: kauk-sync install <owner>/<repo> [<origin>]"
+  [ -n "$id" ] || die "usage: kauk install <owner>/<repo> [<origin>]"
   case "$id" in */*) ;; *) die "source must be <owner>/<repo>" ;; esac
   local root clone; root=$(repo_root); clone=$(clone_of "$root" "$id")
   origin=${origin:-$(source_origin "$root" "$id")}
@@ -298,17 +298,17 @@ cmd_install() {
 
   say "install: $id done — adopted $adopted local skill(s), $diverged diverged file(s)"
   if [ $diverged -gt 0 ]; then
-    local kauk_sync="$root/.ai/repositories/$SELF_REPO/bin/kauk-sync"
+    local kauk_sync="$root/.ai/repositories/$SELF_REPO/bin/kauk"
     say "MERGE REQUIRED (AI-driven) for:$DIVERGED_LIST"
     say "The local variant is preserved in this repo's git history — read it with"
     say "  git show HEAD:<path>"
     say "and intelligently merge it (union of rules, reconciled prose) directly into the"
     say "package file at the same path (now a symlink — Edit/Write follow symlinks fine),"
-    say "then run: kauk-sync sync"
+    say "then run: kauk sync"
     if command -v claude >/dev/null 2>&1; then
       say ""
       say "claude detected — dispatching the merge headless; its response follows:"
-      claude -p "You are in the git repository $root. 'kauk-sync install' migrated it and left these diverged files:$DIVERGED_LIST. For EACH file: read the pre-migration local variant with 'git show HEAD:<path>', read the package version at <path> (a symlink — your Edit/Write tools follow symlinks), and intelligently merge them: union of rules, reconciled prose, nothing local lost. Write the result through the symlink. When all are merged, run '$kauk_sync sync'. Touch nothing else; commit nothing." --output-format text \
+      claude -p "You are in the git repository $root. 'kauk install' migrated it and left these diverged files:$DIVERGED_LIST. For EACH file: read the pre-migration local variant with 'git show HEAD:<path>', read the package version at <path> (a symlink — your Edit/Write tools follow symlinks), and intelligently merge them: union of rules, reconciled prose, nothing local lost. Write the result through the symlink. When all are merged, run '$kauk_sync sync'. Touch nothing else; commit nothing." --output-format text \
         || say "claude run failed — merge manually per the instructions above"
     fi
   fi
@@ -318,7 +318,7 @@ cmd_install() {
 sync_source() { # sync_source <root> <owner>/<repo>
   local root=$1 id=$2 clone pre skill role mode
   clone=$(clone_of "$root" "$id")
-  [ -d "$clone/.git" ] || { say "$id: no clone — run 'kauk-sync install $id' first"; return 0; }
+  [ -d "$clone/.git" ] || { say "$id: no clone — run 'kauk install $id' first"; return 0; }
 
   if manifest_has_option "$clone" pull-only; then
     if [ -n "$(git -C "$clone" status --porcelain)" ]; then
@@ -340,7 +340,7 @@ sync_source() { # sync_source <root> <owner>/<repo>
   if ! git -C "$clone" pull --rebase --quiet origin main; then
     say "CONFLICT — $id and this repo edited the same skill."
     say "Resolve in $clone (skills change rarely, are added often — a union merge is usually right),"
-    say "then: git -C $clone rebase --continue && kauk-sync sync"
+    say "then: git -C $clone rebase --continue && kauk sync"
     exit 1
   fi
   git -C "$clone" push --quiet origin main
@@ -375,7 +375,7 @@ cmd_sync() {
   local status_only=0
   [ "${1:-}" = "--status" ] && status_only=1
   local list; list=$(sources_list "$root")
-  [ -n "$list" ] || die "no sources in .ai.toml — run 'kauk-sync init' first"
+  [ -n "$list" ] || die "no sources in .ai.toml — run 'kauk init' first"
   local id origin
   # data sources first; the kauk self-clone (pull-only) last
   while read -r id origin; do
@@ -390,7 +390,7 @@ main() {
     init)    shift; cmd_init "$@" ;;
     install) shift; cmd_install "$@" ;;
     sync)    shift; cmd_sync "$@" ;;
-    *) die "usage: kauk-sync init | install <owner>/<repo> [<origin>] | sync [--status]" ;;
+    *) die "usage: kauk init | install <owner>/<repo> [<origin>] | sync [--status]" ;;
   esac
 }
 main "$@"

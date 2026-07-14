@@ -6,7 +6,7 @@ _base: (root)_
 
 ### ✨ New features
 
-- 🚚 `bin/kauk-sync` — the package manager moved here from orchids as a bash stopgap
+- 🚚 `bin/kauk` — the package manager moved here from orchids as a bash stopgap
   (Decision-007/008): source-generic `init` / `install <owner>/<repo>` / `sync` over
   git-vendored packages self-described by `manifest.conf` typed lines; sources recorded
   in `.ai.toml` `[sources]` tables; dead-link pruning. kauk is itself a pull-only
