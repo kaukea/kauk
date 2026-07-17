@@ -2,29 +2,40 @@
 
 Two placeholder packages that reserve the name `kauk` on PyPI and npm.
 Both are version `0.0.0` (unmistakable "nothing shipped yet"); the real
-tooling starts at `0.1.0`. I can't upload these — you do it.
+tooling starts at `0.1.0`.
 
-Status: **npm is done** (`@kauk.ai/kauk@0.0.0`, scoped — see below).
-**PyPI is still to do.**
+Status: **both registries are done.** PyPI is the bare `kauk@0.0.0`; npm is
+the scoped `@kauk.ai/kauk@0.0.0`. Nothing here needs running — the file is
+kept for the record, and for the one remaining token step under PyPI.
 
-Re-confirm the PyPI name is still free before you build (last checked 2026-07-12):
-- PyPI: <https://pypi.org/project/kauk/> should 404.
+The reservation is **asymmetric on purpose**: PyPI has no name-similarity
+filter and took the bare word; npm's filter refuses it (Decision-010).
 
 ---
 
-## PyPI (`pypi/`)
+## PyPI (`pypi/`) — DONE, published as bare `kauk`
 
-Needs: a PyPI account + an API token (Account settings → API tokens).
-First upload uses an **account-scoped** token; after it exists, create a
-**project-scoped** token for `kauk` and delete the broad one.
+Live at <https://pypi.org/project/kauk/0.0.0/> — the **unscoped** name, no
+pivot needed. Published under the PyPI account `kauk` (2FA enabled).
+
+What was run, for the record:
 
 ```sh
 cd pypi
 python -m pip install --upgrade build twine     # once
 python -m build                                  # -> dist/kauk-0.0.0.tar.gz + .whl
-twine check dist/*                               # sanity
+twine check dist/*                               # passed on both artifacts
 twine upload dist/*                              # user: __token__  pass: pypi-...
 ```
+
+Hatchling accepted the SPDX `license = "MIT"` form. Note the modern metadata
+lands it in the JSON API's `license_expression`, leaving the legacy `license`
+field null — expected, not a defect.
+
+**Remaining operator step — token swap.** The first upload had to use an
+**account-scoped** token (`kauk-reservation-upload`), because no project
+existed to scope to yet. Now that `kauk` exists: create a **project-scoped**
+token for it and **delete the account-scoped one**.
 
 ## npm (`npm/`) — DONE, published as `@kauk.ai/kauk`
 

@@ -40,7 +40,6 @@ Taxonomy.
 - Follow the file registry in `AGENTS.shared.md` (docs/TODO.md + sidecars, docs/decisions.md,
   CHANGELOG.md, ARCHITECTURE.md). `main` is immutable; work on `f/<id>` branches; close per
   the `workflow-complete` skill.
-- Commit trailer: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>` on agent commits.
 - This repo is kauk-managed: shared skills/agent-files are symlinks under `.ai/`; run
   `kauk sync` (the `kauk` skill) to converge with the sources. Never hand-edit
   `.ai.toml`'s managed section.

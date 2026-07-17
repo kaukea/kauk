@@ -119,6 +119,11 @@ at `0.0.0` under the npm account `kauk.ai` (org `kaukai`). It is live —
 publishing this one publicly requires `--access public`; the unscoped instructions that
 omitted the flag no longer apply.
 
+Clarification (2026-07-17): this block is **npm-specific**. PyPI has no name-similarity
+filter and accepted the bare `kauk` unchanged — published and live at `0.0.0`. The
+reservation is therefore asymmetric by necessity: bare `kauk` on PyPI, scoped
+`@kauk.ai/kauk` on npm.
+
 This REFINES Decision-004, it does not supersede it: reserve-via-`0.0.0`-stub still
 holds on both registries, and the PyPI reservation stays unscoped `kauk`. Only the npm
 package identity changes. The brand, the command name, and the PyPI name are untouched —
