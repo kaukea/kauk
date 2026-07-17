@@ -1,5 +1,5 @@
 {
-  "name": "kauk",
+  "name": "@kauk.ai/kauk",
   "version": "0.0.0",
   "description": "Reserved namespace for the KAUK package platform (https://kauk.ai). Placeholder release — no functionality yet.",
   "keywords": ["kauk", "packaging", "package-manager", "placeholder"],

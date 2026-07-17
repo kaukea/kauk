@@ -8,7 +8,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 - `feature · todo ·  · queued ·  · ` [Reserve the kauk namespaces on external registries](TODO.md.d/reserve-namespaces.md)
   - `feature · todo · urgent · queued · backend-pypi · ` [Publish PyPI kauk 0.0.0](TODO.md.d/pub-pypi-kauk.md)
-  - `feature · todo · urgent · queued · backend-npm · ` [Publish npm kauk 0.0.0](TODO.md.d/pub-npm-kauk.md)
+  - `feature · done ·  · complete · backend-npm · ` [Publish npm @kauk.ai/kauk 0.0.0 (scoped)](TODO.md.d/pub-npm-kauk.md)
 
 ## projection
 

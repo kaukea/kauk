@@ -6,9 +6,9 @@ publishes to and pulls from external registries (npm, PyPI, OCI, GitHub) when yo
 One CLI, one grammar, one auth flow over many backends. Brand = command = domain: `kauk`,
 served at [kauk.ai](https://kauk.ai).
 
-> Status: **early** — the name and architecture are set; tooling is being built. The
-> `kauk` name is reserved on PyPI and npm as `0.0.0` placeholders; the real CLI ships at
-> `0.1.0`.
+> Status: **early** — the name and architecture are set; tooling is being built. The name
+> is reserved as `0.0.0` placeholders — `kauk` on PyPI, `@kauk.ai/kauk` on npm (npm's
+> similarity filter refuses the unscoped `kauk`); the real CLI ships at `0.1.0`.
 
 ## Design in one line
 
@@ -27,4 +27,4 @@ hoard. See `ARCHITECTURE.md`.
 ## Install
 
 _Not yet published._ The reservation stubs are placeholders only; do not `pip install kauk`
-or `npm i kauk` expecting functionality until `0.1.0`.
+or `npm i @kauk.ai/kauk` expecting functionality until `0.1.0`.

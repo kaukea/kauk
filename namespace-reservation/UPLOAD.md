@@ -4,9 +4,11 @@ Two placeholder packages that reserve the name `kauk` on PyPI and npm.
 Both are version `0.0.0` (unmistakable "nothing shipped yet"); the real
 tooling starts at `0.1.0`. I can't upload these — you do it.
 
-Re-confirm the names are still free before you build (last checked 2026-07-12):
+Status: **npm is done** (`@kauk.ai/kauk@0.0.0`, scoped — see below).
+**PyPI is still to do.**
+
+Re-confirm the PyPI name is still free before you build (last checked 2026-07-12):
 - PyPI: <https://pypi.org/project/kauk/> should 404.
-- npm:  `npm view kauk` should say "npm error 404".
 
 ---
 
@@ -24,16 +26,29 @@ twine check dist/*                               # sanity
 twine upload dist/*                              # user: __token__  pass: pypi-...
 ```
 
-## npm (`npm/`)
+## npm (`npm/`) — DONE, published as `@kauk.ai/kauk`
 
-Needs: an npm account (`npm login`). Unscoped public package — no `--access`
-flag needed. If you have 2FA-for-publish on, it'll prompt for an OTP.
+Already live; nothing to run here. Kept for the record.
+
+The unscoped `kauk` is **not obtainable**: npm's typosquat similarity filter
+rejects the bare word deterministically —
+
+```
+403 Forbidden - PUT https://registry.npmjs.org/kauk - Package name too similar to
+existing packages ka23,caduk,vaul,walk; try renaming your package to '@kauk.ai/kauk'
+```
+
+So the reservation is the scoped `@kauk.ai/kauk@0.0.0`, published under the
+`kauk.ai` npm account. A scoped package is **private by default** — publishing
+it publicly needs `--access public`, unlike the unscoped case:
 
 ```sh
 cd npm
-npm publish --dry-run     # shows exactly what ships (index.js, README.md, package.json)
-npm publish               # publishes 0.0.0 publicly
+npm publish --dry-run             # shows exactly what ships (index.js, README.md, package.json)
+npm publish --access public       # scoped => --access public is REQUIRED
 ```
+
+If you have 2FA-for-publish on, it'll prompt for an OTP.
 
 ---
 
