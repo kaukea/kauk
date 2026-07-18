@@ -8,7 +8,9 @@ Org creation + the GitHub username-release ticket are operator actions (GitHub U
 
 ## Questions
 
-None (org name settled: `kaukai`; the exact `kauk` user is dormant — ticket filed).
+None (org name re-settled: `kaukea` — orchids Decision-012, 2026-07-18. `kaukai`
+turned out to be held by a dormant 2022 user account; a release request can be
+filed like the `kauk` one, and an org rename later redirects cleanly).
 
 ## Findings
 
@@ -20,10 +22,11 @@ Pages+CNAME+served-tree pattern already exists: `~/src/serialseb/packages`
 
 ## Proposal
 
-1. Create the `kaukai` GitHub org.
+1. Create the `kaukea` GitHub org.
 2. Push `site/` as the org Pages repo (org-level Pages → `kauk.ai`); enable Pages, set the
    custom domain to `kauk.ai` (the `site/CNAME` carries it), keep `.nojekyll`.
-3. Keep the username-release ticket open; on grant, rename org → `kauk`.
+3. Keep the username-release tickets open (`kauk`; optionally file `kaukai`); on
+   grant, rename the org — redirects cover it.
 
 ## Testing
 
