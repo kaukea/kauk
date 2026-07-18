@@ -203,7 +203,7 @@ cmd_init() {
   ensure_gitignore "$root"
   # this script may run from the machine canonical or from any vendored clone;
   # the repo being initialized gets its own self-clone either way
-  script_repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+  script_repo=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
   self_clone=$(clone_of "$root" "$SELF_REPO")
   local self_origin
   if [ -d "$self_clone/.git" ]; then
