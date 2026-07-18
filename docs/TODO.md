@@ -26,4 +26,3 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Local-path clone leaks the source's unreachable objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [Self-install: root link entries collide (src == dst)](TODO.md.d/self-install-link-collision.md)
 - `feature · todo · · blocked-on-answers · cli-core · gh#8` [Agent deployment: agents as a first-class type, two-page picker](TODO.md.d/agent-deployment.md) ~role-aware-delivery ~cli-mvp
-- `feature · todo · · queued · · gh#9` [Live test: shim ingest](TODO.md.d/live-test-shim-ingest.md)
