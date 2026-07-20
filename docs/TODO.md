@@ -6,29 +6,29 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 ## federation
 
-- `feature · done ·  · complete ·  · gh#1` [Reserve the kauk namespaces on external registries](TODO.md.d/reserve-namespaces.md)
-  - `feature · done · urgent · complete · backend-pypi · ` [Publish PyPI kauk 0.0.0 (bare)](TODO.md.d/pub-pypi-kauk.md)
-  - `feature · done ·  · complete · backend-npm · ` [Publish npm @kauk.ai/kauk 0.0.0 (scoped)](TODO.md.d/pub-npm-kauk.md)
-- `feature · todo · low · blocked-on-answers · backend-npm · ` [Ask npm support to release the bare kauk name](TODO.md.d/npm-support-bare-kauk.md) ~pub-npm-kauk
+- `feature · done ·  · complete ·  · gh#1` [Park the kauk name on public registries so nobody squats it](TODO.md.d/reserve-namespaces.md)
+  - `feature · done · urgent · complete · backend-pypi · ` [Placeholder package holds `kauk` on PyPI](TODO.md.d/pub-pypi-kauk.md)
+  - `feature · done ·  · complete · backend-npm · ` [Placeholder package holds `@kauk.ai/kauk` on npm (bare name refused)](TODO.md.d/pub-npm-kauk.md)
+- `feature · todo · low · blocked-on-answers · backend-npm · ` [Ask npm support to let us have the bare `kauk` name](TODO.md.d/npm-support-bare-kauk.md) ~pub-npm-kauk
 
 ## projection
 
-- `feature · todo · urgent · queued · pages-deploy · gh#2` [Create kaukai org, file username ticket, wire Pages + CNAME](TODO.md.d/kaukai-org.md)
+- `feature · todo · urgent · queued · pages-deploy · gh#2` [Set up the kaukea GitHub org and serve the kauk.ai site from its Pages](TODO.md.d/kaukai-org.md)
 
 ## infra
 
-- `feature · todo · urgent · blocked-on-answers · dns · gh#3` [Stand up kauk.ai hosting (host choice open)](TODO.md.d/kauk-ai-hosting.md)
+- `feature · todo · urgent · blocked-on-answers · dns · gh#3` [Decide where kauk.ai is hosted, then stand it up](TODO.md.d/kauk-ai-hosting.md)
 
 ## cli
 
-- `feature · todo · · queued · cli-core · gh#4` [kauk CLI skeleton (0.1.0 target)](TODO.md.d/cli-mvp.md)
-- `feature · done ·  · complete · cli-core · ` [kauk bash stopgap (package manager moved from orchids)](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
-- `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Role-aware delivery: read roles from frontmatter, filter at install](TODO.md.d/role-aware-delivery.md) ~cli-mvp
-- `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Local-path clone leaks the source's unreachable objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
-- `bug · todo · urgent · queued · cli-core · gh#10` [Distribution is a hand-typed index: derive it from the tree, and fail loudly meanwhile](TODO.md.d/manifest-by-convention.md)
-- `bug · todo · low · blocked-on-answers · cli-core · gh#7` [Self-install: root link entries collide (src == dst)](TODO.md.d/self-install-link-collision.md)
-- `feature · todo · · blocked-on-answers · cli-core · gh#8` [Agent deployment: agents as a first-class type, two-page picker](TODO.md.d/agent-deployment.md) ~role-aware-delivery ~cli-mvp
+- `feature · todo · · queued · cli-core · gh#4` [Build the real kauk CLI (0.1.0), replacing the bash stopgap](TODO.md.d/cli-mvp.md)
+- `feature · done ·  · complete · cli-core · ` [Interim bash `kauk` CLI that vendors and syncs packages](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
+- `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
+- `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Installing from a local path drags in the source repo's leftover git objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
+- `bug · todo · urgent · queued · cli-core · gh#10` [Generate the package's file list from the folder instead of typing it by hand](TODO.md.d/manifest-by-convention.md)
+- `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)
+- `feature · todo · · blocked-on-answers · cli-core · gh#8` [Installer picks agents first, then bundles the skills those agents require](TODO.md.d/agent-deployment.md) ~role-aware-delivery ~cli-mvp
 
 ## workflow
 
-- `housekeeping · todo ·  · blocked-on-answers · agent-rules · ` [Reconcile the commit-trailer rule upstream in orchids](TODO.md.d/commit-trailer-conflict.md)
+- `housekeeping · todo ·  · blocked-on-answers · agent-rules · ` [Fix the contradictory commit-trailer rules between the rule files (fix lives in orchids)](TODO.md.d/commit-trailer-conflict.md)
