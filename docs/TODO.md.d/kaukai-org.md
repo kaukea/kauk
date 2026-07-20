@@ -14,6 +14,21 @@ filed like the `kauk` one, and an org rename later redirects cleanly).
 
 ## Findings
 
+Username-release ticket state (2026-07-20):
+
+- **Ticket #4587558 filed** (support.github.com, account `serialseb`): release of
+  dormant `kauk`, fallback `kaukai`, citing the paid `kauk.ai` domain and the
+  npm/PyPI reservations. Awaiting reply.
+- Email to `support@github.com` is a dead channel — the address policy-blocks all
+  inbound mail (instant DSN); every mailed request bounced. Portal only.
+- The portal's contact flow has **no Accounts category** and the legacy
+  dormant-username form URLs are gone; the ticket rode "Sign-in issues →
+  Something else" with an explicit reroute note.
+- **Policy headwind:** GitHub's current username policy no longer releases
+  usernames for inactivity — only trademark-related complaints are reviewed
+  (policy page + a portal interstitial said so verbatim pre-submit). Expect a
+  decline; the trademark route is the documented fallback.
+
 The org's literal name is invisible to end users: pages are served via the `kauk.ai` CNAME,
 so `github.com/<org>` never shows. If the `kauk` username releases later, renaming the org
 auto-installs redirects — nothing published under `kaukai` breaks. Precedent for the
