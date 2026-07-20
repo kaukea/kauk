@@ -25,7 +25,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · done ·  · complete · cli-core · ` [Interim bash `kauk` CLI that vendors and syncs packages](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
 - `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
 - `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Installing from a local path drags in the source repo's leftover git objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
-- `bug · todo · urgent · queued · cli-core · gh#10` [Generate the package's file list from the folder instead of typing it by hand](TODO.md.d/manifest-by-convention.md)
+- `bug · todo · urgent · blocked-on-answers · cli-core · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md)
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)
 - `feature · todo · · blocked-on-answers · cli-core · gh#8` [Installer picks agents first, then bundles the skills those agents require](TODO.md.d/agent-deployment.md) ~role-aware-delivery ~cli-mvp
 

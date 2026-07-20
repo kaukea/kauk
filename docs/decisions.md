@@ -133,3 +133,25 @@ command stands).
 Asking npm support to release the bare `kauk` name is a SEPARATE operator follow-up, out
 of scope here; if it ever succeeds, the unscoped name becomes an alias to publish
 alongside, not a reason to unpick this.
+
+## [2026-07-21 01:45 CEST] Decision-011: manifest.conf is retired — the tree defines the package
+#manifest #distribution #kauk-sync #conventions #packages
+
+Operator ruling. The hand-typed `manifest.conf` index was built on a complete
+misunderstanding — the concept was a model invention, never an operator design
+(see the manifest-by-convention task's findings; its silent-drift failure shipped
+nothing to nobody on 2026-07-19). It is to be REMOVED, not derived-and-kept: a
+package's payload is defined by its tree, by convention — `skills/<name>/`,
+`agents/*.md`, `hooks/*.sh`, `tools/*`, `templates/` — with per-skill roles
+already in frontmatter (orchids role-dag-frontmatter). The interim tree-vs-manifest
+lint proposed earlier is moot under this ruling: the manifest it would police is
+going away; the effort goes into derivation in the reader (`bin/kauk`).
+
+Context, not ruling: the small non-derivable residue (the kauk package's
+`pull-only` nature; template-vs-prefix semantics for the two `templates/` files;
+the root-file placements like `settings.json` → `.claude/`) needs a home that is
+not a parallel file index — where exactly is design for the implementing task
+(board: manifest-by-convention, rescoped by this decision).
+
+Removal spans both package repos: `bin/kauk` (this repo) stops reading the file;
+`serialseb/orchids` deletes its `manifest.conf` via its own workflow.

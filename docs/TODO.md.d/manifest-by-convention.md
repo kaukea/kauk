@@ -8,12 +8,21 @@ _None._
 
 ## Questions
 
-- Does the DERIVATION land before or after the real kauk CLI? `manifest.conf` is parsed by
-  the `kauk-sync` stopgap, documented as dying when the real CLI ships, so the redesign may
-  belong in that CLI instead.
-- The LINT is not subject to that question. Drift accrues per file added, so waiting for the
-  CLI does not hold the problem still — it compounds it. Split the task: lint now, derivation
-  whenever the CLI question resolves.
+- Where does the non-derivable residue live once the file is gone? Three candidates
+  to place: the kauk package's `pull-only` nature (Decision-008), the
+  template-vs-prefix semantics of the two `templates/` files, and the root-file
+  placements (`settings.json` → `.claude/`, `AGENTS.shared.md`/`AGENTS.files.md` →
+  repo root). Constraint from Decision-011: wherever they go must NOT be a parallel
+  copy of the directory listing.
+- Does the derivation land in the stopgap `bin/kauk` now, or wait for the 0.1.0 CLI
+  (~cli-mvp)? Files are being added to packages weekly, so the silent-drift cost is
+  paid continuously until one of them ships it.
+
+### Superseded questions (Decision-011 made them moot)
+
+- ~~Derive before or after the real CLI, keeping the manifest meanwhile?~~ The
+  manifest is removed, not kept.
+- ~~Interim tree-vs-manifest lint?~~ Nothing left to lint against.
 
 ## Findings
 
@@ -44,17 +53,19 @@ _None._
 
 ## Proposal
 
-Derive distribution from the tree instead of authoring it. Directory conventions replace the
-per-file `link` and `skill` lines; whatever cannot be derived (delivery semantics, package
-options) moves somewhere that is not a parallel copy of the directory listing.
-
-**Do the lint NOW, not as a first half of a later project.** A check comparing the payload
-directories against the manifest, failing on anything present in the tree but undeclared. It
-converts a silent failure into a loud one, would have caught the 19 July bug at commit time,
-and is worth doing even if every other line of this task is thrown away — because the cost of
-not having it is paid per file added, and files are being added now.
+RESCOPED by Decision-011 (2026-07-21, operator ruling): **remove `manifest.conf`
+entirely** — do not derive-and-keep, do not lint it. A package's payload IS its
+tree: `skills/<name>/`, `agents/*.md`, `hooks/*.sh`, `tools/*`, `templates/`;
+roles come from skill frontmatter. `bin/kauk` walks the tree instead of reading
+the file; the non-derivable residue (see Questions) gets a home that is not a
+file index. The orchids repo deletes its `manifest.conf` through its own
+workflow once the reader no longer needs it — ship the reader change first so
+no consumer breaks mid-transition, and a dated migration rides the change per
+§Migrations.
 
 ## Testing
 
-A file added to a payload directory and not declared must cause a visible failure — and once
-derivation lands, must be distributed without anyone editing an index.
+A file added to a payload directory is distributed on the next `kauk sync` with no
+index edited by anyone — the 2026-07-19 bus-files failure mode becomes impossible.
+Both packages lay correctly with their `manifest.conf` deleted; a repo still
+carrying one syncs identically (the file is simply ignored).
