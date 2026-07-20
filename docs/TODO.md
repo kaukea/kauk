@@ -18,7 +18,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 ## infra
 
 - `feature · todo · urgent · blocked-on-answers · dns · gh#3` [Decide where kauk.ai is hosted, then stand it up](TODO.md.d/kauk-ai-hosting.md)
-- `feature · todo · · blocked-on-answers · dns · ` [Serve a real apt repo at kauk.ai/debian for signmc (route undecided)](TODO.md.d/deb-apt-host.md) ~kauk-ai-hosting
+- `feature · todo · · blocked-on-answers · dns · gh#13` [Serve a real apt repo at kauk.ai/debian for signmc (route undecided)](TODO.md.d/deb-apt-host.md) ~kauk-ai-hosting
 
 ## cli
 
