@@ -9,7 +9,7 @@
 
 ## Questions
 - Agent→agent dependencies: does an agent depend on other AGENTS, not just skills? The
-  real graph has them (orchestrator → architect/housekeeper/groomer; architect →
+  real graph has them (orchestrator → architect/housekeeper/ripener; architect →
   builder). orchids' ruling covers agent→skill only. If yes, page 1 needs the same
   greyed-out treatment page 2 has.
 - Does `agent` need a role field of its own, or is an agent's role implied by the roles
