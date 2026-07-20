@@ -9,7 +9,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · done ·  · complete ·  · gh#1` [Park the kauk name on public registries so nobody squats it](TODO.md.d/reserve-namespaces.md)
   - `feature · done · urgent · complete · backend-pypi · ` [Placeholder package holds `kauk` on PyPI](TODO.md.d/pub-pypi-kauk.md)
   - `feature · done ·  · complete · backend-npm · ` [Placeholder package holds `@kauk.ai/kauk` on npm (bare name refused)](TODO.md.d/pub-npm-kauk.md)
-- `feature · todo · low · blocked-on-answers · backend-npm · ` [Ask npm support to let us have the bare `kauk` name](TODO.md.d/npm-support-bare-kauk.md) ~pub-npm-kauk
+- `feature · todo · low · blocked-on-answers · backend-npm · gh#11` [Ask npm support to let us have the bare `kauk` name](TODO.md.d/npm-support-bare-kauk.md) ~pub-npm-kauk
 
 ## projection
 
@@ -31,4 +31,4 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 ## workflow
 
-- `housekeeping · todo ·  · blocked-on-answers · agent-rules · ` [Fix the contradictory commit-trailer rules between the rule files (fix lives in orchids)](TODO.md.d/commit-trailer-conflict.md)
+- `housekeeping · todo · · blocked-on-answers · agent-rules · gh#12` [Fix the contradictory commit-trailer rules between the rule files (fix lives in orchids)](TODO.md.d/commit-trailer-conflict.md)
