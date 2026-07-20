@@ -6,9 +6,10 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 ## federation
 
-- `feature · todo · · queued · · gh#1` [Reserve the kauk namespaces on external registries](TODO.md.d/reserve-namespaces.md)
-  - `feature · todo · urgent · queued · backend-pypi · ` [Publish PyPI kauk 0.0.0](TODO.md.d/pub-pypi-kauk.md)
-  - `feature · todo · urgent · queued · backend-npm · ` [Publish npm kauk 0.0.0](TODO.md.d/pub-npm-kauk.md)
+- `feature · done ·  · complete ·  · gh#1` [Reserve the kauk namespaces on external registries](TODO.md.d/reserve-namespaces.md)
+  - `feature · done · urgent · complete · backend-pypi · ` [Publish PyPI kauk 0.0.0 (bare)](TODO.md.d/pub-pypi-kauk.md)
+  - `feature · done ·  · complete · backend-npm · ` [Publish npm @kauk.ai/kauk 0.0.0 (scoped)](TODO.md.d/pub-npm-kauk.md)
+- `feature · todo · low · blocked-on-answers · backend-npm · ` [Ask npm support to release the bare kauk name](TODO.md.d/npm-support-bare-kauk.md) ~pub-npm-kauk
 
 ## projection
 
@@ -27,3 +28,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `bug · todo · urgent · queued · cli-core · gh#10` [Distribution is a hand-typed index: derive it from the tree, and fail loudly meanwhile](TODO.md.d/manifest-by-convention.md)
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [Self-install: root link entries collide (src == dst)](TODO.md.d/self-install-link-collision.md)
 - `feature · todo · · blocked-on-answers · cli-core · gh#8` [Agent deployment: agents as a first-class type, two-page picker](TODO.md.d/agent-deployment.md) ~role-aware-delivery ~cli-mvp
+
+## workflow
+
+- `housekeeping · todo ·  · blocked-on-answers · agent-rules · ` [Reconcile the commit-trailer rule upstream in orchids](TODO.md.d/commit-trailer-conflict.md)

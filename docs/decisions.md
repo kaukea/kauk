@@ -97,3 +97,39 @@ Supersedes the naming half of Decision-007 (operator ruling): the stopgap ships 
 `bin/kauk`, not `bin/kauk-sync` — brand = command from day one. The 0.1.0 CLI replaces
 the file in place, same name, same grammar; "stopgap" remains a property of the
 implementation, not the name.
+
+## [2026-07-17 14:42 CEST] Decision-010: The npm reservation is scoped — `@kauk.ai/kauk`
+#npm-namespace #npm #reservation #naming #scoped
+
+npm will not accept the unscoped `kauk`. The registry rejects it deterministically on
+its typosquat similarity heuristic, and names the remedy itself:
+
+    npm ERR! code E403
+    npm ERR! 403 Forbidden - PUT https://registry.npmjs.org/kauk - Package name too
+    similar to existing packages ka23,caduk,vaul,walk; try renaming your package to
+    '@kauk.ai/kauk'
+
+This is a heuristic on the bare word, not an ownership conflict — the dormant `kauk`
+npm *username* (0 packages) does not hold the name and is not the cause. There is no
+flag, appeal-free retry, or version change that gets past it.
+
+Ruling (operator-approved): the npm reservation is the SCOPED `@kauk.ai/kauk`, published
+at `0.0.0` under the npm account `kauk.ai` (org `kaukai`). It is live —
+`npm view @kauk.ai/kauk version` → `0.0.0`. Scoped packages are private by default, so
+publishing this one publicly requires `--access public`; the unscoped instructions that
+omitted the flag no longer apply.
+
+Clarification (2026-07-17): this block is **npm-specific**. PyPI has no name-similarity
+filter and accepted the bare `kauk` unchanged — published and live at `0.0.0`. The
+reservation is therefore asymmetric by necessity: bare `kauk` on PyPI, scoped
+`@kauk.ai/kauk` on npm.
+
+This REFINES Decision-004, it does not supersede it: reserve-via-`0.0.0`-stub still
+holds on both registries, and the PyPI reservation stays unscoped `kauk`. Only the npm
+package identity changes. The brand, the command name, and the PyPI name are untouched —
+`@kauk.ai/kauk` is an npm packaging artifact, not a rename (Decision-009's `kauk`
+command stands).
+
+Asking npm support to release the bare `kauk` name is a SEPARATE operator follow-up, out
+of scope here; if it ever succeeds, the unscoped name becomes an alias to publish
+alongside, not a reason to unpick this.
