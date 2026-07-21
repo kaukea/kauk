@@ -6,7 +6,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 ## registry
 
-- `feature · todo · urgent · blocked-on-answers · artifact-model · ` [Write agents/skills/hooks once, lay them per runtime (Claude now, opencode next) — includes redoing hooks](TODO.md.d/runtime-topology.md) ~manifest-by-convention
+- `feature · todo · urgent · blocked-on-answers · artifact-model · gh#14` [Write agents/skills/hooks once, lay them per runtime (Claude now, opencode next) — includes redoing hooks](TODO.md.d/runtime-topology.md) ~manifest-by-convention
 
 ## federation
 
