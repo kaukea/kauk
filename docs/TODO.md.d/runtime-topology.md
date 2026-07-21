@@ -8,18 +8,15 @@ _None._
 
 ## Questions
 
-- Which runtimes are targets for the first cut? Claude Code is live; opencode is
-  the named second. Is opencode a build target now, or only a design constraint
-  the model must not preclude?
-- What is the SOURCE form of a hook? Today a hook is a bash script plus
-  Claude-specific `settings.json` wiring (event names, matchers). A portable
-  hook needs a runtime-neutral declaration (event, filter, action) that
-  transpiles to each runtime's mechanism — settings.json entries for Claude,
-  whatever opencode uses natively. How much of today's hook inventory fits a
-  neutral event vocabulary, and what is irreducibly runtime-specific?
-- Does transpile-and-lay happen at `kauk sync` time (per-repo, per-runtime
-  detection) or at install time (explicit target choice in `.ai.toml`)? How is
-  the runtime detected/declared per repo?
+_All answered by the operator, 2026-07-21 (Decision-013):_
+
+- ~~Which runtimes are targets for the first cut?~~ **Claude-only for now** —
+  the model is runtime-shaped, nothing opencode-specific rendered yet.
+- ~~What is the SOURCE form of a hook?~~ **Packages are declarative**: events
+  mapped on one side, what they can trigger on the other, per-runtime
+  ADAPTATION LAYERS as the common case, and a runtime-prefixed opt-out
+  (`claude:on-...`) for authors shipping runtime-specific behaviour.
+- ~~Transpile at sync or install?~~ **Detected at `kauk sync`.**
 
 ## Findings
 
@@ -40,15 +37,19 @@ _None._
 
 ## Proposal
 
-Design the artifact-type × runtime target topology: for each artifact kind
-(agent, skill, hook, tool, template, rule file), define its runtime-neutral
-source form in the package and the per-runtime transformation + destination
-(Claude Code first, opencode as the proving second target). Hooks are the
-forcing case: a neutral hook declaration transpiled into each runtime's wiring,
-replacing the current Claude-specific settings.json approach. Output is the
-model (documented in ARCHITECTURE.md + a decision) plus the reader changes it
-implies; implementation may land in the stopgap or wait for the 0.1.0 CLI per
-the same question the manifest task carries.
+Design the artifact-type × runtime target topology per Decision-012/-013: for
+each artifact kind (agent, skill, hook, tool, template, rule file), a
+runtime-neutral DECLARATIVE source form, with per-runtime adaptation layers
+mapping declared events to what each runtime can trigger, and the
+runtime-prefixed opt-out (`claude:on-...`) for deliberately runtime-specific
+packages. First cut renders Claude Code only; the runtime is detected at
+`kauk sync`. Hooks are the forcing case, replacing the current settings.json
+wiring. The extension-point survey task (~extension-point-survey) supplies the
+per-runtime capability inventory the adaptation layers are built against.
+The operator holds a plan for this task — collect it at scope time before the
+architect drafts its own. Output is the model (ARCHITECTURE.md + decision)
+plus the reader changes it implies; stopgap-vs-0.1.0 timing shares the
+manifest task's question.
 
 ## Testing
 

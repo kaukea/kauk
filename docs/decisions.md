@@ -169,3 +169,19 @@ artifact itself; hooks become first-class portable artifacts with per-runtime
 transpilation. Skill autoselection per agent (board: agent-deployment) DEPENDS
 on this topology model and is gated behind it (the topology task is the more
 urgent of the two).
+
+## [2026-07-21 02:20 CEST] Decision-013: Topology first cut — declarative hooks, adaptation layers, runtime detected at sync
+#topology #hooks #transpile #runtime-targets #adaptation-layer #claude-code #opencode
+
+Operator rulings on the runtime-topology spec (refining Decision-012):
+
+- **Claude-only for now.** The model stays runtime-shaped, but nothing
+  opencode-specific is rendered or shipped in the first cut.
+- **Packages are DECLARATIVE.** Hooks (and extension wiring generally) are
+  declared runtime-neutrally: EVENTS mapped on one side, what they can TRIGGER
+  on the other, with per-runtime ADAPTATION LAYERS bridging the two — that is
+  the common case. Authors who want runtime-specific behaviour OPT OUT with
+  runtime-prefixed event names (e.g. `claude:on-...`), which bypass adaptation
+  and target one runtime only.
+- **Runtime is DETECTED at `kauk sync`** (no per-repo target declaration in
+  .ai.toml for this).
