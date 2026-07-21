@@ -155,3 +155,17 @@ not a parallel file index — where exactly is design for the implementing task
 
 Removal spans both package repos: `bin/kauk` (this repo) stops reading the file;
 `serialseb/orchids` deletes its `manifest.conf` via its own workflow.
+
+## [2026-07-21 02:05 CEST] Decision-012: Artifacts are runtime-agnostic — agent runtimes are targets
+#topology #runtime-targets #hooks #transpile #artifact-model #opencode #claude-code #packages
+
+Operator ruling. People write agents, skills, and hooks ONCE; kauk transpiles
+them where needed and lays them according to the agent runtime in use — Claude
+Code today, opencode (or another tool) tomorrow. Every design must adapt to
+this: the `.claude/` layout, `settings.json` hook wiring, and Claude event
+names are ONE target's encoding, never the model. The current approach to
+hooks is explicitly flawed — Claude-specific wiring standing in for the
+artifact itself; hooks become first-class portable artifacts with per-runtime
+transpilation. Skill autoselection per agent (board: agent-deployment) DEPENDS
+on this topology model and is gated behind it (the topology task is the more
+urgent of the two).

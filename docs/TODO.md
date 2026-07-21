@@ -4,6 +4,10 @@ Slim index. Badge = `type · status · urgency · readiness · component · gh#`
 sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy leaf
 (`ARCHITECTURE.md`). The board grows as features are specified — this is the near-term seed.
 
+## registry
+
+- `feature · todo · urgent · blocked-on-answers · artifact-model · ` [Write agents/skills/hooks once, lay them per runtime (Claude now, opencode next) — includes redoing hooks](TODO.md.d/runtime-topology.md) ~manifest-by-convention
+
 ## federation
 
 - `feature · done ·  · complete ·  · gh#1` [Park the kauk name on public registries so nobody squats it](TODO.md.d/reserve-namespaces.md)
@@ -28,7 +32,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Installing from a local path drags in the source repo's leftover git objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
 - `bug · todo · urgent · blocked-on-answers · cli-core · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md)
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)
-- `feature · todo · · blocked-on-answers · cli-core · gh#8` [Installer picks agents first, then bundles the skills those agents require](TODO.md.d/agent-deployment.md) ~role-aware-delivery ~cli-mvp
+- `feature · todo · · blocked-on-answers · cli-core · gh#8` [Installer picks agents first, then bundles the skills those agents require](TODO.md.d/agent-deployment.md) ⊘runtime-topology ~role-aware-delivery ~cli-mvp
 
 ## workflow
 
