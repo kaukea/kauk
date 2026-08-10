@@ -635,3 +635,31 @@ earns its place twice:
 Reading recorded pending correction: kauk GENERATES the plugin into the repository, so
 it is project-scoped and travels with a clone; a marketplace is how kauk itself is
 acquired, not how each package lands.
+
+## [2026-08-10 13:25 CEST] Decision-040: Claude delivery is a kauk-maintained LOCAL MARKETPLACE, and nothing is linked
+#claude-code #plugin #marketplace #delivery #links #transpile #install
+
+Operator ruling, superseding the skills-directory-plugin rendering recorded in
+Decision-027.
+
+The flow is: PULL the source in the generic format -> TRANSFORM it to the Claude plugin
+format -> PUBLISH it into a LOCAL MARKETPLACE that kauk maintains on the filesystem and
+the user added once -> Claude installs from it. The marketplace is regenerated as
+repositories are added or updated, so every added source stays current automatically.
+
+**Because everything the package provides is embedded in the plugin, NOTHING IS
+LINKED** on the Claude path.
+
+Mechanics verified against current documentation (2026-08-10): a local directory is a
+valid marketplace source (`/plugin marketplace add <path>`); `.claude-plugin/marketplace.json`
+at the marketplace root lists plugins whose `source` may be a path relative to that root;
+users refresh with `/plugin marketplace update`; the per-entry `version` field gates when
+an update is taken, so kauk manages it.
+
+`files/` is NOT part of the plugin — a plugin cannot place a file at an arbitrary
+repository path — so `files/` is still delivered directly into the repository. That is
+the only place the link-or-copy question survives on the Claude path.
+
+**The link system does not go away.** Other runtimes have no plugin mechanism and may
+never have one; link-based delivery remains for them. The plugin is the clean path
+WHERE SUPPORTED, not a replacement for the model.

@@ -377,38 +377,50 @@ The plugin earns its place twice over:
    re-render of the plugin — not a surgical edit to a shared `settings.json` whose other
    tenants have to be reconciled around it. The set of hooks can change freely.
 
-Specifically, kauk renders a **skills-directory plugin**: any folder under a skills
-directory containing `.claude-plugin/plugin.json` is loaded as `<name>@skills-dir` on
-the next session — discovered in place, no marketplace, no install step, and no
-uninstall step either. Removing the folder removes the package.
+### The flow
+
+1. **Pull** the source. It is in the generic format.
+2. **Transform** it into the Claude plugin format.
+3. **Publish it into a local marketplace** that kauk maintains on the filesystem and
+   that the user added once. The marketplace is regenerated as sources are added or
+   updated, so each added repository stays current automatically.
+4. Claude installs from it. **Nothing is linked** — everything the package provides is
+   embedded in the plugin.
 
 ```
-<repo>/.claude/skills/<package>/
-├── .claude-plugin/plugin.json      generated from the package
-├── skills/<name>/SKILL.md          ← skills/       (with their own scripts/)
-├── agents/<name>.md                ← agents/
-├── hooks/hooks.json                ← hooks/        (transpiled)
-├── .mcp.json                       ← tools/        (transpiled)
-└── scripts/                        hook scripts, referenced by ${CLAUDE_PLUGIN_ROOT}
+<kauk marketplace>/
+├── .claude-plugin/marketplace.json     regenerated: one entry per package
+└── plugins/<package>/
+    ├── .claude-plugin/plugin.json      generated from package.toml
+    ├── skills/<name>/SKILL.md          ← skills/   (with their own scripts/)
+    ├── agents/<name>.md                ← agents/
+    ├── hooks/hooks.json                ← hooks/    (transpiled)
+    ├── .mcp.json                       ← tools/    (transpiled)
+    └── scripts/                        referenced by ${CLAUDE_PLUGIN_ROOT}
 ```
 
-`files/` is **not** part of the plugin — its contents go into the repository at their
-own paths, which is the whole point of the kind.
+A local directory is a valid marketplace source (`/plugin marketplace add <path>`), and
+plugin entries may use paths relative to the marketplace root. Updates reach the user
+through `/plugin marketplace update`; the `version` field on each entry is what gates
+when an update is taken, so kauk manages it.
 
-Notes that constrain the transpiler:
+**`files/` is not part of the plugin.** A plugin cannot place a file at an arbitrary
+repository path, so `files/` is still delivered directly into the repository — and that
+is the only place the link-or-copy question survives on the Claude path.
 
-- Hook commands reference their scripts through `${CLAUDE_PLUGIN_ROOT}`, so nothing
-  in a plugin needs an absolute path.
-- Project-scope `@skills-dir` plugins load only from the `.claude/skills/` of the
-  directory Claude was started in — they do not walk up to the repository root the way
-  plain skills do.
-- Edits to a `SKILL.md` are live; changes to `hooks/`, `.mcp.json` or `agents/` need
-  `/reload-plugins` or a restart. That is what a migration's `reload` step is for.
-- At project scope the plugin loads behind the workspace trust gate, bundled MCP
-  servers take per-server approval, and background monitors do not load at all.
+Constraints on the transpiler:
 
-Other runtimes get their own rendering. The plugin is Claude's encoding, never the
-model.
+- Hook commands reference their scripts through `${CLAUDE_PLUGIN_ROOT}`, so nothing in
+  a plugin needs an absolute path.
+- Changes to `hooks/`, `.mcp.json` or `agents/` need `/reload-plugins`; `SKILL.md` edits
+  are live. That is what a migration's `reload` step is for.
+- Bundled MCP servers go through per-server approval.
+
+### The link system does not go away
+
+Other runtimes have no plugin mechanism, and may never have one. The existing
+link-based delivery remains for them. The plugin is the **clean path where it is
+supported** — not a replacement for the model.
 
 ---
 
