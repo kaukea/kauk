@@ -52,9 +52,9 @@ further metadata a package author adds is **passed through untouched** — kauk 
 not normalise, strip, or validate it beyond the keys it acts on.
 
 A skill may carry supporting files — scripts, references, assets — inside its own
-directory. **Ownership decides location**: a script used by a skill lives in that
-skill's folder and travels with it. It does not go in `files/` and it does not go in
-`tools/`.
+directory. **Ownership decides location**: a script used *solely* by one skill lives in
+that skill's folder and travels with it. A script shared across artifacts, or invoked by
+something other than a skill, is a file. Nothing script-shaped goes in `tools/`.
 
 Each file inside a skill is linked **individually**, never as a whole-directory
 symlink, so that a destination can hold rendered content alongside verbatim content.
@@ -123,8 +123,9 @@ or as event-plus-matcher, per target.
 **The transpiler owns the mapping**, including fallbacks where a target has no native
 event. Package authors declare the neutral event and never learn any runtime.
 
-**`settings.json` is never shipped.** It is one target's rendered output and it
-belongs to the consumer.
+**`settings.json` is never shipped, and never written either.** On the Claude target a
+package renders as a **plugin**, which owns its own hook wiring — see *The Claude
+target* below.
 
 ## tools/
 
@@ -248,6 +249,47 @@ them are served; placement is not a competition. Claude is one destination, neve
 
 Where nothing is detected, the user is asked at initialisation which agent they will
 use.
+
+---
+
+## The Claude target — a plugin
+
+A package renders to Claude Code as a **plugin**, not as loose files scattered through
+`.claude/` plus edits to the user's `settings.json`. The plugin owns its own wiring, so
+kauk never touches a file the user owns.
+
+Specifically, kauk renders a **skills-directory plugin**: any folder under a skills
+directory containing `.claude-plugin/plugin.json` is loaded as `<name>@skills-dir` on
+the next session — discovered in place, no marketplace, no install step, and no
+uninstall step either. Removing the folder removes the package.
+
+```
+<repo>/.claude/skills/<package>/
+├── .claude-plugin/plugin.json      generated from the package
+├── skills/<name>/SKILL.md          ← skills/       (with their own scripts/)
+├── agents/<name>.md                ← agents/
+├── hooks/hooks.json                ← hooks/        (transpiled)
+├── .mcp.json                       ← tools/        (transpiled)
+└── scripts/                        hook scripts, referenced by ${CLAUDE_PLUGIN_ROOT}
+```
+
+`files/` is **not** part of the plugin — its contents go into the repository at their
+own paths, which is the whole point of the kind.
+
+Notes that constrain the transpiler:
+
+- Hook commands reference their scripts through `${CLAUDE_PLUGIN_ROOT}`, so nothing
+  in a plugin needs an absolute path.
+- Project-scope `@skills-dir` plugins load only from the `.claude/skills/` of the
+  directory Claude was started in — they do not walk up to the repository root the way
+  plain skills do.
+- Edits to a `SKILL.md` are live; changes to `hooks/`, `.mcp.json` or `agents/` need
+  `/reload-plugins` or a restart. That is what a migration's `reload` step is for.
+- At project scope the plugin loads behind the workspace trust gate, bundled MCP
+  servers take per-server approval, and background monitors do not load at all.
+
+Other runtimes get their own rendering. The plugin is Claude's encoding, never the
+model.
 
 ---
 

@@ -434,3 +434,53 @@ Operator ruling, superseding the gh-org half of `docs/naming.md`.
   point. `kai` is taken on both registries (checked 2026-08-10) and nothing needs to
   be registered.
 - `kauk` is kept as an alias for compatibility; the rename ships as a migration.
+
+## [2026-08-10 11:52 CEST] Decision-027: The Claude target is a plugin, not files plus settings.json
+#claude-code #plugin #transpile #runtime-targets #settings-json #hooks #mcp
+
+Operator ruling, superseding the placement half of Decision-018/019: `settings.json`
+does not merely stop being *shipped* — it stops being *written*. On the Claude target
+a package renders as a **Claude Code plugin**, which owns its own hook wiring, so kauk
+never edits a file the user owns.
+
+The rendering is a **skills-directory plugin**: a folder under a skills directory
+containing `.claude-plugin/plugin.json` loads as `<name>@skills-dir` on the next
+session — discovered in place, no marketplace, no install step, and no uninstall step
+(removing the folder removes the package).
+
+The plugin layout maps onto the kinds almost one-to-one (verified against Claude Code
+plugin documentation, 2026-08-10):
+
+    <repo>/.claude/skills/<package>/
+      .claude-plugin/plugin.json    generated
+      skills/<name>/SKILL.md        <- skills/  (carrying their own scripts/)
+      agents/<name>.md              <- agents/
+      hooks/hooks.json              <- hooks/   (transpiled)
+      .mcp.json                     <- tools/   (transpiled)
+      scripts/                      referenced via ${CLAUDE_PLUGIN_ROOT}
+
+`files/` is NOT part of the plugin: its contents go into the repository at their own
+paths, which is the point of that kind.
+
+Constraints this puts on the transpiler:
+
+- Hook commands reference scripts through `${CLAUDE_PLUGIN_ROOT}` — no absolute paths
+  anywhere in a plugin.
+- Project-scope `@skills-dir` plugins load only from the `.claude/skills/` of the
+  directory Claude started in; they do NOT walk up to the repository root.
+- `SKILL.md` edits are live; `hooks/`, `.mcp.json` and `agents/` changes need
+  `/reload-plugins` or a restart — which is what a migration's `reload` step is for.
+- At project scope the plugin sits behind the workspace trust gate, bundled MCP servers
+  take per-server approval, and background monitors do not load.
+
+The plugin is Claude's encoding, never the model. Other runtimes get their own
+rendering.
+
+## [2026-08-10 11:52 CEST] Decision-028: A skill-exclusive script lives in the skill; shared scripts are files
+#skills #scripts #ownership #files #tools
+
+Operator ruling, refining Decision-017. A script used SOLELY by one skill lives in that
+skill's folder and travels with it — which is also exactly how a Claude plugin packages
+a skill (`skills/<name>/scripts/`). A script shared across artifacts, or invoked by
+something other than a skill, is a FILE. Nothing script-shaped belongs in `tools/`,
+which carries tool declarations only.

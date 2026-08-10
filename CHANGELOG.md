@@ -12,9 +12,11 @@ _base: (root)_
   skills, hooks, tools, files) plus `templates/` and `migrations/`, declarative hooks with
   a transpiler-owned per-runtime mapping, links-everywhere delivery with report-and-skip,
   `:kauk:` provenance nuggets, the three consumer artifacts (`.ai.toml` / lock / cache
-  index), categories and dependencies. Thirteen operator rulings recorded as
-  Decision-014 → Decision-026. Nothing is implemented yet — `bin/kauk` still reads
-  `manifest.conf`.
+  index), categories and dependencies. On the Claude target a package renders as a
+  skills-directory **plugin**, which owns its own hook wiring — so `settings.json` is
+  never written and kauk touches no file the user owns. Fifteen operator rulings
+  recorded as Decision-014 → Decision-028. Nothing is implemented yet — `bin/kauk`
+  still reads `manifest.conf`.
 
 - 🚚 `bin/kauk` — the package manager moved here from orchids as a bash stopgap
   (Decision-007/008): source-generic `init` / `install <owner>/<repo>` / `sync` over
