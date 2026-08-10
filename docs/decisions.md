@@ -185,3 +185,252 @@ Operator rulings on the runtime-topology spec (refining Decision-012):
   and target one runtime only.
 - **Runtime is DETECTED at `kauk sync`** (no per-repo target declaration in
   .ai.toml for this).
+
+## [2026-08-10 11:17 CEST] Decision-014: Unspecified state is untrusted — the blanket rule
+#trust #provenance #agents #invention #working-rule
+
+Operator ruling. Existing state is NOT evidence of intent. Most of what is in these
+repositories was built by agents, not specified by the operator. **If there is no
+specific definition by the operator, it is not to be trusted** — do not reason from
+it, do not preserve it for consistency, do not cite it as precedent. Ask.
+
+Corollary: agents MUST NOT introduce additions that are not operator-driven.
+
+Context for why this is recorded as a ruling rather than a mood: `manifest.conf`'s
+four-verb grammar and its per-file `link` enumeration were authored by a model in
+`904a9a0` (orchids, 2026-07-14), together with the very decisions that justified
+them, and were then mimicked by later package authors because the reader enforced
+them. See Decision-011.
+
+## [2026-08-10 11:17 CEST] Decision-015: The package tree is the contract — five kinds, convention only
+#packages #conventions #manifest #kinds #skills #agents #hooks #tools #files
+
+Operator ruling. A package is a repository of files that knows nothing about kauk.
+There is no producer-side manifest and none is needed — package contents are
+determined BY CONVENTION, and files outside the convention are ignored.
+
+The kinds are **agents, skills, hooks, tools, files**, plus two mechanisms that are
+not artifact kinds — `templates/` (applied into a file the consumer owns) and
+`migrations/` (executed, not placed).
+
+`files/` places its contents at their path relative to `files/`; no transformation,
+no substitution. `tools/` stays separate from `files/` deliberately: a tool
+declaration transpiles per runtime and permits specialisations a verbatim file
+cannot express. Helper scripts invoked by path are files, not tools.
+
+Full specification: `docs/package-format.md`.
+
+## [2026-08-10 11:17 CEST] Decision-016: Everything is a link; conflicts report and skip
+#delivery #links #conflicts #ai-toml #kauk-sync
+
+Operator ruling. Everything kauk lays is a **link**. Always was, stays. Editing a
+laid file is editing the source — that is the point.
+
+The `.ai.toml` per-skill delivery layer (`exclude | copy | link | local`) was not
+designed by the operator and is not a feature; `local` in particular is nonsense. It
+is removed, along with `resolve_mode()` and the `copy` / `template` / `prefix`
+placement paths in `bin/kauk`.
+
+A destination that already holds a real file, or that two packages both claim, is
+**reported and skipped**. Nothing is overwritten and nothing is resolved on the
+user's behalf, because the user has made no selection.
+
+Each file inside a skill is linked individually, never as a whole-directory symlink.
+
+## [2026-08-10 11:17 CEST] Decision-017: An agent is a prompt; ownership decides where scripts live
+#agents #skills #tools #ownership #payload
+
+Operator ruling. An agent is a **glorified prompt** — a flat file, not a skill
+definition and not a container. It carries no payload of its own. Agents CALL tools
+or skills.
+
+A script used by a skill lives in that skill's own folder and travels with it. Any
+script an agent needs belongs to the tool or the skill that owns it. This matches
+every runtime surveyed (2026-08-10): agent = one file, skill = a folder carrying its
+own scripts, package = the bundling unit above both.
+
+## [2026-08-10 11:17 CEST] Decision-018: Runtime detection yields a set, not a winner
+#runtime-targets #detection #claude-code #placement #install
+
+Operator ruling, refining Decision-013. A repository containing `.claude/` or
+`CLAUDE.md` is a Claude repository and artifacts are laid where Claude expects them.
+
+Detection yields a **SET, not a winner**: three or four tools may be in use and all
+of them are served. Placement is not a competition and there is no first-match-wins.
+Claude is one destination, never *the* destination.
+
+Where nothing is detected, the user is ASKED at initialisation which agent they will
+use, rather than the original tool's "you don't currently use an agent, come back
+when you do".
+
+Parked: that kauk itself creates `.claude/`, so `.claude/` as a marker can never turn
+off. The operator does not consider "uninstalling Claude" a practical scenario.
+
+## [2026-08-10 11:17 CEST] Decision-019: Hooks are declarative artifacts; the transpiler owns the mapping
+#hooks #declarative #transpile #settings-json #adaptation-layer #runtime-targets
+
+Operator ruling, implementing Decision-012/013. A hook is `hooks/<event>/index.toml`,
+where the directory name IS a runtime-neutral event.
+
+- **`settings.json` is never shipped.** It is one target's rendered output and it
+  belongs to the consumer.
+- **Matchers are not part of the package vocabulary.** A concept expressed as a
+  filter on one runtime gets its own event name (`tool.shell.before`); the transpiler
+  renders it as a first-class event or as event-plus-matcher per target.
+- **The transpiler owns the mapping**, including fallbacks where a target has no
+  native event. Package authors declare the neutral event and never learn any
+  runtime.
+
+Basis: a five-runtime survey (Claude Code, opencode, Cursor, Gemini CLI, Codex CLI)
+verified against current documentation on 2026-08-10, mapping 44 lifecycle concepts.
+Only a handful are single-runtime features nobody else can approximate. orchids
+itself wires just five events, so the first adaptation layer is small.
+
+## [2026-08-10 11:17 CEST] Decision-020: Action keys are a closed set; compatibility is one flat list
+#hooks #actions #compatibility #toml #vocabulary
+
+Operator ruling.
+
+**Actions** — one action KEY per `[[actions]]` entry, its value carrying the
+parameters. The key IS the action name; there is no `action = "<name>"`
+discriminator, because the set is CLOSED: every action needs implementation and
+documentation in kauk, so an unrecognised key is an error, not an extension point.
+New keys are added as they standardise. Whether an action may veto is a documented
+property of that action, not a declared flag.
+
+**Compatibility** — the same key and semantics on actions and on skills: ONE FLAT
+LIST over one namespace covering hosts and models together (an agent being named
+after a model is unlikely enough to ignore). Entries are OR; a dot narrows within one
+entry. `["claude.opus-5", "codex.opus-5", "opus-5", "codex"]` means that pairing, or
+that pairing, or any host on opus-5, or codex on any model. Omitted = all.
+
+Per-runtime sub-tables (`[actions.<runtime>]`) are NOT used: two renderings are
+simply two actions with different `compatibility`.
+
+## [2026-08-10 11:17 CEST] Decision-021: Templates are text with three application types
+#templates #injection #markers #provenance #kauk-magic
+
+Operator ruling. A template is text with YAML frontmatter: `name`, `description`,
+`type`, `tracked` (default true), and `match` for one type.
+
+`type` is `beginning` | `end` | `inline`. Beginning and end are positional; inline
+locates by `match` and replaces the first group.
+
+A tracked application carries ONE marker line, written as a comment in the
+destination's own syntax, stating it is load-bearing and not to be changed, plus its
+origin (`:kauk:` … `<owner>/<repo> <sha>`). There is no closing marker: if someone
+writes past a line that says do not touch, that is their loss — kauk is not a
+caretaker. `inline` needs no end marker because `match` relocates the block each
+time.
+
+A `match` that finds nothing is reported and skipped. The comment-syntax-per-filetype
+map is an implementation detail, not a spec question. A variable-interpolation syntax
+is RESERVED — documented and linted, not implemented.
+
+## [2026-08-10 11:17 CEST] Decision-022: Migrations run at sync, in a fixed order, with a per-repository watermark
+#migrations #sync #ordering #watermark #rebase
+
+Operator ruling, answering the who and the when that `AGENTS.files.md` §Migrations
+never specified.
+
+- **Migrations run at SYNC TIME**, executed by the tool — not by an agent at an
+  arbitrary prompt.
+- Content stays NATURAL LANGUAGE, wrapped in a structured format. Existing migrations
+  are NOT rewritten. Codified step types (`reload`, `restart`, `rename`, `apply
+  skill`) follow the same closed-set pattern as hook actions; host-specific steps are
+  transpiler territory.
+- Codified steps execute inside kauk deterministically; only the prose residue is
+  handed to an agent. That is what makes execution independent of agent behaviour,
+  and what makes most of a migration testable.
+- **Order: pull → apply migrations → rebase your changes → write your migration.**
+  Upstream commits ALREADY contain the migrations their author applied; the consumer
+  applies the same ones so both trees are in the same reality before rebasing.
+  Rebasing first to obtain easier conflicts invents a tree that does not exist and is
+  not permitted.
+- **The watermark is PER REPOSITORY.** It always was intended to be; the single
+  global scalar in `.git/the-works/migrated` is a defect.
+
+## [2026-08-10 11:17 CEST] Decision-023: Three consumer artifacts — config, lock, and a rebuildable index
+#ai-toml #lockfile #index #provenance #kauk-magic #uninstall
+
+Operator ruling.
+
+1. **`.ai.toml`** — USER-OWNED. What was asked for: sources and selection. Its
+   "managed by kauk … do not edit by hand" header is removed; so are the comment
+   lines documenting the delivery layer retired by Decision-016.
+2. **Lock file** — machine-written and COMMITTED. What was got: each repository and
+   its resolved head at commit time. The only genuinely non-derivable artifact, since
+   `.ai/repositories/` is gitignored and a source that placed no files leaves no
+   trace. The only committed file kauk writes, so it carries the do-not-edit header
+   `.ai.toml` loses.
+3. **Placement index** — uncommitted, rebuildable, FOR SPEED NOT ACCURACY. Never the
+   source of truth.
+
+Every write outside the clone carries a self-identifying nugget: the magic token
+`:kauk:` plus origin and sha. Links self-identify via `readlink`, templates via their
+marker, transpiled output via the same origin and sha carried as data where comments
+are impossible. Binaries — which cannot carry an inline nugget — get a COMMITTED
+per-file sidecar (`<file>.kauk`); per-file rather than per-directory or root, because
+a directory or root sidecar is an index again and indexes drift.
+
+Conflicts are explicitly not the problem this solves.
+
+## [2026-08-10 11:17 CEST] Decision-024: `roles:` becomes `categories:`; `roles` is reserved for agents
+#categories #roles #taxonomy #frontmatter #rename #context-economy
+
+Operator ruling. The frontmatter key `roles:` is renamed `categories:`. The node list
+and the DAG are unchanged — they are operator-authored (orchids Decision-003) and
+stand.
+
+Rationale: orchids Decision-002 already defines the vocabulary as activity nouns
+chosen explicitly NOT to be job titles, which is the definition of a category. The
+word "role" was inherited from `dev|infra|org|all`, which orchids Decision-003 itself
+records as never having been a decision — just an artifact of kauk stamping every
+adopted skill `dev`. Calling `coding-dotnet` a role implies someone wears it; calling
+it a category says where it files.
+
+`roles:` is FREED and reserved for AGENTS only, in the persona sense, should such a
+feature ever be implemented. A skill is a tool expressed in YAML and bears no role.
+
+Agents gain `categories:`, which they do not have today: all 19 orchids skills
+declare a placement and none of the 10 agent files do.
+
+## [2026-08-10 11:17 CEST] Decision-025: Categories are browsable; dependencies are a plain graph
+#categories #dependencies #install #selection #context-economy
+
+Operator ruling. Importing a repository can bring thirty or forty skills, and that
+payload is expensive. Categories group skills and agents into a browsable tree: on
+add, the consumer picks individual artifacts, or a whole category and everything
+inside it.
+
+Dependencies are a plain graph, and deliberately no more than this:
+
+- an agent may depend on agents or skills
+- a skill may depend on skills
+- agents and skills may depend on tools
+
+No other scenario is needed. References carry a one-letter kind prefix (`a/<name>`,
+`s/<name>`, `t/<name>`) since names are unique within a kind. Selection is a request;
+the installed set is its dependency closure.
+
+## [2026-08-10 11:17 CEST] Decision-026: The command is `kai`; the binary is `kaukea`; the org is kaukea
+#naming #cli #kai #kaukea #github #rename #migration
+
+Operator ruling, superseding the gh-org half of `docs/naming.md`.
+
+- **The GitHub organisation is `kaukea`** — https://github.com/kaukea/ exists.
+  GitHub refused `kauk`, so the `kaukai` org and the dormant-user release ticket
+  recorded in `docs/naming.md` are dead. The platform name, `kauk.ai`, and the
+  registry reservations are unaffected.
+- **The command is `kai`.** Rationale: memorability — the operator cannot recall
+  `kauk` most of the time, so nobody else will, and speech-to-text transcribes `kai`
+  correctly first time. Collisions with other tools named `kai` are ACCEPTED;
+  developers can alias.
+- **The executable ships as `kaukea`, with `kai` as a symlink to it**, created at
+  install and reported-and-skipped if `kai` already exists on PATH. This makes a
+  collision the user's to resolve while the tool stays reachable.
+- The distribution name and the command name are independent: PyPI keeps the `kauk`
+  distribution and npm keeps `@kauk.ai/kauk`, both declaring the `kaukea` entry
+  point. `kai` is taken on both registries (checked 2026-08-10) and nothing needs to
+  be registered.
+- `kauk` is kept as an alias for compatibility; the rename ships as a migration.

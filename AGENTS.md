@@ -15,6 +15,14 @@ Taxonomy.
 
 ## Ground truth to reuse (do NOT re-derive)
 
+- **The package format** is SPECIFIED — `docs/package-format.md`. A package is a repository
+  of files that knows nothing about kauk; contents are determined by convention and there is
+  no producer-side manifest. Kinds: agents, skills, hooks, tools, files (+ `templates/` and
+  `migrations/` as mechanisms). Read it before touching delivery, layout, or frontmatter.
+- **Unspecified state is untrusted** (Decision-014): most of what is in these repositories
+  was built by agents, not specified by the operator. If there is no specific operator
+  definition, do not reason from it, preserve it, or cite it as precedent — ask.
+
 - **Naming & domains** are DECIDED — `docs/naming.md`. Platform = KAUK; `kauk.ai` (brand),
   `kauk.org` (tooling/config paths); PyPI/npm `kauk` reserved defensively; gh org `kaukai`;
   fallback stem `parstuk`. Do not re-litigate the name.
@@ -41,5 +49,6 @@ Taxonomy.
   CHANGELOG.md, ARCHITECTURE.md). `main` is immutable; work on `f/<id>` branches; close per
   the `workflow-complete` skill.
 - This repo is kauk-managed: shared skills/agent-files are symlinks under `.ai/`; run
-  `kauk sync` (the `kauk` skill) to converge with the sources. Never hand-edit
-  `.ai.toml`'s managed section.
+  `kauk sync` (the `kauk` skill) to converge with the sources. `.ai.toml` is the
+  **operator's** file — edit it freely; kauk writes the lock file, not this one
+  (Decision-023).

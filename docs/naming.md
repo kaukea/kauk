@@ -19,10 +19,14 @@ clusters of `parstuk`/`barstuk` felt aggressive by comparison.
 - **kauk.org** — tooling / config-path domain; canonical grammar `kauk.org/<pkg>`
   (slug form NOT taught — the exact `kauk` gh org isn't owned). `kauk.dev` / `kauk.io` also free.
 - **PyPI `kauk`** + **npm `kauk`** — reserved defensively (see `namespace-reservation/`).
-- **gh org `kaukai`** — the org to hold the projection repo (also free that day:
-  `getkauk`, `kauk-dev`, `kaukpkg`).
+- **gh org `kaukea`** — ~~`kaukai`~~ **CORRECTED 2026-08-10 (Decision-026)**: GitHub
+  refused `kauk` and the username-release ticket for the dormant `github.com/kauk` user
+  did not succeed, so the org created and in use is **`kaukea`** —
+  https://github.com/kaukea/. It holds the projection repo and, from the same decision,
+  the `kauk` repository itself. The brand, `kauk.ai`, and the registry reservations are
+  unaffected.
 - NOT available: `kauk.com` / `kauk.net`. `github.com/kauk` = a **dormant user** (0 repos,
-  idle since 2020) → a GitHub username-release ticket is filed.
+  idle since 2020); the username-release ticket failed.
 - Dead 3-letter routes: `kau.ai` / `kak.ai` taken (`kak` = Afrikaans/Dutch vulgarity).
 
 ## Fallback
