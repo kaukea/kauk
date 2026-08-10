@@ -43,7 +43,13 @@ name: <folder-name>          # MUST equal the directory name
 description: <the trigger, then what it does>
 categories: [ <slash-path>, … ]
 compatibility: [ … ]         # optional; omitted = all
-depends: [ s/<skill>, t/<tool> ]   # optional
+visibility:                  # optional; see Visibility
+  user-invocable: true
+  model-invocable: true
+dependencies:                # optional
+  skills: []
+  agents: []
+  tools: []
 ---
 ```
 
@@ -52,9 +58,12 @@ further metadata a package author adds is **passed through untouched** — kauk 
 not normalise, strip, or validate it beyond the keys it acts on.
 
 A skill may carry supporting files — scripts, references, assets — inside its own
-directory. **Ownership decides location**: a script used *solely* by one skill lives in
-that skill's folder and travels with it. A script shared across artifacts, or invoked by
-something other than a skill, is a file. Nothing script-shaped goes in `tools/`.
+directory. A script used *solely* by one skill lives in that skill's folder and travels
+with it, which is also how a Claude plugin packages a skill. A script shared across
+artifacts, or invoked by something other than a skill, is a file.
+
+There is **no ownership** between artifacts. What one artifact needs from another is
+stated as `dependencies:` — see *Dependencies*.
 
 Each file inside a skill is linked **individually**, never as a whole-directory
 symlink, so that a destination can hold rendered content alongside verbatim content.
@@ -68,15 +77,38 @@ container, and it carries no payload of its own.
 ---
 name: <name>
 description: <what it is for>
+type: root | child | sibling | background
 categories: [ <slash-path>, … ]
 compatibility: [ … ]
-depends: [ a/<agent>, s/<skill>, t/<tool> ]
+visibility: { user-invocable: true, model-invocable: true }
+dependencies:
+  skills: []
+  agents: []
+  tools: []
 ---
 ```
 
 Agents **call** tools or skills. Any script an agent needs belongs to the tool or the
-skill that owns it. This matches every runtime surveyed: agent = one file, skill = a
+skill it depends on. This matches every runtime surveyed: agent = one file, skill = a
 folder that carries its own scripts, package = the unit that bundles both.
+
+**`type`** classifies the subagent's relationship to its launcher and is what a
+windowing integration (tmux today) keys off:
+
+| type | meaning |
+|---|---|
+| `root` | a top-level session, launched by the operator |
+| `child` | spawned by, and subordinate to, the agent that launched it |
+| `sibling` | spawned alongside its launcher, not under it |
+| `background` | runs detached, with no pane of its own |
+
+**`dependencies` is also the restriction.** The declared skills and agents are the ones
+this agent may call — the list is a capability boundary, not a hint. An agent cannot
+reach a skill or an agent it did not declare.
+
+**Agents are launched by skills, never by hooks.** A hook that autostarts an agent
+forecloses the user's choice of workflow; a skill (`/garden` launching the gardener, for
+example) lets the user pick. Packages therefore do not ship autostart hooks for agents.
 
 ## hooks/
 
@@ -129,14 +161,42 @@ target* below.
 
 ## tools/
 
-A tool is a declaration that **transpiles per runtime** — an MCP server entry for
-Claude Code, the equivalent for the next runtime. Written once, laid where each
-detected runtime expects it, exactly like agents, skills and hooks.
+A tool is a declaration with **frontmatter**, and it **transpiles per runtime** — an MCP
+server entry for Claude Code, the equivalent for the next runtime.
+
+A tool may be backed by either a **script** or an **MCP server definition**. Both are
+tools; the backing is an implementation detail the transpiler resolves per target.
+
+```yaml
+---
+name: <name>
+description: <what it does>
+categories: [ <slash-path>, … ]
+compatibility: [ … ]
+visibility: { user-invocable: true, model-invocable: true }
+---
+```
 
 `tools/` is kept separate from `files/` deliberately: the two are semantically
 distinct, and a declaration permits specialisations a verbatim file cannot express.
 
-Helper scripts invoked by path are **not** tools. They are files.
+Helper scripts invoked by path, with no declaration, are **not** tools. They are files.
+
+## Visibility
+
+Every artifact may declare who is allowed to invoke it:
+
+```yaml
+visibility:
+  user-invocable: true      # appears in the user's slash list
+  model-invocable: true     # the model may auto-invoke it
+```
+
+Both default to true. Process machinery — close procedures, handover, session-start
+rules — is typically `user-invocable: false`, so a consuming repo's slash list shows
+only genuinely operator-facing entries while the model still triggers the rest on their
+descriptions. The transpiler renders this into whatever the target calls it; on Claude
+that is `user-invocable` / `disable-model-invocation` in the artifact's own frontmatter.
 
 ## files/
 
@@ -200,6 +260,8 @@ package version *is* the highest filename.
   is handed to an agent. This is what makes execution independent of what any agent
   chooses to do, and what makes most of a migration testable.
 - **Migrations run at sync time.**
+- A `reload` step is available on any update, not only inside a migration: on the Claude
+  target `/reload-plugins` picks up changed components without a restart.
 - Every step is guarded by observable state, never by assumed position in a sequence.
 
 **Order, when pulling a source that has migrations pending:**
@@ -334,12 +396,23 @@ consumer picks individual artifacts, or a whole category and everything inside i
 
 The vocabulary is defined in exactly one place and declared against, never restated.
 
-**Dependencies** are a plain graph:
+**Dependencies** are a plain graph, declared in the artifact's own metadata:
 
-- an agent may depend on agents or skills
-- a skill may depend on skills
-- agents and skills may depend on tools
+```yaml
+dependencies:
+  skills: []
+  agents: []
+  tools: []
+```
 
-That is the whole model. References are prefixed by kind — `a/<name>`, `s/<name>`,
-`t/<name>` — since names are unique within a kind. Selection is a request; the
-installed set is its dependency closure.
+- an agent may depend on agents, skills or tools
+- a skill may depend on skills or tools
+
+That is the whole model. There is no ownership relation between artifacts — only
+declared dependencies.
+
+For an **agent**, the declaration doubles as a **capability boundary**: the agent may
+call the skills and agents it names, and nothing else.
+
+Selection is a request; the installed set is its dependency closure, and the consumer is
+told what was pulled in beyond what they picked.

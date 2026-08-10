@@ -484,3 +484,81 @@ skill's folder and travels with it — which is also exactly how a Claude plugin
 a skill (`skills/<name>/scripts/`). A script shared across artifacts, or invoked by
 something other than a skill, is a FILE. Nothing script-shaped belongs in `tools/`,
 which carries tool declarations only.
+
+## [2026-08-10 12:20 CEST] Decision-029: No ownership between artifacts — only declared dependencies
+#dependencies #metadata #frontmatter #skills #agents #tools
+
+Operator ruling, superseding the "ownership decides location" framing in Decision-017
+and Decision-028. There is NO ownership relation between artifacts. What one artifact
+needs from another is declared in its own metadata:
+
+    dependencies:
+      skills: []
+      agents: []
+      tools: []
+
+An agent may depend on agents, skills or tools; a skill may depend on skills or tools.
+A script used solely by one skill still lives in that skill's directory and travels
+with it — that is packaging, not ownership.
+
+## [2026-08-10 12:20 CEST] Decision-030: An agent's declared dependencies are its capability boundary
+#agents #dependencies #restriction #capability #frontmatter #security
+
+Operator ruling. An agent's `dependencies:` are not a hint — they are the set of skills
+and agents that agent is PERMITTED to call. An agent cannot reach a skill or an agent it
+did not declare. The restriction is derived from the frontmatter, so the declaration and
+the boundary can never drift apart.
+
+## [2026-08-10 12:20 CEST] Decision-031: Subagents carry a type — root, child, sibling, background
+#agents #subagents #type #tmux #windowing #frontmatter
+
+Operator ruling. An agent declares `type: root | child | sibling | background`,
+classifying its relationship to whatever launched it. This is what a windowing
+integration keys off (tmux today):
+
+- `root` — a top-level session, launched by the operator
+- `child` — spawned by, and subordinate to, its launcher
+- `sibling` — spawned alongside its launcher, not under it
+- `background` — detached, with no pane of its own
+
+## [2026-08-10 12:20 CEST] Decision-032: Tools carry frontmatter and may be a script or an MCP definition
+#tools #mcp #frontmatter #categories #transpile
+
+Operator ruling. A tool is a DECLARATION with frontmatter — `name`, `description`,
+`categories`, `compatibility`, `visibility` — and it transpiles per runtime. Its backing
+may be either a SCRIPT or an MCP server definition; both are tools, and which one the
+target receives is the transpiler's business.
+
+A helper script invoked by path, carrying no declaration, is not a tool. It is a file.
+
+## [2026-08-10 12:20 CEST] Decision-033: Visibility is declared per artifact
+#visibility #user-invocable #slash-list #context-economy #frontmatter
+
+Operator ruling. Every artifact may declare who may invoke it:
+
+    visibility:
+      user-invocable: true      # appears in the user's slash list
+      model-invocable: true     # the model may auto-invoke it
+
+Both default to true. Process machinery is typically `user-invocable: false`, so a
+consuming repo's slash list shows only operator-facing entries while the model still
+triggers the rest from their descriptions. The transpiler renders this into the target's
+own vocabulary; on Claude that is `user-invocable` / `disable-model-invocation`.
+
+Supersedes the orchids board item `skill-slash-visibility` (gh#9) as the general rule —
+that task becomes the per-skill judgement pass against this key.
+
+## [2026-08-10 12:20 CEST] Decision-034: Agents are launched by skills, never by autostart hooks
+#agents #hooks #launch #workflow #garden #user-choice
+
+Operator ruling. A hook that autostarts an agent forecloses the user's choice of
+workflow. An agent is launched by a SKILL instead — `/garden` launching the gardener,
+for example — so the user picks which workflow runs. Packages do not ship autostart
+hooks for agents.
+
+## [2026-08-10 12:20 CEST] Decision-035: The repository name stays `kauk`; only the organisation moves
+#naming #github #kaukea #repo #migration
+
+Clarifying Decision-026: the repository is and remains `kauk`. Only its GitHub
+organisation changes, `serialseb` -> `kaukea`, and its path on disk follows
+(`~/src/kaukea/kauk`). Nothing renames the repository itself.
