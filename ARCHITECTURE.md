@@ -50,8 +50,28 @@ The `kauk` command — one grammar over the registry and federation. `publish`, 
 
 Until 0.1.0, `bin/kauk` is the shipped **bash stopgap** (component `cli-core`,
 Decision-007): the file-package half of the grammar — `init` / `install <owner>/<repo>`
-/ `sync` — over git-vendored sources (`.ai/repositories/`, `.ai.toml`), each package
-self-described by its `manifest.conf`. The real CLI inherits the grammar and replaces it.
+/ `sync` / `resolve` — over git-vendored sources (`.ai/repositories/`, `.ai.toml`). The
+real CLI inherits the grammar and replaces it.
+
+**A package declares nothing.** Its contents are determined by convention — the
+directories `skills/ agents/ hooks/ tools/ files/` — and anything outside them is
+ignored (Decision-015; full specification in `docs/package-format.md`). This replaces
+the `manifest.conf` index a package used to carry, which was never an operator design
+and whose omissions failed silently.
+
+Two cross-cutting rules follow from it, and both hold everywhere in the tool:
+
+- **kauk decides nothing on the user's behalf.** A destination already holding a file
+  kauk did not place is reported and skipped; a *name* collision keeps both artifacts
+  under namespaces (`local:<name>` and `<package>:<name>`) rather than merging them
+  (Decisions 016, 041, 042).
+- **Placement is per detected runtime, and detection yields a set.** `.claude/` is one
+  target's encoding, never the model; a repository may be served by several runtimes at
+  once (Decisions 012, 018).
+
+A repository that is itself a package is not vendored into itself: its working tree is
+the source and it publishes by copy, so its own edits are visible without a push
+(Decision-037).
 
 ## projection
 

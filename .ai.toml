@@ -1,7 +1,6 @@
-# managed by kauk — CLI and AGENTS.md driven; do not edit by hand
-# Missing/empty sections = every skill installed as a link.
-# Tune per role: [dev] [infra] [org], or ["*"] for defaults, with
-#   skillname = "exclude" | "copy" | "link" | "local"
+# Yours to edit — this file says what this repository consumes.
+# Sources live in [sources."<owner>/<repo>"] tables (origin = "URL or local path");
+# clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
 
 [sources."serialseb/orchids"]
 origin = "/home/sudoku/src/serialseb/orchids"

@@ -8,7 +8,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 - `feature · todo · urgent · queued · artifact-model · gh#14` [Write agents/skills/hooks once, lay them per runtime (Claude now, opencode next) — includes redoing hooks](TODO.md.d/runtime-topology.md) ~manifest-by-convention ~extension-point-survey
 - `feature · todo · · queued · artifact-model · gh#15` [Survey each runtime's extension points (prompt + code injection) and pick kauk's integration model — likely a Claude plugin](TODO.md.d/extension-point-survey.md) ~runtime-topology
-- `feature · todo · critical · plan-ready · artifact-model ·` [package.toml: a repository declares what it is](TODO.md.d/package-toml.md) ~self-publishing
+- `feature · functional · critical · complete · artifact-model ·` [package.toml: a repository declares what it is](TODO.md.d/package-toml.md) ~self-publishing
 - `feature · todo · critical · plan-ready · artifact-model ·` [Hooks become declarative artifacts with a per-runtime transpiler](TODO.md.d/hooks-declarative.md) ⊘runtime-detection ~claude-marketplace
 - `feature · todo · critical · plan-ready · artifact-model ·` [Templates: beginning, end, inline, with a tracked marker](TODO.md.d/templates-spec.md)
 - `feature · todo · critical · plan-ready · ·` [`roles:` becomes `categories:`, and agents gain the key](TODO.md.d/categories-rename.md)
@@ -37,12 +37,12 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · done ·  · complete · cli-core · ` [Interim bash `kauk` CLI that vendors and syncs packages](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
 - `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
 - `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Installing from a local path drags in the source repo's leftover git objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
-- `bug · todo · critical · plan-ready · · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md) ~files-kind ~ai-toml-cleanup
-  - `feature · todo · critical · plan-ready · cmd-install ·` [The `files/` kind: contents placed verbatim at their path](TODO.md.d/files-kind.md) ⊘manifest-by-convention
-  - `housekeeping · todo · critical · plan-ready · cli-core ·` [.ai.toml goes back to being the operator's file](TODO.md.d/ai-toml-cleanup.md)
-  - `feature · todo · critical · plan-ready · cmd-install ·` [Detect the runtimes in use, as a set rather than a winner](TODO.md.d/runtime-detection.md)
+- `bug · functional · critical · complete · · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md) ~files-kind ~ai-toml-cleanup
+  - `feature · functional · critical · complete · cmd-install ·` [The `files/` kind: contents placed verbatim at their path](TODO.md.d/files-kind.md) ⊘manifest-by-convention
+  - `housekeeping · functional · critical · complete · cli-core ·` [.ai.toml goes back to being the operator's file](TODO.md.d/ai-toml-cleanup.md)
+  - `feature · functional · critical · complete · cmd-install ·` [Detect the runtimes in use, as a set rather than a winner](TODO.md.d/runtime-detection.md)
 - `feature · todo · critical · plan-ready · cmd-install ·` [Publish each package as a plugin into a kauk-maintained local marketplace](TODO.md.d/claude-marketplace.md) ⊘hooks-declarative
-- `feature · todo · critical · plan-ready · cmd-install ·` [A package publishes into its own repository instead of vendoring itself](TODO.md.d/self-publishing.md) ⊘package-toml
+- `feature · functional · critical · complete · cmd-install ·` [A package publishes into its own repository instead of vendoring itself](TODO.md.d/self-publishing.md) ⊘package-toml
 - `feature · todo · critical · plan-ready · cli-core ·` [Migrations run at sync, in order, per repository](TODO.md.d/migrations-at-sync.md)
 - `feature · todo · · plan-ready · cli-core ·` [Provenance: every write outside the clone carries a `:kauk:` nugget](TODO.md.d/provenance-nuggets.md)
 - `feature · todo · · plan-ready · cli-core ·` [A committed lock records each repository and its resolved head](TODO.md.d/lockfile.md)
