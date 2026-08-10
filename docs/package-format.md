@@ -14,6 +14,50 @@ repository that does not is simply a repository.
 
 ---
 
+## `package.toml` — declaring that this repository is a package
+
+A repository becomes a package by carrying `package.toml` at its root:
+
+```toml
+[package]
+name = "orchids"
+title = "Orchids"
+description = "The fleet's canonical skills, agents and rule files."
+type = "…"
+```
+
+`package.toml` is **published** — it travels with the repository and every consumer
+reads it. This is deliberately not `.ai.toml`, which is **local**: what this particular
+checkout consumes, and nobody else's business. Merging them would ship a consumer's
+private selections inside a published artifact.
+
+Any repository may declare itself a package, including one that also consumes packages.
+
+> **Future:** packages depending on packages, which is what makes cross-package
+> dependencies possible — an agent in one package depending on a skill in another. The
+> package graph resolves first (which sources to fetch), then the artifact graph across
+> their union. Not built; whether a package dependency names a package or a location is
+> undecided and waits on the native index.
+
+## Publishing into your own repository
+
+A repository that is itself a package is **not vendored**. There is no clone of its own
+HEAD under `.ai/repositories/`, because that is what forces you to push in order to see
+your own edits — you would be editing the source and the vendored copy at the same time.
+
+Instead:
+
+- the **source is the working tree**, read in place;
+- the artifacts are published exactly as they are for any other package — the same
+  transformation, taking each convention directory and rendering it into the target's
+  layout;
+- the publication type changes from link to **copy**: the rendered files are copied back
+  into the repository and committed, after which the normal flow works.
+
+Nothing else differs. A self-published package is a package.
+
+---
+
 ## Convention directories
 
 | Directory | Kind | Transpiled? |

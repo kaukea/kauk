@@ -562,3 +562,55 @@ hooks for agents.
 Clarifying Decision-026: the repository is and remains `kauk`. Only its GitHub
 organisation changes, `serialseb` -> `kaukea`, and its path on disk follows
 (`~/src/kaukea/kauk`). Nothing renames the repository itself.
+
+## [2026-08-10 12:45 CEST] Decision-036: `package.toml` declares a package; `.ai.toml` stays local
+#package-toml #ai-toml #packages #identity #publishing
+
+Operator ruling. A repository becomes a package by carrying `package.toml` at its root,
+holding the package's identity — name, friendly title, description, type.
+
+This is deliberately a separate file from `.ai.toml`, and not merely for explicitness:
+the two have different audiences. `package.toml` is PUBLISHED — it travels with the
+repository and every consumer reads it. `.ai.toml` is LOCAL — what this checkout
+consumes, and nobody else's business. Merging them would ship a consumer's private
+selections inside a published artifact.
+
+Any repository may declare itself a package, including one that also consumes packages.
+
+## [2026-08-10 12:45 CEST] Decision-037: A package publishes into its own repository by copy, never by vendoring itself
+#self-source #vendoring #publishing #copy #orchids #decision-122
+
+Operator ruling. A repository that is itself a package is NOT vendored: there is no
+clone of its own HEAD under `.ai/repositories/`. Vendoring your own HEAD is what forces
+a push in order to see your own edits, because you are editing the source and the
+vendored copy at the same time.
+
+Instead the SOURCE IS THE WORKING TREE, read in place; the artifacts are published by
+exactly the same transformation as any other package; and the publication type changes
+from link to COPY — the rendered files are copied back into the repository and
+committed, after which the normal flow works.
+
+Nothing else differs. A self-published package is a package.
+
+Context: orchids already does this by hand (`ceca7ae`, "Remove vendoring entirely: this
+repository runs its own files") and orchids Decision-122 forbids kauk in orchids until
+this exists.
+
+## [2026-08-10 12:45 CEST] Decision-038: Packages depending on packages — deferred, and it is what enables cross-package artifact dependencies
+#packages #dependencies #cross-package #future #index
+
+Operator ruling: a FUTURE feature, recorded so it is designed for and not built now.
+
+Package-level dependencies are the layer above artifact dependencies: a package
+dependency says "you also need this source", an artifact dependency says "this skill
+needs that skill". The package graph resolves first — which sources to fetch — and the
+artifact graph then resolves across their union. This is what makes cross-package
+dependencies possible, an agent in one package depending on a skill in another.
+
+Undecided and waiting on the native index: whether a package dependency names a PACKAGE
+or a LOCATION. A name needs an index to resolve it; a location resolves itself but
+hardcodes where a thing lives today.
+
+Context for why it is wanted: cross-package needs already exist undeclared — orchids'
+skills reference the `kauk` skill, and `serialseb.voice`'s `voice-setup` was written
+against orchids' grammar.
