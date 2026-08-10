@@ -147,24 +147,52 @@ place_one() { # place_one <mode> <abs-src> <dst>
   case "$1" in copy) copy_one "$2" "$3" ;; *) link_one "$2" "$3" ;; esac
 }
 
-lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix>
-  local mode=$1 srcdir=$2 dstdir=$3 t n
+# A name collision is NOT a conflict to merge: two artifacts sharing a name are
+# almost certainly different things. Both are kept, under namespaces — the user's
+# becomes `local<sep><name>`, the package's `<package><sep><name>` (Decision-042).
+# The user merges or renames them later if they want to; kauk decides nothing.
+#
+# The SEPARATOR is per runtime: kauk adopts whatever syntax each agent already uses
+# for namespacing, rather than imposing one. Claude Code writes `plugin:command`.
+NS_LOCAL="local"
+NS_SEP=":"                                  # set per runtime by its renderer
+NS_DST=""                                   # out-param: never echoed, so notices are free
+
+namespace_for() { # namespace_for <dstdir> <name> <pkgns> — sets NS_DST
+  local dstdir=$1 n=$2 ns=$3
+  # already namespaced by an earlier run: stay namespaced
+  if [ -e "$dstdir/$NS_LOCAL$NS_SEP$n" ]; then NS_DST="$ns$NS_SEP$n"; return 0; fi
+  # a real entry the user owns sits on the bare name: move it aside, keep both
+  if [ -e "$dstdir/$n" ] && [ ! -L "$dstdir/$n" ]; then
+    mv "$dstdir/$n" "$dstdir/$NS_LOCAL$NS_SEP$n"
+    say "  NAMESPACED $NS_LOCAL$NS_SEP$n (yours) and $ns$NS_SEP$n (package) — same name, different things"
+    NS_DST="$ns$NS_SEP$n"; return 0
+  fi
+  NS_DST="$n"
+}
+
+lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns>
+  local mode=$1 srcdir=$2 dstdir=$3 ns=$5 t n
   [ -d "$srcdir" ] || return 0
   mkdir -p "$dstdir"
   for t in "$srcdir"/*$4; do
     [ -e "$t" ] || continue
     n=$(basename "$t")
-    case "$n" in .*|__pycache__) continue ;; esac
-    place_one "$mode" "$t" "$dstdir/$n" && LAID=$((LAID+1))
+    case "$n" in .*|__pycache__|*"$NS_SEP"*) continue ;; esac
+    # Namespacing only applies where kauk LINKS. In copy mode the destination is a
+    # real file because kauk put it there, and must not be mistaken for the user's.
+    if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns"; fi
+    place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
   done
 }
 
-lay_claude() { # lay_claude <root> <src> <mode>
-  local root=$1 src=$2 mode=$3
-  lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""
-  lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md"
-  lay_kind "$mode" "$src/hooks"  "$root/.claude/hooks"  ""
-  lay_kind "$mode" "$src/tools"  "$root/.claude/tools"  ""
+lay_claude() { # lay_claude <root> <src> <mode> <pkgns>
+  local root=$1 src=$2 mode=$3 ns=$4
+  NS_SEP=":"                                # Claude Code's own namespace syntax
+  lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""    "$ns"
+  lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md" "$ns"
+  lay_kind "$mode" "$src/hooks"  "$root/.claude/hooks"  ""    "$ns"
+  lay_kind "$mode" "$src/tools"  "$root/.claude/tools"  ""    "$ns"
 }
 
 lay_files() { # files/<path> -> <root>/<path>, verbatim (Decision-015)
@@ -177,11 +205,17 @@ lay_files() { # files/<path> -> <root>/<path>, verbatim (Decision-015)
   done < <(cd "$src/files" && find . -type f 2>/dev/null | sed 's|^\./||')
 }
 
+pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
+  local src=$1 id=$2 n; n=$(pkg_field "$src" name)
+  echo "${n:-${id##*/}}"
+}
+
 lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys real files)
-  local root=$1 id=$2 src mode rt runtimes
+  local root=$1 id=$2 src mode rt runtimes ns
   src=$(source_tree "$root" "$id")
   is_package "$src" || { say "$id: no package contents — nothing to lay"; return 0; }
   mode=$(publish_mode "$root" "$id")
+  ns=$(pkg_namespace "$src" "$id")
 
   runtimes=$(detect_runtimes "$root")
   if [ -z "$runtimes" ]; then
@@ -193,7 +227,7 @@ lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys r
   LAID=0
   for rt in $runtimes; do
     case "$rt" in
-      claude) lay_claude "$root" "$src" "$mode" ;;
+      claude) lay_claude "$root" "$src" "$mode" "$ns" ;;
       *)      say "  WARN $id: no renderer for runtime '$rt'" ;;
     esac
   done

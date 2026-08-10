@@ -104,6 +104,22 @@ check "resolve offers assist, no run"  'grep -q -- "--assist" "$TMP/out8" && ! g
 ( cd "$CON" && "$KAUK" resolve ) >"$TMP/out9" 2>&1 || true
 check "resolve is quiet when clean"    'grep -qi "nothing to resolve" "$TMP/out9"'
 
+echo "== a name collision is namespaced, not merged =="
+CON4="$TMP/consumer4"
+git_init "$CON4"; mkdir -p "$CON4/.claude/skills/alpha"
+printf -- '---\nname: alpha\n---\nMY OWN alpha\n' > "$CON4/.claude/skills/alpha/SKILL.md"
+commit_all "$CON4"
+( cd "$CON4" && "$KAUK" install test/pkg "$PKG" ) >"$TMP/outA" 2>&1 || true
+check "user's version kept as local:"  'grep -q "MY OWN" "$CON4/.claude/skills/local:alpha/SKILL.md"'
+check "package version namespaced"     '[ -L "$CON4/.claude/skills/pkg:alpha" ]'
+check "package content is the package" 'grep -q "^body" "$CON4/.claude/skills/pkg:alpha/SKILL.md"'
+check "bare name no longer occupied"   '[ ! -e "$CON4/.claude/skills/alpha" ]'
+check "namespacing is announced"       'grep -qi "namespaced" "$TMP/outA"'
+check "non-colliding skill unchanged"  '[ -L "$CON4/.claude/agents/beta.md" ]'
+( cd "$CON4" && "$KAUK" sync ) >"$TMP/outB" 2>&1 || true
+check "namespacing is idempotent"      '[ ! -e "$CON4/.claude/skills/alpha" ] && [ -L "$CON4/.claude/skills/pkg:alpha" ]'
+check "local version survives sync"    'grep -q "MY OWN" "$CON4/.claude/skills/local:alpha/SKILL.md"'
+
 echo "== no runtime detected: nothing is laid =="
 CON3="$TMP/consumer3"
 git_init "$CON3"

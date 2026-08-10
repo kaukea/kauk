@@ -690,3 +690,32 @@ also adopted a consumer's local skill upstream into the package. Both are remove
 NOT affected, and deliberate (operator, same session): the `sync` pull-rebase-push
 cycle. Write access to a repository means you are allowed to push to it, so committing
 a consumer's edits to a linked file back to its source is on purpose, not a defect.
+
+## [2026-08-10 14:55 CEST] Decision-042: Name collisions are NAMESPACED, not merged
+#conflicts #namespaces #collision #skills #agents #tools #user-control
+
+Operator ruling, superseding the merge half of Decision-041.
+
+Two problems make merging the wrong answer. kauk does not know whether the user has
+the right to push anywhere, and — more fundamentally — if a package ships a skill and
+the consumer already has one of the same name, the odds that they are even about the
+same thing are low. Merging assumes an equivalence that is usually false.
+
+So a name collision is resolved by NAMESPACE, not by merge. Both artifacts are kept:
+
+- the user's becomes `local<sep><name>`
+- the package's becomes `<package><sep><name>`
+
+If the user dislikes the result they merge them or rename one. kauk decides nothing
+and destroys nothing.
+
+**The separator is per runtime.** kauk adopts whatever syntax each agent already uses
+for namespacing rather than imposing one; Claude Code writes `plugin:command`, so the
+Claude renderer uses `:`.
+
+Namespacing applies to the NAMED kinds — skills, agents, tools — where the name is an
+identifier. It cannot apply to `files/`, where the path IS the contract and there is
+no alternative name; that kind keeps report-and-skip and `kauk resolve` (Decision-041).
+
+It also does not apply in copy mode: a self-published package's destination is a real
+file because kauk put it there, and must never be mistaken for the user's own.
