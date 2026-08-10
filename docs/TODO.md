@@ -10,7 +10,8 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · · queued · artifact-model · gh#15` [Survey each runtime's extension points (prompt + code injection) and pick kauk's integration model — likely a Claude plugin](TODO.md.d/extension-point-survey.md) ~runtime-topology
 - `feature · functional · critical · complete · artifact-model ·` [package.toml: a repository declares what it is](TODO.md.d/package-toml.md) ~self-publishing
 - `feature · todo · critical · plan-ready · artifact-model ·` [Hooks become declarative artifacts with a per-runtime transpiler](TODO.md.d/hooks-declarative.md) ⊘runtime-detection ~claude-marketplace
-- `feature · todo · critical · plan-ready · artifact-model ·` [Templates: beginning, end, inline, with a tracked marker](TODO.md.d/templates-spec.md)
+- `feature · todo · critical · plan-ready · ·` [Templates: beginning, end, inline, with a tracked marker](TODO.md.d/templates-spec.md)
+  - `feature · todo · · blocked-on-answers · artifact-model ·` [Generated config headers ship as templates, not hardcoded strings](TODO.md.d/config-headers-as-templates.md) ⊘templates-spec
 - `feature · todo · critical · plan-ready · ·` [`roles:` becomes `categories:`, and agents gain the key](TODO.md.d/categories-rename.md)
   - `feature · todo · critical · plan-ready · resolver ·` [Dependencies: a plain graph that is also an agent's capability boundary](TODO.md.d/dependencies-graph.md) ⊘categories-rename
 

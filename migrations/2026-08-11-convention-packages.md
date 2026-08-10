@@ -32,7 +32,17 @@ for f in AGENTS.shared.md AGENTS.files.md settings.json; do
   fi
 done
 
-# 3. manifest.conf is inert. Remove it if present; nothing reads it.
+# 3. A self-hosting relative link to a file that just moved now dangles. Drop it:
+#    a self-published package lays its own artifacts, so the hand-made link is
+#    redundant as well as broken.
+for l in .claude/settings.json .claude/AGENTS.shared.md .claude/AGENTS.files.md; do
+  if [ -L "$l" ] && [ ! -e "$l" ]; then
+    git rm -q -- "$l" 2>/dev/null || rm -f "$l"
+    echo "removed dangling self-link $l (its target moved into files/)"
+  fi
+done
+
+# 4. manifest.conf is inert. Remove it if present; nothing reads it.
 if [ -e manifest.conf ]; then
   git rm -q -- manifest.conf 2>/dev/null || rm -f manifest.conf
   echo "removed manifest.conf (no longer read)"
@@ -51,6 +61,13 @@ with their own frontmatter (Decision-021) and are handled by the templates featu
 
 - `ls files/` lists every root-level artifact the package delivers.
 - `manifest.conf` does not exist.
+- `find . -xtype l` inside the package finds nothing — no self-hosting link points at
+  a file that moved.
+- Ordering does not matter and was measured: a consumer synced BEFORE this migration
+  keeps working (the package still has the files at its root, so its links resolve),
+  and a consumer syncing AFTER has its links silently repointed at `files/`. There is
+  no window in which a consumer is broken, so the tool and the packages may convert in
+  either order and at any pace.
 - In a consuming repository, `kauk sync` reports a link count greater than zero and
   the moved files resolve: `readlink AGENTS.shared.md` points into
   `.ai/repositories/<owner>/<repo>/files/AGENTS.shared.md`.
