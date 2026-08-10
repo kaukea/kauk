@@ -364,6 +364,19 @@ A package renders to Claude Code as a **plugin**, not as loose files scattered t
 `.claude/` plus edits to the user's `settings.json`. The plugin owns its own wiring, so
 kauk never touches a file the user owns.
 
+The plugin earns its place twice over:
+
+1. **It is the native acquisition path.** Installing a plugin, or adding a marketplace
+   and installing from it, is something a user can ask for in plain language and an
+   agent can carry out end to end. Nobody has to learn kauk's own syntax; the CLI
+   becomes the floor for other runtimes and for CI, not the front door. kauk itself
+   bootstraps the same way, which resolves the chicken-and-egg of needing the kauk
+   skill in order to ask for packages conversationally.
+2. **It is self-contained, so its wiring is regenerated rather than mutated.** Because
+   the whole plugin is generated on the filesystem, adding or removing a hook is a
+   re-render of the plugin — not a surgical edit to a shared `settings.json` whose other
+   tenants have to be reconciled around it. The set of hooks can change freely.
+
 Specifically, kauk renders a **skills-directory plugin**: any folder under a skills
 directory containing `.claude-plugin/plugin.json` is loaded as `<name>@skills-dir` on
 the next session — discovered in place, no marketplace, no install step, and no

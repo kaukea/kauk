@@ -614,3 +614,24 @@ hardcodes where a thing lives today.
 Context for why it is wanted: cross-package needs already exist undeclared — orchids'
 skills reference the `kauk` skill, and `serialseb.voice`'s `voice-setup` was written
 against orchids' grammar.
+
+## [2026-08-10 13:05 CEST] Decision-039: The plugin exists for two reasons — native acquisition, and regenerable wiring
+#claude-code #plugin #hooks #install #natural-language #marketplace #cli
+
+Operator ruling, extending Decision-027. The plugin is not a packaging convenience; it
+earns its place twice:
+
+1. **Native acquisition.** Installing a plugin — or adding a marketplace and installing
+   from it — is something a user asks for in PLAIN LANGUAGE and an agent carries out end
+   to end. Nobody learns kauk's own syntax. The `kai` CLI becomes the floor for other
+   runtimes and for CI, not the front door. kauk itself bootstraps this way, which
+   resolves the chicken-and-egg of needing the kauk skill in order to ask for packages
+   conversationally. At least on Claude; other runtimes have no equivalent yet.
+2. **Regenerable wiring.** Because the whole plugin is GENERATED on the filesystem,
+   adding or removing a hook is a re-render of the plugin, not a surgical edit to a
+   shared `settings.json` whose other tenants must be reconciled around it. The set of
+   hooks can change freely and the wiring simply follows.
+
+Reading recorded pending correction: kauk GENERATES the plugin into the repository, so
+it is project-scoped and travels with a clone; a marketplace is how kauk itself is
+acquired, not how each package lands.
