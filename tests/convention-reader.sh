@@ -90,7 +90,19 @@ printf 'MINE — not kauk\n' > "$CON2/AGENTS.shared.md"
 commit_all "$CON2"
 ( cd "$CON2" && "$KAUK" install test/pkg "$PKG" ) >"$TMP/out5" 2>&1 || true
 check "user file not replaced"         'grep -q "MINE" "$CON2/AGENTS.shared.md"'
-check "conflict reported"              'grep -qi "blocked\|uncommitted" "$TMP/out5"'
+check "conflict reported"              'grep -qi "blocked" "$TMP/out5"'
+check "user invited to decide"         'grep -q "kauk resolve" "$TMP/out5"'
+# NEVER auto-dispatch an agent: an install must not start a Claude session.
+check "no agent dispatched on install" '! grep -qi "dispatching\|claude -p" "$TMP/out5"'
+
+echo "== resolve lists conflicts and decides nothing =="
+( cd "$CON2" && "$KAUK" resolve ) >"$TMP/out8" 2>&1 || true
+check "resolve lists the conflict"     'grep -q "AGENTS.shared.md" "$TMP/out8"'
+check "resolve shows both versions"    'grep -q "yours:" "$TMP/out8" && grep -q "package:" "$TMP/out8"'
+check "resolve changes nothing"        'grep -q "MINE" "$CON2/AGENTS.shared.md"'
+check "resolve offers assist, no run"  'grep -q -- "--assist" "$TMP/out8" && ! grep -qi "attempting an assisted" "$TMP/out8"'
+( cd "$CON" && "$KAUK" resolve ) >"$TMP/out9" 2>&1 || true
+check "resolve is quiet when clean"    'grep -qi "nothing to resolve" "$TMP/out9"'
 
 echo "== no runtime detected: nothing is laid =="
 CON3="$TMP/consumer3"

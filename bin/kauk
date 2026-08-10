@@ -7,6 +7,8 @@
 #   kauk init                               bootstrap THIS repo (no data source)
 #   kauk install <owner>/<repo> [<origin>]  vendor + lay a data package
 #   kauk sync [--status]                    converge every installed source
+#   kauk resolve [--assist]                 list destinations kauk refused to touch;
+#                                           --assist asks Claude to attempt a merge
 #
 # Sources are recorded in .ai.toml ([sources."<owner>/<repo>"] origin = "URL|path");
 # each is cloned at .ai/repositories/<owner>/<repo>/ (gitignored) — EXCEPT a source
@@ -199,6 +201,8 @@ lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys r
   say "$mode: $LAID laid/verified ($id) [$(echo "$runtimes" | tr '\n' ' ')]"
 }
 
+CONFLICTS=""
+
 link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
   local target=$1 link=$2
   [ -e "$target" ] || { say "  SKIP $link (target missing in package)"; return 1; }
@@ -207,8 +211,24 @@ link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
     return 0
   fi
   # Report and skip: a destination the user owns is never overwritten (Decision-016).
-  [ -e "$link" ] && { say "  BLOCKED $link (real file present — kauk did not place it, so kauk will not replace it)"; return 1; }
+  # kauk cannot tell the user's intent from anyone else's, so it decides nothing here.
+  if [ -e "$link" ]; then
+    say "  BLOCKED $link (a real file is already there — kauk did not place it, so kauk will not touch it)"
+    CONFLICTS="$CONFLICTS$link|$target"$'\n'
+    return 1
+  fi
   ln -s "$target" "$link"
+}
+
+report_conflicts() { # invite the user to decide — never decide for them (Decision-041)
+  [ -n "$CONFLICTS" ] || return 0
+  local n; n=$(printf '%s' "$CONFLICTS" | grep -c . || true)
+  say ""
+  say "$n destination(s) already hold a file kauk did not place. Nothing was changed."
+  say "kauk cannot tell which version you intended, so it will not choose. You can:"
+  say "  kauk resolve            list them with the package version alongside"
+  say "  kauk resolve --assist   ask Claude to attempt a merge, under the usual gates"
+  say "  (or merge them yourself — that is always the fallback)"
 }
 
 copy_one() { # copy_one <src> <dst> — self-published packages copy into their own repo
@@ -310,6 +330,48 @@ cmd_install() {
   lay_source "$root" "$id"
   prune_links "$root"
   say "install: $id done"
+  report_conflicts
+}
+
+# ---------- resolve ----------
+# The manual-resolution point. kauk never reaches it on its own: the user asks.
+collect_conflicts() { # collect_conflicts <root> — re-run layout to populate CONFLICTS
+  local root=$1 id origin
+  CONFLICTS=""
+  while read -r id origin; do
+    [ -n "$id" ] || continue
+    lay_source "$root" "$id" >/dev/null
+  done < <(sources_list "$root")
+}
+
+cmd_resolve() {
+  local root; root=$(repo_root)
+  local assist=0
+  [ "${1:-}" = "--assist" ] && assist=1
+  collect_conflicts "$root"
+  [ -n "$CONFLICTS" ] || { say "resolve: nothing to resolve — no destination holds a file kauk did not place"; return 0; }
+
+  local link target list=""
+  while IFS='|' read -r link target; do
+    [ -n "$link" ] || continue
+    say "  ${link#"$root"/}"
+    say "      yours:   $link"
+    say "      package: $target"
+    list="$list ${link#"$root"/}"
+  done < <(printf '%s' "$CONFLICTS")
+
+  if [ $assist = 0 ]; then
+    say ""
+    say "Merge them yourself, or run 'kauk resolve --assist' to have Claude attempt it."
+    return 0
+  fi
+
+  command -v claude >/dev/null 2>&1 || die "claude is not on PATH — merge these yourself"
+  say ""
+  say "Attempting an assisted merge for:$list"
+  say "It follows the normal gates: it proposes, you approve, nothing is committed."
+  claude -p "You are in the git repository $root. These paths each hold a file the user owns, and a package wants to provide its own version at the same path:$list. For EACH: read the user's file, read the package version (the path is printed above as 'package:'), and judge whether a SIMPLE, unambiguous merge exists — one that loses nothing the user wrote. If it does, show the proposed result and explain it. If it does not, say so plainly and stop: the user resolves it themselves. Change nothing on disk. Commit nothing." --output-format text \
+    || say "assisted merge did not complete — resolve these yourself"
 }
 
 # ---------- sync ----------
@@ -377,6 +439,7 @@ cmd_sync() {
     if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id"; fi
   done < <({ echo "$list" | grep -v "^$SELF_REPO " || true; echo "$list" | grep "^$SELF_REPO " || true; })
   prune_links "$root"
+  report_conflicts
 }
 
 main() {
@@ -384,7 +447,8 @@ main() {
     init)    shift; cmd_init "$@" ;;
     install) shift; cmd_install "$@" ;;
     sync)    shift; cmd_sync "$@" ;;
-    *) die "usage: kauk init | install <owner>/<repo> [<origin>] | sync [--status]" ;;
+    resolve) shift; cmd_resolve "$@" ;;
+    *) die "usage: kauk init | install <owner>/<repo> [<origin>] | sync [--status] | resolve [--assist]" ;;
   esac
 }
 main "$@"

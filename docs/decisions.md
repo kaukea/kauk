@@ -663,3 +663,30 @@ the only place the link-or-copy question survives on the Claude path.
 **The link system does not go away.** Other runtimes have no plugin mechanism and may
 never have one; link-based delivery remains for them. The plugin is the clean path
 WHERE SUPPORTED, not a replacement for the model.
+
+## [2026-08-10 14:30 CEST] Decision-041: kauk never decides a conflict; the user is offered an assisted merge
+#conflicts #merge #user-control #resolve #agents #report-and-skip
+
+Operator ruling. The user is in control and makes the decisions.
+
+kauk cannot tell the difference between a change the user intended and a change
+somebody else made, and an agent has no more background to judge it than kauk does.
+A destination that already holds a file kauk did not place is therefore a MANUAL
+RESOLUTION POINT: nothing is deleted, nothing is merged, nothing is dispatched.
+
+At that point the user is OFFERED, never given, an assisted path:
+
+- `kauk resolve` lists each conflict with the user's file and the package's version
+  side by side, and changes nothing.
+- `kauk resolve --assist` asks Claude to attempt the merge, under the normal gates —
+  it proposes, the user approves, nothing is written or committed. If no simple,
+  unambiguous merge exists that loses nothing the user wrote, it says so and stops.
+- Resolving it by hand is always the fallback, and is never worse than the offer.
+
+Context: the previous behaviour DELETED the user's divergent file and then dispatched
+a headless `claude -p` session automatically, as a side effect of `kauk install`. It
+also adopted a consumer's local skill upstream into the package. Both are removed.
+
+NOT affected, and deliberate (operator, same session): the `sync` pull-rebase-push
+cycle. Write access to a repository means you are allowed to push to it, so committing
+a consumer's edits to a linked file back to its source is on purpose, not a defect.
