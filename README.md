@@ -18,11 +18,20 @@ hoard. See `ARCHITECTURE.md`.
 
 ## Layout
 
+- `bin/kauk` — the bash stopgap that vendors and lays file packages until `0.1.0`:
+  `init` / `install <owner>/<repo>` / `sync` / `resolve`.
+- `docs/package-format.md` — **what a package is.** A package is a repository of files
+  that knows nothing about kauk: its contents are the convention directories
+  `skills/ agents/ hooks/ tools/ files/`, and anything outside them is ignored. There is
+  no manifest to write.
+- `package.toml` — declares that a repository *is* a package (name, title, description).
 - `namespace-reservation/` — the PyPI + npm placeholder packages that reserve the `kauk`
   name. Publish steps in `namespace-reservation/UPLOAD.md`.
 - `site/` — the `kauk.ai` projection (GitHub Pages / static host); one repo serves all
   `kauk.ai/<pkg>` pages.
 - `docs/` — the board (`TODO.md` + sidecars), `decisions.md`, and `naming.md`.
+- `tests/` — fixture-driven checks; `tests/convention-reader.sh` covers distribution,
+  idempotence, pruning, collisions and self-publishing.
 
 ## Install
 

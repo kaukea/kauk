@@ -6,6 +6,23 @@ _base: (root)_
 
 ### ✨ New features
 
+- 🌳 **kauk reads packages by convention** — `bin/kauk` no longer reads `manifest.conf`.
+  A package's contents are its `skills/ agents/ hooks/ tools/ files/` directories and
+  nothing else; `files/` mirrors to the repository root at its own relative paths.
+  Placement follows runtime detection, which returns a set rather than a winner.
+  Delivery is links everywhere — the `exclude|copy|link|local` resolver, and the
+  template and prefix placement paths, are gone. A destination already holding a real
+  file is reported and skipped; a *name* collision keeps both artifacts under
+  namespaces (`local:<name>` and `<package>:<name>`) instead of merging them, with the
+  separator taken from each runtime's own syntax. New `kauk resolve [--assist]` lists
+  what kauk refused to touch and, only when asked, offers a Claude-assisted merge.
+  A repository that is its own source is no longer vendored into itself: its working
+  tree is the source and it publishes by copy, so its edits are visible without a push
+  — `package.toml` declares that. Verified against live orchids, which has no
+  `manifest.conf`: 76 artifacts land where the previous reader would have laid zero and
+  then pruned every existing link. `tests/convention-reader.sh`, 37 assertions.
+  Migration: `migrations/2026-08-11-convention-packages.md`.
+
 - 📐 `docs/package-format.md` — the package format is specified end to end for the first
   time: a package is a repository of files that knows nothing about kauk, its contents
   determined by convention with no producer-side manifest. Covers the five kinds (agents,

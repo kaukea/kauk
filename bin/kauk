@@ -7,26 +7,29 @@
 #   kauk init                               bootstrap THIS repo (no data source)
 #   kauk install <owner>/<repo> [<origin>]  vendor + lay a data package
 #   kauk sync [--status]                    converge every installed source
+#   kauk resolve [--assist]                 list destinations kauk refused to touch;
+#                                           --assist asks Claude to attempt a merge
 #
 # Sources are recorded in .ai.toml ([sources."<owner>/<repo>"] origin = "URL|path");
-# each is cloned at .ai/repositories/<owner>/<repo>/ (gitignored). A package repo
-# exposes what it distributes in its manifest.conf — typed lines, one per entry:
-#   skill <name> <role>    src=skills/<name>/ dst=.claude/skills/<name>; role-gated,
-#                          delivery tuned per-repo in .ai.toml (exclude|copy|link|local)
-#   link <src> <dst>       absolute symlink into the clone; everyone gets it
-#   template <src> <dst>   install-time copy, <project-name> substituted, then
-#                          project-owned: never overwritten, never sent back
-#   prefix <src> <dst>     block idempotently kept at the head of dst
-#                          (idempotence marker = the first line of src)
-#   option pull-only       code package: consumer edits are never pushed back
+# each is cloned at .ai/repositories/<owner>/<repo>/ (gitignored) — EXCEPT a source
+# that is this repository itself, which is read from its working tree and published
+# by copy instead of being vendored (docs/package-format.md).
 #
-# Per-repo delivery config: .ai.toml [role] sections with skillname =
-# "exclude"|"copy"|"link"|"local" (["*"] for defaults). Missing/empty = all linked:
-#   exclude  not installed
-#   link     symlink into the clone (default; absolute, so git worktrees resolve)
-#   copy     real file; installed if absent, drift reported, never overwritten
-#   local    the repo's own version: never linked over, never sent back to the source —
-#            but canonical updates to it are still announced at sync
+# A package declares nothing about what it ships. Its contents are determined BY
+# CONVENTION and anything outside these directories is ignored:
+#   skills/<name>/     -> .claude/skills/<name>
+#   agents/<name>.md   -> .claude/agents/<name>.md
+#   hooks/<entry>      -> .claude/hooks/<entry>
+#   tools/<entry>      -> .claude/tools/<entry>
+#   files/<path>       -> <repo root>/<path>          verbatim, no transformation
+#
+# Everything is a symlink into the clone (absolute, so git worktrees resolve). A
+# destination that already holds a real file is reported and skipped, never replaced.
+# Where the artifacts land is decided by runtime detection, which yields a SET of
+# runtimes rather than a winner; Claude is one destination, never the destination.
+#
+# package.toml at a repository root declares that it IS a package: name, title,
+# description, and `pull-only = true` for a package whose consumers never push back.
 set -euo pipefail
 
 SELF_REPO="serialseb/kauk"
@@ -38,23 +41,8 @@ repo_root() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git
 clone_of() { echo "$1/.ai/repositories/$2"; }
 
 # ---------- .ai.toml ----------
-resolve_mode() { # resolve_mode <root> <role> <skill> -> exclude|copy|link|local
-  local f="$1/.ai.toml"
-  [ -f "$f" ] || { echo link; return; }
-  awk -v role="$2" -v skill="$3" '
-    /^\[/   { sec=$0; gsub(/[][" \r]/,"",sec); next }
-    /^[^#=]+=/ {
-      key=$1; gsub(/["\r]/,"",key)
-      val=$0; sub(/^[^=]*= */,"",val); gsub(/[" \r]/,"",val)
-      if (sec==role && key==skill) a=val
-      else if (sec=="*" && key==skill) b=val
-      else if (sec==role && key=="*") c=val
-      else if (sec=="*" && key=="*") d=val
-    }
-    END { if(a!="")print a; else if(b!="")print b; else if(c!="")print c; else if(d!="")print d; else print "link" }
-  ' "$f"
-}
-
+# The OPERATOR's file: what this checkout consumes. kauk reads it and never writes
+# delivery markings into it (Decision-023).
 sources_list() { # sources_list <root> -> "<owner>/<repo> <origin>" per line
   local f="$1/.ai.toml"
   [ -f "$f" ] || return 0
@@ -74,11 +62,9 @@ ensure_aitoml() { # create if missing; migrate v1 (canonical = "...") in place
   local root=$1 f="$root/.ai.toml" c
   if [ ! -f "$f" ]; then
     cat > "$f" <<'EOF'
-# managed by kauk — CLI and AGENTS.md driven; do not edit by hand
+# Yours to edit — this file says what this repository consumes.
 # Sources live in [sources."<owner>/<repo>"] tables (origin = "URL or local path");
 # clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
-# Delivery per role: [dev] [infra] [org], or ["*"] for defaults, with
-#   skillname = "exclude" | "copy" | "link" | "local"
 EOF
     say ".ai.toml: created"
     return 0
@@ -99,45 +85,157 @@ register_source() { # register_source <root> <owner>/<repo> <origin> — idempot
   say ".ai.toml: registered source $id"
 }
 
-# ---------- manifest ----------
-manifest() { grep -Ev '^[[:space:]]*(#|$)' "$1/manifest.conf"; }
+# ---------- package identity & convention ----------
+# A package is a repository of files that knows nothing about kauk. Its contents are
+# determined BY CONVENTION — the directories below — and anything outside them is
+# ignored. There is no manifest; the tree is the contract. See docs/package-format.md.
+#
+# TRANSITIONAL: a repository carrying convention directories but no package.toml is
+# still treated as a package, so packages can adopt package.toml on their own schedule.
 
-manifest_role() { manifest "$1" | awk -v s="$2" '$1=="skill" && $2==s {print $3; exit}'; }
+KINDS="skills agents hooks tools files templates"
 
-manifest_has_option() { manifest "$1" | awk -v o="$2" '$1=="option" && $2==o {f=1} END {exit !f}'; }
+pkg_field() { # pkg_field <src> <key> -> value of a bare string key in package.toml
+  sed -n "s/^$2[[:space:]]*=[[:space:]]*\"\(.*\)\"/\1/p" "$1/package.toml" 2>/dev/null | head -1
+}
 
-managed_paths() { # repo-relative paths the package manages (migration guard scope)
-  manifest "$1" | awk '$1=="skill" {print ".claude/skills/" $2} $1=="link" {print $3}' | sort -u
+pkg_flag() { # pkg_flag <src> <key> — true only for an explicit `key = true`
+  grep -Eq "^$2[[:space:]]*=[[:space:]]*true[[:space:]]*$" "$1/package.toml" 2>/dev/null
+}
+
+is_package() { # package.toml, or at least one convention directory
+  local src=$1 d
+  [ -f "$src/package.toml" ] && return 0
+  for d in $KINDS; do [ -d "$src/$d" ] && return 0; done
+  return 1
+}
+
+same_path() { [ -d "$1" ] && [ -d "$2" ] && [ "$(cd "$1" && pwd -P)" = "$(cd "$2" && pwd -P)" ]; }
+
+is_self_source() { # the repository IS this package — never vendored (Decision-037)
+  local root=$1 origin; origin=$(source_origin "$root" "$2")
+  [ -n "$origin" ] && same_path "$origin" "$root"
+}
+
+source_tree() { # where a source's files are read from: its working tree, or its clone
+  if is_self_source "$1" "$2"; then echo "$1"; else clone_of "$1" "$2"; fi
+}
+
+# A self-published package is COPIED back into its own repository and committed;
+# every other package is LINKED (Decision-016/037).
+publish_mode() { if is_self_source "$1" "$2"; then echo copy; else echo link; fi; }
+
+managed_paths() { # repo-relative paths this package manages (migration guard scope)
+  local src=$1 d
+  for d in skills agents hooks tools; do [ -d "$src/$d" ] && printf '.claude/%s\n' "$d"; done
+  [ -d "$src/files" ] && (cd "$src/files" && find . -type f 2>/dev/null | sed 's|^\./||')
+  return 0
+}
+
+# ---------- runtime detection ----------
+# Detection yields a SET, not a winner: every runtime in use is served (Decision-018).
+detect_runtimes() { # detect_runtimes <root> -> one name per line
+  local root=$1
+  { [ -d "$root/.claude" ] || [ -f "$root/CLAUDE.md" ]; } && echo claude
+  return 0
 }
 
 # ---------- layout ----------
-lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys real files)
-  local root=$1 id=$2 clone laid=0 t a b _rest mode
-  clone=$(clone_of "$root" "$id")
-  [ -f "$clone/manifest.conf" ] || { say "$id: no manifest.conf — nothing to lay"; return 0; }
-  while read -r t a b _rest; do
-    case "$t" in
-      skill)
-        mkdir -p "$root/.claude/skills"
-        mode=$(resolve_mode "$root" "$b" "$a")
-        case "$mode" in
-          exclude|local) ;;
-          copy) copy_one "$clone/skills/$a" "$root/.claude/skills/$a" && laid=$((laid+1)) ;;
-          *)    link_one "$clone/skills/$a" "$root/.claude/skills/$a" && laid=$((laid+1)) ;;
-        esac ;;
-      link)
-        mkdir -p "$root/$(dirname "$b")"
-        link_one "$clone/$a" "$root/$b" && laid=$((laid+1)) ;;
-      template)
-        template_one "$root" "$clone/$a" "$root/$b" ;;
-      prefix)
-        prefix_one "$clone/$a" "$root/$b" ;;
-      option) ;;
-      *) say "  WARN $id: unknown manifest entry type '$t'" ;;
-    esac
-  done < <(manifest "$clone")
-  say "links: $laid laid/verified ($id)"
+LAID=0
+
+place_one() { # place_one <mode> <abs-src> <dst>
+  case "$1" in copy) copy_one "$2" "$3" ;; *) link_one "$2" "$3" ;; esac
 }
+
+# A name collision is NOT a conflict to merge: two artifacts sharing a name are
+# almost certainly different things. Both are kept, under namespaces — the user's
+# becomes `local<sep><name>`, the package's `<package><sep><name>` (Decision-042).
+# The user merges or renames them later if they want to; kauk decides nothing.
+#
+# The SEPARATOR is per runtime: kauk adopts whatever syntax each agent already uses
+# for namespacing, rather than imposing one. Claude Code writes `plugin:command`.
+NS_LOCAL="local"
+NS_SEP=":"                                  # set per runtime by its renderer
+NS_DST=""                                   # out-param: never echoed, so notices are free
+
+namespace_for() { # namespace_for <dstdir> <name> <pkgns> — sets NS_DST
+  local dstdir=$1 n=$2 ns=$3
+  # already namespaced by an earlier run: stay namespaced
+  if [ -e "$dstdir/$NS_LOCAL$NS_SEP$n" ]; then NS_DST="$ns$NS_SEP$n"; return 0; fi
+  # a real entry the user owns sits on the bare name: move it aside, keep both
+  if [ -e "$dstdir/$n" ] && [ ! -L "$dstdir/$n" ]; then
+    mv "$dstdir/$n" "$dstdir/$NS_LOCAL$NS_SEP$n"
+    say "  NAMESPACED $NS_LOCAL$NS_SEP$n (yours) and $ns$NS_SEP$n (package) — same name, different things"
+    NS_DST="$ns$NS_SEP$n"; return 0
+  fi
+  NS_DST="$n"
+}
+
+lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns>
+  local mode=$1 srcdir=$2 dstdir=$3 ns=$5 t n
+  [ -d "$srcdir" ] || return 0
+  mkdir -p "$dstdir"
+  for t in "$srcdir"/*$4; do
+    [ -e "$t" ] || continue
+    n=$(basename "$t")
+    case "$n" in .*|__pycache__|*"$NS_SEP"*) continue ;; esac
+    # Namespacing only applies where kauk LINKS. In copy mode the destination is a
+    # real file because kauk put it there, and must not be mistaken for the user's.
+    if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns"; fi
+    place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
+  done
+}
+
+lay_claude() { # lay_claude <root> <src> <mode> <pkgns>
+  local root=$1 src=$2 mode=$3 ns=$4
+  NS_SEP=":"                                # Claude Code's own namespace syntax
+  lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""    "$ns"
+  lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md" "$ns"
+  lay_kind "$mode" "$src/hooks"  "$root/.claude/hooks"  ""    "$ns"
+  lay_kind "$mode" "$src/tools"  "$root/.claude/tools"  ""    "$ns"
+}
+
+lay_files() { # files/<path> -> <root>/<path>, verbatim (Decision-015)
+  local root=$1 src=$2 mode=$3 rel
+  [ -d "$src/files" ] || return 0
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    mkdir -p "$root/$(dirname "$rel")"
+    place_one "$mode" "$src/files/$rel" "$root/$rel" && LAID=$((LAID+1))
+  done < <(cd "$src/files" && find . -type f 2>/dev/null | sed 's|^\./||')
+}
+
+pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
+  local src=$1 id=$2 n; n=$(pkg_field "$src" name)
+  echo "${n:-${id##*/}}"
+}
+
+lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys real files)
+  local root=$1 id=$2 src mode rt runtimes ns
+  src=$(source_tree "$root" "$id")
+  is_package "$src" || { say "$id: no package contents — nothing to lay"; return 0; }
+  mode=$(publish_mode "$root" "$id")
+  ns=$(pkg_namespace "$src" "$id")
+
+  runtimes=$(detect_runtimes "$root")
+  if [ -z "$runtimes" ]; then
+    say "$id: no agent runtime detected here — nothing laid"
+    say "  (a repository is a Claude repository when it has .claude/ or CLAUDE.md)"
+    return 0
+  fi
+
+  LAID=0
+  for rt in $runtimes; do
+    case "$rt" in
+      claude) lay_claude "$root" "$src" "$mode" "$ns" ;;
+      *)      say "  WARN $id: no renderer for runtime '$rt'" ;;
+    esac
+  done
+  lay_files "$root" "$src" "$mode"
+  say "$mode: $LAID laid/verified ($id) [$(echo "$runtimes" | tr '\n' ' ')]"
+}
+
+CONFLICTS=""
 
 link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
   local target=$1 link=$2
@@ -146,38 +244,39 @@ link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
     [ "$(readlink "$link")" = "$target" ] || ln -sfn "$target" "$link"
     return 0
   fi
-  [ -e "$link" ] && { say "  BLOCKED $link (real file present — run 'kauk install' to migrate, or mark it local/copy in .ai.toml)"; return 1; }
+  # Report and skip: a destination the user owns is never overwritten (Decision-016).
+  # kauk cannot tell the user's intent from anyone else's, so it decides nothing here.
+  if [ -e "$link" ]; then
+    say "  BLOCKED $link (a real file is already there — kauk did not place it, so kauk will not touch it)"
+    CONFLICTS="$CONFLICTS$link|$target"$'\n'
+    return 1
+  fi
   ln -s "$target" "$link"
 }
 
-copy_one() { # copy_one <src-dir> <dst-dir> — install if absent; report drift; never overwrite
+report_conflicts() { # invite the user to decide — never decide for them (Decision-041)
+  [ -n "$CONFLICTS" ] || return 0
+  local n; n=$(printf '%s' "$CONFLICTS" | grep -c . || true)
+  say ""
+  say "$n destination(s) already hold a file kauk did not place. Nothing was changed."
+  say "kauk cannot tell which version you intended, so it will not choose. You can:"
+  say "  kauk resolve            list them with the package version alongside"
+  say "  kauk resolve --assist   ask Claude to attempt a merge, under the usual gates"
+  say "  (or merge them yourself — that is always the fallback)"
+}
+
+copy_one() { # copy_one <src> <dst> — self-published packages copy into their own repo
   local src=$1 dst=$2
   [ -e "$src" ] || { say "  SKIP $dst (missing in package)"; return 1; }
-  if [ -L "$dst" ]; then rm "$dst"; fi                     # was linked, now copy mode
-  if [ ! -e "$dst" ]; then cp -r "$src" "$dst"; return 0; fi
-  cmp -s "$src/SKILL.md" "$dst/SKILL.md" || say "  DRIFT $dst (copy mode — differs from package; merge manually or switch to link)"
-}
-
-template_one() { # template_one <root> <src> <dst> — create once, then project-owned
-  local root=$1 src=$2 dst=$3
-  [ -e "$src" ] || { say "  SKIP $dst (template missing in package)"; return 0; }
-  [ -e "$dst" ] && return 0
-  sed "s/<project-name>/$(basename "$root")/" "$src" > "$dst"
-  say "${dst#"$root"/}: created from template (project-owned — fill it in)"
-}
-
-prefix_one() { # prefix_one <src-block> <dst> — marker = first line of src
-  local src=$1 dst=$2 marker tmp
-  [ -e "$src" ] || { say "  SKIP $dst (prefix template missing in package)"; return 0; }
-  marker=$(head -1 "$src")
-  grep -qF "$marker" "$dst" 2>/dev/null && return 0
-  if [ -f "$dst" ]; then
-    tmp=$(mktemp); { cat "$src"; printf '\n'; cat "$dst"; } > "$tmp"; mv "$tmp" "$dst"
-    say "${dst##*/}: prefix added (existing content preserved)"
-  else
-    cat "$src" > "$dst"
-    say "${dst##*/}: created"
+  # Never recurse-delete anything that is not a published destination.
+  case "$dst" in */.claude/*|"$PWD"/*) ;; *) die "refusing to write outside a published destination: $dst" ;; esac
+  [ -L "$dst" ] && rm "$dst"                               # was linked, now self-published
+  if [ -d "$src" ]; then
+    [ -d "$dst" ] && diff -rq "$src" "$dst" >/dev/null 2>&1 && return 0
+    rm -rf "${dst:?}"; cp -r "$src" "$dst"; return 0
   fi
+  cmp -s "$src" "$dst" 2>/dev/null && return 0
+  cp "$src" "$dst"
 }
 
 prune_links() { # remove dead symlinks that point into this repo's .ai/repositories/
@@ -204,6 +303,14 @@ cmd_init() {
   # this script may run from the machine canonical or from any vendored clone;
   # the repo being initialized gets its own self-clone either way
   script_repo=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
+  # kauk's own repository is a self-source: it is never vendored into itself.
+  if same_path "$script_repo" "$root"; then
+    register_source "$root" "$SELF_REPO" "$root"
+    lay_source "$root" "$SELF_REPO"
+    prune_links "$root"
+    say "init: done — this repository is itself the kauk package (self-published)"
+    return 0
+  fi
   self_clone=$(clone_of "$root" "$SELF_REPO")
   local self_origin
   if [ -d "$self_clone/.git" ]; then
@@ -232,95 +339,88 @@ cmd_install() {
 
   ensure_aitoml "$root"
   ensure_gitignore "$root"
-  if [ ! -d "$clone/.git" ]; then
-    mkdir -p "$(dirname "$clone")"
-    git clone --quiet "$origin" "$clone"
-    say "clone: $clone"
-  else
-    say "clone: already present"
-  fi
-  [ -f "$clone/manifest.conf" ] || die "$id has no manifest.conf — not a kauk package"
-  [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
   register_source "$root" "$id" "$origin"
 
-  # Local variants survive ONLY via this repo's git history — refuse to destroy uncommitted ones.
-  local line st p
-  while IFS= read -r line; do
-    [ -n "$line" ] || continue
-    st=${line:0:2}; p=${line:3}
-    case "$st" in *D*) continue ;; esac
-    [ -L "$root/$p" ] && continue
-    if [ -f "$root/$p" ]; then
-      die "uncommitted changes under managed paths ($p) — commit them first (migration preserves local variants via git history)"
+  local src
+  if is_self_source "$root" "$id"; then
+    src="$root"
+    say "self: $id is this repository — not vendored, published from the working tree"
+  else
+    if [ ! -d "$clone/.git" ]; then
+      mkdir -p "$(dirname "$clone")"
+      git clone --quiet "$origin" "$clone"
+      say "clone: $clone"
+    else
+      say "clone: already present"
     fi
-  done < <(cd "$root" && git status --porcelain -uall -- $(managed_paths "$clone") 2>/dev/null)
-
-  # migrate real skill dirs: identical -> link · local-only -> adopt · diverged -> AI merge
-  # exclude/local/copy modes are repo-owned or unmanaged: never migrated, never sent back.
-  local pullonly=0 adopted=0 diverged=0 skill role mode src dst DIVERGED_LIST=""
-  manifest_has_option "$clone" pull-only && pullonly=1
-  if [ -d "$root/.claude/skills" ]; then
-    for dst in "$root"/.claude/skills/*/; do
-      [ -d "$dst" ] && [ ! -L "${dst%/}" ] || continue
-      skill=$(basename "$dst"); src="$clone/skills/$skill"
-      role=$(manifest_role "$clone" "$skill"); role=${role:--}
-      mode=$(resolve_mode "$root" "$role" "$skill")
-      case "$mode" in exclude|local|copy) continue ;; esac
-      if [ ! -e "$src/SKILL.md" ]; then
-        if [ -e "$dst/SKILL.md" ] && [ $pullonly = 0 ]; then      # local-only -> adopt into the package
-          mkdir -p "$src"; cp "$dst/SKILL.md" "$src/SKILL.md"
-          grep -q "^skill $skill " "$clone/manifest.conf" || printf 'skill %s dev\n' "$skill" >> "$clone/manifest.conf"
-          git -C "$clone" add -A
-          git -C "$clone" commit --quiet -m "📥 install: adopt $skill from $(basename "$root")"
-          adopted=$((adopted+1))
-        else
-          say "  SKIP $skill (not in this package)"; continue
-        fi
-      elif ! cmp -s "$dst/SKILL.md" "$src/SKILL.md"; then
-        diverged=$((diverged+1)); DIVERGED_LIST="$DIVERGED_LIST .claude/skills/$skill/SKILL.md"
-      fi
-      rm -rf "${dst%/}"                                       # byte-matched, adopted, or in git history for the merge
-    done
+    src="$clone"
+    [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
   fi
-  # migrate real files at declared link destinations
-  local t a b _rest
-  while read -r t a b _rest; do
-    [ "$t" = link ] || continue
-    if [ -f "$root/$b" ] && [ ! -L "$root/$b" ]; then
-      if cmp -s "$root/$b" "$clone/$a"; then rm "$root/$b"
-      else rm "$root/$b"; diverged=$((diverged+1)); DIVERGED_LIST="$DIVERGED_LIST $b"; fi
-    fi
-  done < <(manifest "$clone")
-  [ $adopted -gt 0 ] && git -C "$clone" push --quiet origin HEAD
+  is_package "$src" || die "$id has no package contents — not a kauk package (expects any of: $KINDS)"
 
+  # A destination the user owns is REPORTED AND SKIPPED — never deleted, never merged
+  # on their behalf, and nothing is dispatched to resolve it (Decision-016). Installing
+  # does not write to the package either: kauk never adopts a consumer's file upstream.
   lay_source "$root" "$id"
   prune_links "$root"
+  say "install: $id done"
+  report_conflicts
+}
 
-  say "install: $id done — adopted $adopted local skill(s), $diverged diverged file(s)"
-  if [ $diverged -gt 0 ]; then
-    local kauk_sync="$root/.ai/repositories/$SELF_REPO/bin/kauk"
-    say "MERGE REQUIRED (AI-driven) for:$DIVERGED_LIST"
-    say "The local variant is preserved in this repo's git history — read it with"
-    say "  git show HEAD:<path>"
-    say "and intelligently merge it (union of rules, reconciled prose) directly into the"
-    say "package file at the same path (now a symlink — Edit/Write follow symlinks fine),"
-    say "then run: kauk sync"
-    if command -v claude >/dev/null 2>&1; then
-      say ""
-      say "claude detected — dispatching the merge headless; its response follows:"
-      claude -p "You are in the git repository $root. 'kauk install' migrated it and left these diverged files:$DIVERGED_LIST. For EACH file: read the pre-migration local variant with 'git show HEAD:<path>', read the package version at <path> (a symlink — your Edit/Write tools follow symlinks), and intelligently merge them: union of rules, reconciled prose, nothing local lost. Write the result through the symlink. When all are merged, run '$kauk_sync sync'. Touch nothing else; commit nothing." --output-format text \
-        || say "claude run failed — merge manually per the instructions above"
-    fi
+# ---------- resolve ----------
+# The manual-resolution point. kauk never reaches it on its own: the user asks.
+collect_conflicts() { # collect_conflicts <root> — re-run layout to populate CONFLICTS
+  local root=$1 id origin
+  CONFLICTS=""
+  while read -r id origin; do
+    [ -n "$id" ] || continue
+    lay_source "$root" "$id" >/dev/null
+  done < <(sources_list "$root")
+}
+
+cmd_resolve() {
+  local root; root=$(repo_root)
+  local assist=0
+  [ "${1:-}" = "--assist" ] && assist=1
+  collect_conflicts "$root"
+  [ -n "$CONFLICTS" ] || { say "resolve: nothing to resolve — no destination holds a file kauk did not place"; return 0; }
+
+  local link target list=""
+  while IFS='|' read -r link target; do
+    [ -n "$link" ] || continue
+    say "  ${link#"$root"/}"
+    say "      yours:   $link"
+    say "      package: $target"
+    list="$list ${link#"$root"/}"
+  done < <(printf '%s' "$CONFLICTS")
+
+  if [ $assist = 0 ]; then
+    say ""
+    say "Merge them yourself, or run 'kauk resolve --assist' to have Claude attempt it."
+    return 0
   fi
+
+  command -v claude >/dev/null 2>&1 || die "claude is not on PATH — merge these yourself"
+  say ""
+  say "Attempting an assisted merge for:$list"
+  say "It follows the normal gates: it proposes, you approve, nothing is committed."
+  claude -p "You are in the git repository $root. These paths each hold a file the user owns, and a package wants to provide its own version at the same path:$list. For EACH: read the user's file, read the package version (the path is printed above as 'package:'), and judge whether a SIMPLE, unambiguous merge exists — one that loses nothing the user wrote. If it does, show the proposed result and explain it. If it does not, say so plainly and stop: the user resolves it themselves. Change nothing on disk. Commit nothing." --output-format text \
+    || say "assisted merge did not complete — resolve these yourself"
 }
 
 # ---------- sync ----------
 sync_source() { # sync_source <root> <owner>/<repo>
-  local root=$1 id=$2 clone pre skill role mode
+  local root=$1 id=$2 clone
+  # A self-published package is never vendored: publish straight from the working tree.
+  if is_self_source "$root" "$id"; then
+    lay_source "$root" "$id"
+    say "sync: $id (self-published from the working tree — not vendored)"
+    return 0
+  fi
   clone=$(clone_of "$root" "$id")
   [ -d "$clone/.git" ] || { say "$id: no clone — run 'kauk install $id' first"; return 0; }
 
-  if manifest_has_option "$clone" pull-only; then
+  if pkg_flag "$clone" pull-only; then
     if [ -n "$(git -C "$clone" status --porcelain)" ]; then
       say "$id: pull-only package has local edits — never pushed back; resolve manually (pull skipped)"
     else
@@ -336,7 +436,6 @@ sync_source() { # sync_source <root> <owner>/<repo>
     git -C "$clone" commit --quiet -m "🔁 sync: local edits from $(basename "$root")"
     say "$id: committed local edits"
   fi
-  pre=$(git -C "$clone" rev-parse HEAD)
   if ! git -C "$clone" pull --rebase --quiet origin main; then
     say "CONFLICT — $id and this repo edited the same skill."
     say "Resolve in $clone (skills change rarely, are added often — a union merge is usually right),"
@@ -344,15 +443,6 @@ sync_source() { # sync_source <root> <owner>/<repo>
     exit 1
   fi
   git -C "$clone" push --quiet origin main
-
-  # local/copy-mode skills: updates are announced, never applied
-  for skill in $(git -C "$clone" diff --name-only "$pre"..HEAD -- skills/ 2>/dev/null | cut -d/ -f2 | sort -u); do
-    role=$(manifest_role "$clone" "$skill"); role=${role:--}
-    mode=$(resolve_mode "$root" "$role" "$skill")
-    case "$mode" in
-      local|copy) say "UPDATE available: $skill (package moved; $mode mode — merge manually if wanted)" ;;
-    esac
-  done
 
   lay_source "$root" "$id"
   say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — in step with its source)"
@@ -383,6 +473,7 @@ cmd_sync() {
     if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id"; fi
   done < <({ echo "$list" | grep -v "^$SELF_REPO " || true; echo "$list" | grep "^$SELF_REPO " || true; })
   prune_links "$root"
+  report_conflicts
 }
 
 main() {
@@ -390,7 +481,8 @@ main() {
     init)    shift; cmd_init "$@" ;;
     install) shift; cmd_install "$@" ;;
     sync)    shift; cmd_sync "$@" ;;
-    *) die "usage: kauk init | install <owner>/<repo> [<origin>] | sync [--status]" ;;
+    resolve) shift; cmd_resolve "$@" ;;
+    *) die "usage: kauk init | install <owner>/<repo> [<origin>] | sync [--status] | resolve [--assist]" ;;
   esac
 }
 main "$@"

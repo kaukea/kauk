@@ -1,0 +1,8 @@
+# This repository is a kauk package. See docs/package-format.md.
+name = "kauk"
+title = "KAUK"
+description = "The package manager for the artifacts agents are made of — agents, skills, hooks, tools and files."
+
+# Consumers never push changes to the tool back to it; the tool changes in its own
+# repository only.
+pull-only = true

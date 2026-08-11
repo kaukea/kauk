@@ -663,3 +663,59 @@ the only place the link-or-copy question survives on the Claude path.
 **The link system does not go away.** Other runtimes have no plugin mechanism and may
 never have one; link-based delivery remains for them. The plugin is the clean path
 WHERE SUPPORTED, not a replacement for the model.
+
+## [2026-08-10 14:30 CEST] Decision-041: kauk never decides a conflict; the user is offered an assisted merge
+#conflicts #merge #user-control #resolve #agents #report-and-skip
+
+Operator ruling. The user is in control and makes the decisions.
+
+kauk cannot tell the difference between a change the user intended and a change
+somebody else made, and an agent has no more background to judge it than kauk does.
+A destination that already holds a file kauk did not place is therefore a MANUAL
+RESOLUTION POINT: nothing is deleted, nothing is merged, nothing is dispatched.
+
+At that point the user is OFFERED, never given, an assisted path:
+
+- `kauk resolve` lists each conflict with the user's file and the package's version
+  side by side, and changes nothing.
+- `kauk resolve --assist` asks Claude to attempt the merge, under the normal gates —
+  it proposes, the user approves, nothing is written or committed. If no simple,
+  unambiguous merge exists that loses nothing the user wrote, it says so and stops.
+- Resolving it by hand is always the fallback, and is never worse than the offer.
+
+Context: the previous behaviour DELETED the user's divergent file and then dispatched
+a headless `claude -p` session automatically, as a side effect of `kauk install`. It
+also adopted a consumer's local skill upstream into the package. Both are removed.
+
+NOT affected, and deliberate (operator, same session): the `sync` pull-rebase-push
+cycle. Write access to a repository means you are allowed to push to it, so committing
+a consumer's edits to a linked file back to its source is on purpose, not a defect.
+
+## [2026-08-10 14:55 CEST] Decision-042: Name collisions are NAMESPACED, not merged
+#conflicts #namespaces #collision #skills #agents #tools #user-control
+
+Operator ruling, superseding the merge half of Decision-041.
+
+Two problems make merging the wrong answer. kauk does not know whether the user has
+the right to push anywhere, and — more fundamentally — if a package ships a skill and
+the consumer already has one of the same name, the odds that they are even about the
+same thing are low. Merging assumes an equivalence that is usually false.
+
+So a name collision is resolved by NAMESPACE, not by merge. Both artifacts are kept:
+
+- the user's becomes `local<sep><name>`
+- the package's becomes `<package><sep><name>`
+
+If the user dislikes the result they merge them or rename one. kauk decides nothing
+and destroys nothing.
+
+**The separator is per runtime.** kauk adopts whatever syntax each agent already uses
+for namespacing rather than imposing one; Claude Code writes `plugin:command`, so the
+Claude renderer uses `:`.
+
+Namespacing applies to the NAMED kinds — skills, agents, tools — where the name is an
+identifier. It cannot apply to `files/`, where the path IS the contract and there is
+no alternative name; that kind keeps report-and-skip and `kauk resolve` (Decision-041).
+
+It also does not apply in copy mode: a self-published package's destination is a real
+file because kauk put it there, and must never be mistaken for the user's own.
