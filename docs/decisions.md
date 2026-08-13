@@ -768,3 +768,15 @@ the authoring agent happened to write it, mid-branch.
 
 Authoring is unchanged (same branch as the structural change, Decision-022's
 order still holds); only the date-stamping moment moves.
+
+## [2026-08-13 22:12 CEST] Decision-045: Links remain the path until the hooks+templates transpiler exists; tree and dependencies are the work
+#delivery #links #plugin #marketplace #transpiler #hooks #templates #categories #dependencies #cross-package #sequencing
+
+Operator ruling. The switch to the Claude plugin / local-marketplace rendering
+(Decision-040) is DEFERRED until the transpiler for hooks and templates is
+complete — no partial plugin cut before it. Until then kauk stays on the
+link-based delivery path.
+
+The work that starts now, on this path, named by the operator as the massive
+part worth starting first: the category tree, the dependencies between agents
+and skills, and dependencies across repositories.
