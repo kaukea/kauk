@@ -719,3 +719,29 @@ no alternative name; that kind keeps report-and-skip and `kauk resolve` (Decisio
 
 It also does not apply in copy mode: a self-published package's destination is a real
 file because kauk put it there, and must never be mistaken for the user's own.
+
+## [2026-08-12 14:42 CEST] Decision-043: Upgrade is the operator's act — a committed pin, moved on explicit update
+#sync #update #upgrade #lockfile #pin #mid-session #rename #plugin #notify
+
+Operator ruling, closing the continuous-sync-vs-notify question left open in the
+2026-08-10 spec walk. Responsibility for taking an upgrade moves from the project to
+the operator — matching what the runtimes themselves do (a Claude plugin pins a
+version and refreshes only on an explicit update).
+
+- **Fetch is free, silent, rate-limited, and never applies anything.** `pull` never
+  happens implicitly. Offline is silent.
+- **The lock (Decision-023) is the pin.** Symlinks resolve through a checkout pinned
+  to the locked head. `sync` CONVERGES to the lock — safe at any moment, changes no
+  content unrequested. `update` MOVES the lock — the single operator-owned moment at
+  which content changes, and the moment pending migrations (Decision-022) run.
+- **Mid-session update is allowed.** The operator chooses the moment; the tool does
+  not refuse. Measured runtime behaviour (Claude docs, checked 2026-08-12): skills,
+  agents, and hooks are file-watched and change live; rule files and plugins are
+  session-start-loaded. The sharp edge is a RENAME: dispatch to the old agent name
+  fails while the session's in-context roster still carries it.
+- **At update time the tool warns, it does not repair**: when the delta renames or
+  removes agents/skills and sessions are running, it says so and names them —
+  restarting a session is the operator's call.
+
+Context, not ruling: whether a migration can meaningfully mend a RUNNING session's
+already-loaded state is doubted by the operator and left to be observed in practice.

@@ -8,7 +8,8 @@ None.
 
 ## Questions
 
-_None open — the spec is ruled._
+- Can a migration meaningfully mend a RUNNING session's already-loaded state? The
+  operator doubts it (2026-08-12); observe in practice rather than design for it.
 
 ## Findings
 
@@ -17,6 +18,12 @@ _None open — the spec is ruled._
 ## Proposal
 
 Write a committed lock recording each repository and its resolved head. The only committed file kauk writes; carries the do-not-edit header `.ai.toml` loses (Decision-023).
+
+The lock is also the upgrade pin (Decision-043): symlinks resolve through a checkout
+pinned to the locked head; `sync` converges to the lock and never changes content
+unrequested; `update` moves the lock, runs pending migrations (Decision-022), and
+warns — without repairing — when the delta renames or removes agents/skills while
+sessions are running.
 
 ## Testing
 
