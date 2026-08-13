@@ -1,1 +1,0 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/agents/bus.md

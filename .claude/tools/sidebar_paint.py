@@ -1,0 +1,1 @@
+/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/sidebar_paint.py
