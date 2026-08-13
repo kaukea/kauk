@@ -745,3 +745,26 @@ version and refreshes only on an explicit update).
 
 Context, not ruling: whether a migration can meaningfully mend a RUNNING session's
 already-loaded state is doubted by the operator and left to be observed in practice.
+
+## [2026-08-13 20:19 CEST] Decision-044: The version upgrades at push time, not when an agent authors it
+#migrations #version #date #push #ordering #watermark #plugin #marketplace
+
+Operator ruling. A package's version derives from its highest migration filename
+(`docs/package-format.md` §migrations/), and the marketplace plugin `version`
+field kauk manages gates when consumers take an update. Until now the date on a
+migration file — and therefore the moment the version moved — was whichever day
+the authoring agent happened to write it, mid-branch.
+
+- **The upgrade moment is PUSH time.** A migration's `<YYYY-MM-DD>` is stamped
+  when the change is published — the close's push — not when it was authored.
+  The in-branch file carries a provisional date until then; the publish step
+  finalises it.
+- Ordering follows publication: a migration can never enter the stream dated
+  behind a consumer's already-applied watermark because it was authored early
+  and merged late.
+- The plugin `version` kauk manages moves at the same moment, so every derived
+  version tells the same story: nothing upgrades because an agent wrote a file;
+  things upgrade because the operator's push published it.
+
+Authoring is unchanged (same branch as the structural change, Decision-022's
+order still holds); only the date-stamping moment moves.

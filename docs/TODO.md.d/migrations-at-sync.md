@@ -18,6 +18,10 @@ _None open — the spec is ruled._
 
 Execute at sync time inside kauk; per-repository watermark; order pull → apply → rebase → write; structured wrapper over existing prose, no rewrite (Decision-022).
 
+The migration's filename date — and with it the derived package version and the
+managed plugin `version` — is stamped at push time by the publish step, not at
+authoring time (Decision-044). In-branch the date is provisional.
+
 ## Testing
 
 Two sources with interleaved dates both migrate correctly; re-running is a no-op; a codified step is asserted twice in a fixture.
