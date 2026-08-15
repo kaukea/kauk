@@ -891,3 +891,13 @@ Operator, same day, spelled letter by letter against the transcription:
 workbench's name, not "orchids". The "probably" from Decision-047's context
 note is now firm. Orchids-side vocabulary amendment; the rename rides the
 frontmatter pass with its migration.
+
+## [2026-08-15, third addendum to Decision-048] The category is authoring; agent-behaviour keeps its name
+#categories #naming #authoring #writing #agent-behaviour
+
+Operator, same day, closing the round's last opens: the writing category is
+named **authoring** — what authors do — holding `authoring-skills` and
+`writing-prose`. Rejected: copywriting (too specialised), composing (sounds
+musical), redacting (carries correcting/censoring). And `agent-behaviour`
+KEEPS its name — it already satisfies both the agent-in-the-name and
+two-part rules; the rename question dissolves.
