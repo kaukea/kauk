@@ -780,3 +780,25 @@ link-based delivery path.
 The work that starts now, on this path, named by the operator as the massive
 part worth starting first: the category tree, the dependencies between agents
 and skills, and dependencies across repositories.
+
+## [2026-08-15 10:05 CEST] Decision-046: No enumeration file, ever — artifacts self-declare; links follow selection
+#manifest #enumeration #dependencies #frontmatter #globs #selection #links #package-toml
+
+Operator ruling. A file listing the repository's files, skills, or agents is
+not supposed to exist and will not be validated — reaffirming Decisions
+011/014/015 against the freshly observed resurrection (orchids
+f/delivery-restoring carries a regenerated manifest.conf and a
+tools/manifest_gen.py; that half of the branch is dead on arrival).
+
+- Skills, agents, and the other artifact kinds DECLARE THEIR OWN dependencies
+  in their frontmatter, and their own file lists as GLOBS — enumeration lives
+  with the artifact, never centrally, keeping the repository's TOML tidy.
+- Links into the runtime (.claude/…) are laid only AFTER selection: the
+  operator's per-repo pick plus its dependency closure decides what links,
+  which is what ends the everything-installs-everywhere problem.
+- Populating the declarations is real work: each agent is investigated for
+  the skills it actually requires before its dependencies: block is written.
+
+Context, not ruling: whether the glob file-list lives in each artifact's own
+frontmatter or as a tidy globs section of package.toml awaits the operator's
+word (asked 2026-08-15).
