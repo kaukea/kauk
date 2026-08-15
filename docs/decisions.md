@@ -882,3 +882,12 @@ disengage hands the seat to another model under the same laid link), so a
 model-suffixed variant can never be resolved by a symlink at lay time — if
 model variants ever exist, the runtime resolves them at load. Still out of
 scope this iteration.
+
+## [2026-08-15, second addendum to Decision-048] The node is process/orchard — firm, spelled out
+#categories #naming #orchard #process #rename
+
+Operator, same day, spelled letter by letter against the transcription:
+`process/workflow` renames to `process/orchard` — o-r-c-h-a-r-d, the fleet
+workbench's name, not "orchids". The "probably" from Decision-047's context
+note is now firm. Orchids-side vocabulary amendment; the rename rides the
+frontmatter pass with its migration.
