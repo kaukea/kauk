@@ -32,3 +32,9 @@ selection semantics inherit the ancestors-own-artifacts rule, so root
 artifacts ride every selection. Frontmatter must stay flat-parseable (thin
 .NET, no YAML library). `process/workflow` → `process/orchids` is voiced,
 not firm.
+
+Round closed 2026-08-15 (Decision-048): general = catch-all (047's root
+clause superseded); git → development, authoring-skills → new `writing`
+category; read-agents → enforcing-rules, writing → writing-prose;
+agent-behaviour rename + writing-prose's category still open (non-blocking);
+two-part naming rule; per-target SKILL.<compat>.md variants are FUTURE.

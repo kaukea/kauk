@@ -804,6 +804,7 @@ frontmatter or as a tidy globs section of package.toml awaits the operator's
 word (asked 2026-08-15).
 
 ## [2026-08-15 11:35 CEST] Decision-047: The tree is rooted at general; .ai.toml is defaults-only; the add flow is conversational
+> Amended by Decision-048: the general-as-root clause is superseded (general is the catch-all category, the tree is a flat forest). Every other ruling here stands.
 #categories #tree #general #root #ai-toml #origin #select #paths #cross-package #add-flow #frontmatter #parsing
 
 Operator rulings, one design round (2026-08-15):
@@ -837,3 +838,35 @@ Operator rulings, one design round (2026-08-15):
 Context, not ruling: renaming the node `process/workflow` to `process/orchids`
 was voiced as "probably" — an orchids-side vocabulary amendment with its own
 migration, held until the operator firms it up.
+
+## [2026-08-15 12:20 CEST] Decision-048: general is the catch-all; five skills re-file; names are two-part; size is a measured ceiling
+#categories #general #tree #naming #renames #skills #size #variants #writing #authoring
+
+Operator rulings closing the 2026-08-15 design round; amends Decision-047's
+first clause (general is NOT the root — the tree is a flat forest of
+categories, and `general` is the catch-all for artifacts that fit nowhere:
+a coding-time counter, a token counter).
+
+- **Re-filings and renames** (orchids-side, each rename rides a migration):
+  `git` files under the coding bucket (`development` as the tree stands —
+  whether that node takes the word "coding" is unasked-for detail left
+  as-is); `authoring-skills` files under a NEW `writing` category;
+  `read-agents` renames to `enforcing-rules`; `writing` renames to
+  `writing-prose`. Open, non-blocking: the `agent-behaviour` rename (must
+  carry "agent" in the name; candidates agent-conduct / agent-discipline)
+  and writing-prose's category (writing vs general).
+- **Two-part names are the rule**: every skill name is two parts — what it
+  does to what (board-walking, bloom-tasks, coding-dotnet). A one-word name
+  is a lint error. Folds into the authoring-skills contract.
+- **Skill size is a real failure mode** (operator observation, recorded as a
+  dragon): the bigger the skill, the less likely an agent reads it — it
+  summarises via a subagent or ignores it and imitates seen code. A per-model
+  size ceiling belongs in the authoring contract, but the number is NOT
+  invented (Decision-139): measure which skills get read versus ignored
+  across models first, then set ceilings from data.
+- **FUTURE, designed-for and not built this iteration**: per-target skill
+  variants — `SKILL.md` plus `SKILL.<compatibility>.md` in the same skill
+  directory sharing its scripts, suffix drawn from Decision-020's flat
+  host/model namespace, most-specific match laid per runtime, override never
+  merge. This is also the release valve for the size ceiling (a compact
+  variant for a small model) — recorded so nothing precludes it.
