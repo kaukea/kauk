@@ -54,4 +54,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 ## workflow
 
+- `feature · todo · critical · plan-ready · ·` [Converge the estate: 11 repos to current orchids, forensic skills fall away](TODO.md.d/estate-converge.md) ~lockfile ~migrations-at-sync
+- `feature · todo · · blocked-on-answers · ·` [Register the usage: committed lock + per-repo category selection across the estate](TODO.md.d/usage-register.md) ⊘lockfile ⊘categories-rename ~estate-converge
+- `housekeeping · todo · · queued · ·` [Take over the in-flight branches: Valve, delivery-restoring, kauk's stale f/*](TODO.md.d/takeover-inflight.md) ~estate-converge
 - `housekeeping · todo · · blocked-on-answers · agent-rules · gh#12` [Fix the contradictory commit-trailer rules between the rule files (fix lives in orchids)](TODO.md.d/commit-trailer-conflict.md)

@@ -21,3 +21,9 @@ Cross-artifact needs are undeclared everywhere today.
 ## Testing
 
 Selecting one skill pulls its closure and reports the additions; an agent cannot call an undeclared skill.
+
+The stakes rose (operator, 2026-08-15): the message bus moves to its OWN
+repository, so orchids' agents depending on courier skills/tools becomes the
+live cross-package case — package-level dependencies (Decision-038, build
+authorised by the operator's 2026-08-13 go) are what let the bus repo be a
+dependency instead of a copy. This is the main work of the current push.
