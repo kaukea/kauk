@@ -901,3 +901,23 @@ named **authoring** — what authors do — holding `authoring-skills` and
 musical), redacting (carries correcting/censoring). And `agent-behaviour`
 KEEPS its name — it already satisfies both the agent-in-the-name and
 two-part rules; the rename question dissolves.
+
+## [2026-08-15 13:05 CEST] Decision-049: Writes to sources ride an explicit push verb; the two rounds are set
+#push #sync #sources #cli #kai #rounds #sequencing #deployment
+
+Operator rulings:
+
+- **Reversal on write-back**: sync no longer pushes edited linked files back
+  to their sources — ever. Publishing local edits to a source becomes an
+  EXPLICIT `push` command, symmetric with update: fetch informs, update takes,
+  push gives, sync only converges. Amends the deliberate-push-back clause
+  recorded in Decision-041 and the sync-time write-back of the stopgap.
+- **Round one is kauk's code**: the reader for the new design (defaulted
+  sources, per-source select, closure, lay-after-selection), the pin
+  (lock/update), the push verb, the deployment across the estate, the CLI
+  rename (`kai` command, `kaukea` executable, Decision-026), and the tool's
+  own skill updated to match.
+- **Round two is the content and the move**: the tour of every orchard skill
+  to clean them up (frontmatter pass, renames, sizes), and migrating kauk and
+  orchids to the kaukea organisation — the root repo GitHub allows, since
+  `kauk` itself was refused.
