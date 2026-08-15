@@ -870,3 +870,15 @@ a coding-time counter, a token counter).
   host/model namespace, most-specific match laid per runtime, override never
   merge. This is also the release valve for the size ceiling (a compact
   variant for a small model) — recorded so nothing precludes it.
+
+## [2026-08-15, addendum to Decision-048] Variant shape blessed; the model axis never resolves at lay time
+#variants #skills #model #runtime #links #compatibility
+
+Operator, same day: the in-directory shape is the one — `SKILL.md` beside
+`SKILL.claude.md` in the skill's own directory, cleanest in a text editor,
+scripts shared. And a constraint on the still-FUTURE mechanism: variants are
+laid on the HOST axis only. Models are mutable mid-session (a Fable safety
+disengage hands the seat to another model under the same laid link), so a
+model-suffixed variant can never be resolved by a symlink at lay time — if
+model variants ever exist, the runtime resolves them at load. Still out of
+scope this iteration.
