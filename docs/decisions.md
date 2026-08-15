@@ -802,3 +802,38 @@ tools/manifest_gen.py; that half of the branch is dead on arrival).
 Context, not ruling: whether the glob file-list lives in each artifact's own
 frontmatter or as a tidy globs section of package.toml awaits the operator's
 word (asked 2026-08-15).
+
+## [2026-08-15 11:35 CEST] Decision-047: The tree is rooted at general; .ai.toml is defaults-only; the add flow is conversational
+#categories #tree #general #root #ai-toml #origin #select #paths #cross-package #add-flow #frontmatter #parsing
+
+Operator rulings, one design round (2026-08-15):
+
+- **`general` is the ROOT of the category tree** — process, development,
+  infrastructure, security are its children; otherwise it is not a tree. The
+  general artifacts are the root's own. Consequence, via the standing
+  ancestors-own-artifacts rule: ANY selection brings the root's artifacts
+  along; selecting general itself means importing everything.
+- **`.ai.toml` is defaults-only.** A source is `owner/repo` — resolving to
+  github.com/owner/repo, an `origin =` key on such a source is WRONG — or a
+  full local path. Each source table carries only `select = [...]`,
+  package-relative paths ("process/orchids", "development"): a node takes its
+  subtree plus closure, a leaf takes the artifact plus closure.
+- **Name-rooted paths** (`<package>/<category>/…/<artifact>`) are the
+  cross-package reference grammar, used in artifact frontmatter dependencies —
+  what lets the message bus live in its own repository and be depended on.
+- **Frontmatter stays parser-trivial** for the thin no-class-library .NET CLI:
+  flat inline lists, at most one nesting level; `files:` globs live in the
+  artifact's own frontmatter (package.toml stays identity-only,
+  Decision-036); the tools dependency section exists but is expected mostly
+  empty for agents.
+- **The add flow is conversational, no built UX**: at install the in-session
+  agent, knowing the repository and the work in play, PROPOSES agents and
+  skills; the operator picks; the laying is automatic — the agent driving the
+  CLI today, the plugin machinery on the Claude path once Decision-040's
+  marketplace exists.
+- The tree stays DERIVED — aggregated from artifact declarations under the
+  package's name; no stored central enumeration (Decision-046).
+
+Context, not ruling: renaming the node `process/workflow` to `process/orchids`
+was voiced as "probably" — an orchids-side vocabulary amendment with its own
+migration, held until the operator firms it up.

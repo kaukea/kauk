@@ -27,3 +27,7 @@ repository, so orchids' agents depending on courier skills/tools becomes the
 live cross-package case — package-level dependencies (Decision-038, build
 authorised by the operator's 2026-08-13 go) are what let the bus repo be a
 dependency instead of a copy. This is the main work of the current push.
+
+Reference grammar ruled (Decision-047): bare artifact name within the own
+package; `<package>/<category>/…/<artifact>` across packages. Flat
+`dependencies-*` keys acceptable if the nested map fights the thin parser.

@@ -26,3 +26,9 @@ links everything a package ships, so every consumer pays for every skill.
 ## Testing
 
 A skill and an agent both declare placements and are selectable by category.
+
+Round of 2026-08-15 (Decision-047): the tree is single-rooted at `general`;
+selection semantics inherit the ancestors-own-artifacts rule, so root
+artifacts ride every selection. Frontmatter must stay flat-parseable (thin
+.NET, no YAML library). `process/workflow` → `process/orchids` is voiced,
+not firm.
