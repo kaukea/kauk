@@ -6,6 +6,12 @@ _base: (root)_
 
 ### ✨ New features
 
+- ♻️ **Sync is what sync was; push is deliberate** — `kai sync` pulls with rebase,
+  runs pending migrations, warns when an update removes artifacts, and lays by
+  selection. `--push` is the separate explicit act (pull-only packages refuse it);
+  a source carrying `ref` is left untouched until the versioning work
+  (Decision-051). The updates-available notice moves to a background check.
+
 - ✨ **The reader lays what you select, and nothing else** — `.ai.toml` becomes
   defaults-only: `[sources."owner/repo"]` resolves to GitHub, a full path is local,
   an `origin` key is refused. Each source carries only the operator's `select` list
@@ -77,3 +83,16 @@ push verb's job. Ships `migrations/2026-08-16-defaults-only-aitoml.md`
 converting existing files.
 
 _Board: dependency-graph, categories-rename · Decisions 046–049._
+
+#### ♻️ `f/sync-pin` → `archive/sync-pin`
+
+Sync is what sync was; push is deliberate. `kai sync` pulls with rebase, runs
+pending migrations (advancing the per-package watermark), warns when an
+update removes or renames artifacts, and lays by selection. `--push` is the
+one separate act — rebase, then publish local edits to the source; pull-only
+packages refuse it. A source carrying `ref` — a version, tag, or commit — is
+left entirely untouched until the versioning work exists (Decision-051), and
+the "updates available" notice moves to a background check boarded as
+update-notify.
+
+_Board: lockfile (deferred whole), update-notify · Decisions 049–051._

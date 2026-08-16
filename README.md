@@ -19,7 +19,9 @@ hoard. See `ARCHITECTURE.md`.
 ## Layout
 
 - `bin/kauk` — the bash stopgap that vendors and lays file packages until `0.1.0`:
-  `init` / `install <owner>/<repo> | <path>` / `sync` / `resolve`. `.ai.toml` is
+  `init` / `install <owner>/<repo> | <path>` / `sync [--pull|--push]` / `resolve`.
+  Sync pulls with rebase and lays; `--push` publishes your local edits, explicitly
+  and only then; a source pinned to a `ref` is never touched. `.ai.toml` is
   defaults-only: a source key of `owner/repo` resolves to GitHub, a full path is a
   local working tree, and each source may carry `select = ["<category-path>", …]` —
   without it, everything installs. Sync converges and lays; it never publishes your
