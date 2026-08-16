@@ -32,3 +32,7 @@ Fresh clone plus lock reproduces the same resolved heads; a self-published packa
 Deferred whole (Decision-051, 2026-08-16): head-tracking only until the
 versioning piece — head vs tags, publish story, pins — is worked as one. A
 ref'd source is simply left untouched.
+
+TOML shape for whenever this work runs (operator, 2026-08-16): keyed tables in
+the house pattern — `[repositories."<owner>/<repo>"]` — never the old
+`[[repositories]]` array-of-tables sketch.
