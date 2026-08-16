@@ -921,3 +921,21 @@ Operator rulings:
   to clean them up (frontmatter pass, renames, sizes), and migrating kauk and
   orchids to the kaukea organisation — the root repo GitHub allows, since
   `kauk` itself was refused.
+
+## [2026-08-16 16:40 CEST] Decision-050: sync is manual and notifies; --pull takes, --push gives, rebase is the default
+#sync #pull #push #pin #lock #rebase #cli #notify
+
+Operator ruling, reshaping the verb surface (the semantics of Decision-043
+and 049 stand; the shape changes):
+
+- `kai sync` is MANUAL. Bare sync converges to the pin, lays, and NOTIFIES —
+  "N incoming on <source>" when the followed branch moved, "local edits" when
+  the clone has them. It applies nothing and publishes nothing.
+- `--pull` takes the updates: fetch, REBASE local work onto the followed
+  branch (the default strategy), move the pin, run pending migrations, warn
+  on removals and renames.
+- `--push` gives: rebase onto the followed branch first, then publish the
+  clone's local edits to the source and move the pin.
+- One command, two flags — no separate update or push verbs. Any merge
+  storyline beyond the rebase default is explicitly LATER; a rebase that
+  conflicts stops and reports, nothing degrades.
