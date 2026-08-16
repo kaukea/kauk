@@ -46,7 +46,8 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · functional · critical · complete · cmd-install ·` [A package publishes into its own repository instead of vendoring itself](TODO.md.d/self-publishing.md) ⊘package-toml
 - `feature · todo · critical · plan-ready · cli-core ·` [Migrations run at sync, in order, per repository](TODO.md.d/migrations-at-sync.md)
 - `feature · todo · · plan-ready · cli-core ·` [Provenance: every write outside the clone carries a `:kauk:` nugget](TODO.md.d/provenance-nuggets.md)
-- `feature · todo · · plan-ready · cli-core ·` [A committed lock records each repository and its resolved head](TODO.md.d/lockfile.md)
+- `feature · todo · · blocked-on-answers · cli-core ·` [A committed lock records each repository and its resolved head — deferred whole (D-051)](TODO.md.d/lockfile.md)
+- `feature · todo · · queued · cli-core ·` [Background update check displays when a source moved](TODO.md.d/update-notify.md)
 - `housekeeping · todo · · plan-ready · cli-core ·` [The command becomes `kai`; the executable is `kaukea`](TODO.md.d/cli-rename-kai.md) ~org-move
 - `feature · todo · idea · blocked-on-answers · cmd-install ·` [kauk installs itself alongside the first package](TODO.md.d/bootstrap-with-first-package.md) ~claude-marketplace
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)

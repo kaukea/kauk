@@ -939,3 +939,25 @@ and 049 stand; the shape changes):
 - One command, two flags — no separate update or push verbs. Any merge
   storyline beyond the rebase default is explicitly LATER; a rebase that
   conflicts stops and reports, nothing degrades.
+
+## [2026-08-16 18:20 CEST] Decision-051: Head-tracking only; versions, tags and pins are one deferred piece of work
+#versioning #head #tags #pin #lock #sync #deferred
+
+Operator ruling, from the top. Two models exist: tracking HEAD (no version
+numbers, and publishing local changes needs an explicit publish act), or
+tracking TAGS with version numbers (where pushing changes "on top of a
+version number" is the unsolved weirdness). Choosing between them — and
+everything that follows, locks and pins included — is a whole piece of work,
+and it is DEFERRED in one piece.
+
+Until that work: kauk tracks head, plainly. `kai sync` is what sync always
+was — the manual command that pulls with rebase and lays. `--pull` and
+`--push` narrow it to one direction (push stays explicit, Decision-049). If a
+source references a version, a tag, or a specific commit, kauk does NOT touch
+that clone — it lays what is there and leaves it alone until the versioning
+work exists. The "updates available" notice is a background check displayed
+from time to time, not part of the sync command — boarded as its own task.
+
+No `.ai.lock` exists. Decision-023's lock clause and Decision-043's pin
+mechanics are DEFERRED with the versioning work, not implemented; Decision-050
+is reshaped by this entry (its flag surface stands, its pin does not).

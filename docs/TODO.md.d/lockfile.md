@@ -28,3 +28,7 @@ sessions are running.
 ## Testing
 
 Fresh clone plus lock reproduces the same resolved heads; a self-published package records no head.
+
+Deferred whole (Decision-051, 2026-08-16): head-tracking only until the
+versioning piece — head vs tags, publish story, pins — is worked as one. A
+ref'd source is simply left untouched.
