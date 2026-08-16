@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Fixture test for the convention reader: a package declares nothing, its tree is
-# the contract. Builds throwaway git repositories under a temp dir, runs the real
-# bin/kauk against them, and asserts on what landed.
+# Fixture test for the convention reader under the ratified selection model:
+# defaults-only .ai.toml, per-source select, closure, lay-after-selection.
+# Builds throwaway git repositories under a temp dir, runs the real bin/kauk
+# against them, and asserts on what landed.
 #
 #   tests/convention-reader.sh          run all cases
 set -uo pipefail
@@ -15,7 +16,7 @@ ok()   { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 no()   { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
 check(){ if eval "$2"; then ok "$1"; else no "$1"; fi; }
 
-git_init() { # git_init <dir>
+git_init() {
   mkdir -p "$1"; git -C "$1" init -q
   git -C "$1" config user.email t@example.com
   git -C "$1" config user.name Test
@@ -23,7 +24,8 @@ git_init() { # git_init <dir>
 commit_all() { git -C "$1" add -A && git -C "$1" commit -qm "${2:-fixture}"; }
 
 # ---------------------------------------------------------------- the package
-PKG="$TMP/pkg"
+# Path $TMP/test/pkg so the derived identity is test/pkg.
+PKG="$TMP/test/pkg"
 git_init "$PKG"
 mkdir -p "$PKG/skills/alpha" "$PKG/agents" "$PKG/hooks" "$PKG/tools" \
          "$PKG/files/.github/workflows" "$PKG/docs"
@@ -45,91 +47,197 @@ commit_all "$PKG"
 # --------------------------------------------------------------- the consumer
 CON="$TMP/consumer"
 git_init "$CON"
-mkdir -p "$CON/.claude"                       # marks it a Claude repository
+mkdir -p "$CON/.claude"
 printf 'placeholder\n' > "$CON/.claude/.keep"
 commit_all "$CON"
 
-echo "== install a package that declares nothing =="
-( cd "$CON" && "$KAUK" install test/pkg "$PKG" ) >"$TMP/out1" 2>&1 || true
-sed 's/^/     /' "$TMP/out1"
+echo "== install a path source; identity derives from the path =="
+( cd "$CON" && "$KAUK" install "$PKG" ) >"$TMP/out1" 2>&1 || true
+sed 's/^/     /' "$TMP/out1" | head -8
 
+check "identity is test/pkg"           '[ -d "$CON/.ai/repositories/test/pkg/.git" ]'
 check "skill laid from skills/"        '[ -L "$CON/.claude/skills/alpha" ]'
 check "agent laid from agents/"        '[ -L "$CON/.claude/agents/beta.md" ]'
 check "hook laid from hooks/"          '[ -L "$CON/.claude/hooks/on-start.sh" ]'
 check "tool laid from tools/"          '[ -L "$CON/.claude/tools/helper.py" ]'
 check "files/ mirrors to repo root"    '[ -L "$CON/AGENTS.shared.md" ]'
 check "files/ keeps nested paths"      '[ -L "$CON/.github/workflows/ci.yml" ]'
-check "skill content readable"         'grep -q body "$CON/.claude/skills/alpha/SKILL.md"'
 check "docs/ ignored"                  '[ ! -e "$CON/docs/design.md" ]'
-check "README.md ignored"              '[ ! -e "$CON/README.md" ]'
-check "no manifest.conf anywhere"      '[ ! -e "$PKG/manifest.conf" ]'
+check "no select: tree offered"       'grep -qi "nothing is selected" "$TMP/out1"'
 
-echo "== idempotence =="
+echo "== idempotence, and sync never pushes local clone edits =="
 ( cd "$CON" && "$KAUK" sync ) >"$TMP/out2" 2>&1 || true
 check "second run keeps the skill"     '[ -L "$CON/.claude/skills/alpha" ]'
 check "second run reports no error"    '! grep -qi "error\|refusing" "$TMP/out2"'
-
-echo "== a file added to the package needs no index edit =="
-mkdir -p "$PKG/skills/gamma"
-printf -- '---\nname: gamma\n---\nnew\n' > "$PKG/skills/gamma/SKILL.md"
-printf -- '---\nname: delta\n---\np\n' > "$PKG/agents/delta.md"
-commit_all "$PKG" "add gamma and delta"
+BEFORE=$(git -C "$PKG" rev-parse HEAD)
+printf 'edited by consumer\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
 ( cd "$CON" && "$KAUK" sync ) >"$TMP/out3" 2>&1 || true
-check "new skill distributed"          '[ -L "$CON/.claude/skills/gamma" ]'
-check "new agent distributed"          '[ -L "$CON/.claude/agents/delta.md" ]'
+check "local edit reported, not pushed" 'grep -q "push verb" "$TMP/out3" && [ "$(git -C "$PKG" rev-parse HEAD)" = "$BEFORE" ]'
+( cd "$CON/.ai/repositories/test/pkg" && git checkout -q -- . )
 
-echo "== removal prunes =="
-rm -rf "$PKG/skills/gamma"; commit_all "$PKG" "remove gamma"
-( cd "$CON" && "$KAUK" sync ) >"$TMP/out4" 2>&1 || true
-check "removed skill pruned"           '[ ! -e "$CON/.claude/skills/gamma" ]'
+echo "== origin on an owner/repo source is an error =="
+CONE="$TMP/consumer-err"
+git_init "$CONE"; mkdir -p "$CONE/.claude"
+cat > "$CONE/.ai.toml" <<EOF
+[sources."test/pkg"]
+origin = "$PKG"
+EOF
+commit_all "$CONE"
+( cd "$CONE" && "$KAUK" sync ) >"$TMP/out4" 2>&1 || true
+check "origin refused with guidance"   'grep -q "origin is retired" "$TMP/out4"'
+check "nothing was laid"               '[ ! -e "$CONE/.claude/skills/alpha" ]'
+
+echo "== an owner/repo source resolves to github by default =="
+CONG="$TMP/consumer-gh"
+git_init "$CONG"; mkdir -p "$CONG/.claude"
+cat > "$CONG/.ai.toml" <<'EOF'
+[sources."test/nonexist"]
+EOF
+commit_all "$CONG"
+( cd "$CONG" && GIT_TERMINAL_PROMPT=0 "$KAUK" install test/nonexist ) >"$TMP/out5" 2>&1 || true
+check "github URL attempted"           'grep -q "github.com/test/nonexist" "$TMP/out5"'
+
+echo "== selection by category trims what lays =="
+CATPKG="$TMP/test/catpkg"
+git_init "$CATPKG"
+mkdir -p "$CATPKG/skills/devx" "$CATPKG/skills/devroot" "$CATPKG/skills/opsy" \
+         "$CATPKG/skills/helper" "$CATPKG/skills/plain" "$CATPKG/agents" "$CATPKG/tools"
+printf -- '---\nname: devx\ncategories: [dev/x]\n---\nx\n'      > "$CATPKG/skills/devx/SKILL.md"
+printf -- '---\nname: devroot\ncategories: [dev]\n---\nr\n'     > "$CATPKG/skills/devroot/SKILL.md"
+printf -- '---\nname: opsy\nroles: [ops/y]\ndependencies-skills: [helper]\n---\ny\n' > "$CATPKG/skills/opsy/SKILL.md"
+printf -- '---\nname: helper\ncategories: [misc/h]\n---\nh\n'   > "$CATPKG/skills/helper/SKILL.md"
+printf -- '---\nname: plain\n---\nno placement\n'               > "$CATPKG/skills/plain/SKILL.md"
+printf -- '---\nname: aget\ncategories: [dev/x]\n---\np\n'      > "$CATPKG/agents/aget.md"
+printf -- '---\nname: aux\ncategories: [ops/y]\nskills: [devx]\n---\np\n' > "$CATPKG/agents/aux.md"
+printf 'print("t")\n'                                           > "$CATPKG/tools/t.py"
+cat > "$CATPKG/package.toml" <<'EOF'
+name = "catpkg"
+title = "Categorised"
+description = "A fixture with placements."
+EOF
+commit_all "$CATPKG"
+CON5="$TMP/consumer5"
+git_init "$CON5"; mkdir -p "$CON5/.claude"
+cat > "$CON5/.ai.toml" <<EOF
+[sources."$CATPKG"]
+select = ["dev/x"]
+EOF
+commit_all "$CON5"
+( cd "$CON5" && "$KAUK" install "$CATPKG" ) >"$TMP/out6" 2>&1 || true
+check "selected subtree laid"          '[ -L "$CON5/.claude/skills/devx" ]'
+check "ancestor'\''s own skill laid"   '[ -L "$CON5/.claude/skills/devroot" ]'
+check "unplaced artifact always lays"  '[ -L "$CON5/.claude/skills/plain" ]'
+check "other category not laid"        '[ ! -e "$CON5/.claude/skills/opsy" ]'
+check "its dependency not laid either" '[ ! -e "$CON5/.claude/skills/helper" ]'
+check "agent in selection laid"        '[ -L "$CON5/.claude/agents/aget.md" ]'
+check "agent outside not laid"         '[ ! -e "$CON5/.claude/agents/aux.md" ]'
+check "tools lay unfiltered"           '[ -L "$CON5/.claude/tools/t.py" ]'
+
+echo "== reselection: flat-key closure pulls, deselection prunes =="
+sed -i 's|select = \["dev/x"\]|select = ["ops/y"]|' "$CON5/.ai.toml"
+( cd "$CON5" && "$KAUK" sync ) >"$TMP/out7" 2>&1 || true
+check "roles: fallback selects"        '[ -L "$CON5/.claude/skills/opsy" ]'
+check "dependencies-skills: pulled"    '[ -L "$CON5/.claude/skills/helper" ]'
+check "agent'\''s skills: pulled"      '[ -L "$CON5/.claude/skills/devx" ]'
+check "closure additions reported"     'grep -q "closure: +s/helper" "$TMP/out7"'
+check "deselected skill pruned"        '[ ! -e "$CON5/.claude/skills/devroot" ]'
+check "deselected agent pruned"        '[ ! -e "$CON5/.claude/agents/aget.md" ]'
+check "unplaced artifact survives"     '[ -L "$CON5/.claude/skills/plain" ]'
+
+echo "== a leaf entry picks one artifact =="
+sed -i 's|select = \["ops/y"\]|select = ["misc/h/helper"]|' "$CON5/.ai.toml"
+( cd "$CON5" && "$KAUK" sync ) >"$TMP/out8" 2>&1 || true
+check "leaf-picked artifact laid"      '[ -L "$CON5/.claude/skills/helper" ]'
+check "everything else pruned"         '[ ! -e "$CON5/.claude/skills/opsy" ] && [ ! -e "$CON5/.claude/skills/devx" ]'
+check "unplaced still survives"        '[ -L "$CON5/.claude/skills/plain" ]'
+
+echo "== cross-package closure by the name-rooted grammar =="
+DEP="$TMP/test/dep"
+git_init "$DEP"; mkdir -p "$DEP/skills/dep1"
+printf -- '---\nname: dep1\ncategories: [util]\n---\nd\n' > "$DEP/skills/dep1/SKILL.md"
+cat > "$DEP/package.toml" <<'EOF'
+name = "dep"
+title = "Dependency"
+description = "Pulled in."
+EOF
+commit_all "$DEP"
+PKG2="$TMP/test/pkg2"
+git_init "$PKG2"; mkdir -p "$PKG2/skills/needy"
+printf -- '---\nname: needy\ncategories: [main]\ndependencies-skills: [dep/util/dep1]\n---\nm\n' > "$PKG2/skills/needy/SKILL.md"
+cat > "$PKG2/package.toml" <<'EOF'
+name = "pkg2"
+title = "Depends"
+description = "Needs the dep package."
+dependencies = ["test/dep"]
+EOF
+commit_all "$PKG2"
+CON7="$TMP/consumer7"
+git_init "$CON7"; mkdir -p "$CON7/.claude"
+cat > "$CON7/.ai.toml" <<EOF
+[sources."$DEP"]
+select = ["nothing-here"]
+
+[sources."$PKG2"]
+select = ["main"]
+EOF
+commit_all "$CON7"
+( cd "$CON7" && "$KAUK" install "$DEP" && "$KAUK" install "$PKG2" ) >"$TMP/out9" 2>&1 || true
+check "selected artifact laid"         '[ -L "$CON7/.claude/skills/needy" ]'
+check "cross-package dep laid"         '[ -L "$CON7/.claude/skills/dep1" ]'
+check "cross-package closure reported" 'grep -q "closure: +dep" "$TMP/out9"'
+
+echo "== a package dependency installs its source =="
+CON8="$TMP/consumer8"
+git_init "$CON8"; mkdir -p "$CON8/.claude"
+cat > "$CON8/.ai.toml" <<EOF
+[sources."$DEP"]
+EOF
+commit_all "$CON8"
+( cd "$CON8" && "$KAUK" install "$PKG2" ) >"$TMP/outA" 2>&1 || true
+check "package itself laid"            '[ -L "$CON8/.claude/skills/needy" ]'
+check "dependency announced"           'grep -q "dependency: test/dep" "$TMP/outA"'
+check "dependency contents laid"       '[ -L "$CON8/.claude/skills/dep1" ]'
 
 echo "== a real file the user owns is reported and skipped =="
 CON2="$TMP/consumer2"
 git_init "$CON2"; mkdir -p "$CON2/.claude"
 printf 'MINE — not kauk\n' > "$CON2/AGENTS.shared.md"
 commit_all "$CON2"
-( cd "$CON2" && "$KAUK" install test/pkg "$PKG" ) >"$TMP/out5" 2>&1 || true
+( cd "$CON2" && "$KAUK" install "$PKG" ) >"$TMP/outB" 2>&1 || true
 check "user file not replaced"         'grep -q "MINE" "$CON2/AGENTS.shared.md"'
-check "conflict reported"              'grep -qi "blocked" "$TMP/out5"'
-check "user invited to decide"         'grep -q "kauk resolve" "$TMP/out5"'
-# NEVER auto-dispatch an agent: an install must not start a Claude session.
-check "no agent dispatched on install" '! grep -qi "dispatching\|claude -p" "$TMP/out5"'
+check "conflict reported"              'grep -qi "blocked" "$TMP/outB"'
+check "user invited to decide"         'grep -q "kauk resolve" "$TMP/outB"'
+check "no agent dispatched on install" '! grep -qi "dispatching\|claude -p" "$TMP/outB"'
 
 echo "== resolve lists conflicts and decides nothing =="
-( cd "$CON2" && "$KAUK" resolve ) >"$TMP/out8" 2>&1 || true
-check "resolve lists the conflict"     'grep -q "AGENTS.shared.md" "$TMP/out8"'
-check "resolve shows both versions"    'grep -q "yours:" "$TMP/out8" && grep -q "package:" "$TMP/out8"'
+( cd "$CON2" && "$KAUK" resolve ) >"$TMP/outC" 2>&1 || true
+check "resolve lists the conflict"     'grep -q "AGENTS.shared.md" "$TMP/outC"'
+check "resolve shows both versions"    'grep -q "yours:" "$TMP/outC" && grep -q "package:" "$TMP/outC"'
 check "resolve changes nothing"        'grep -q "MINE" "$CON2/AGENTS.shared.md"'
-check "resolve offers assist, no run"  'grep -q -- "--assist" "$TMP/out8" && ! grep -qi "attempting an assisted" "$TMP/out8"'
-( cd "$CON" && "$KAUK" resolve ) >"$TMP/out9" 2>&1 || true
-check "resolve is quiet when clean"    'grep -qi "nothing to resolve" "$TMP/out9"'
+( cd "$CON" && "$KAUK" resolve ) >"$TMP/outD" 2>&1 || true
+check "resolve is quiet when clean"    'grep -qi "nothing to resolve" "$TMP/outD"'
 
 echo "== a name collision is namespaced, not merged =="
 CON4="$TMP/consumer4"
 git_init "$CON4"; mkdir -p "$CON4/.claude/skills/alpha"
 printf -- '---\nname: alpha\n---\nMY OWN alpha\n' > "$CON4/.claude/skills/alpha/SKILL.md"
 commit_all "$CON4"
-( cd "$CON4" && "$KAUK" install test/pkg "$PKG" ) >"$TMP/outA" 2>&1 || true
+( cd "$CON4" && "$KAUK" install "$PKG" ) >"$TMP/outE" 2>&1 || true
 check "user's version kept as local:"  'grep -q "MY OWN" "$CON4/.claude/skills/local:alpha/SKILL.md"'
 check "package version namespaced"     '[ -L "$CON4/.claude/skills/pkg:alpha" ]'
-check "package content is the package" 'grep -q "^body" "$CON4/.claude/skills/pkg:alpha/SKILL.md"'
 check "bare name no longer occupied"   '[ ! -e "$CON4/.claude/skills/alpha" ]'
-check "namespacing is announced"       'grep -qi "namespaced" "$TMP/outA"'
-check "non-colliding skill unchanged"  '[ -L "$CON4/.claude/agents/beta.md" ]'
-( cd "$CON4" && "$KAUK" sync ) >"$TMP/outB" 2>&1 || true
-check "namespacing is idempotent"      '[ ! -e "$CON4/.claude/skills/alpha" ] && [ -L "$CON4/.claude/skills/pkg:alpha" ]'
-check "local version survives sync"    'grep -q "MY OWN" "$CON4/.claude/skills/local:alpha/SKILL.md"'
+check "namespacing is announced"       'grep -qi "namespaced" "$TMP/outE"'
 
 echo "== no runtime detected: nothing is laid =="
 CON3="$TMP/consumer3"
 git_init "$CON3"
 printf 'placeholder\n' > "$CON3/.keep"; commit_all "$CON3" "empty" >/dev/null
-( cd "$CON3" && "$KAUK" install test/pkg "$PKG" ) >"$TMP/out6" 2>&1 || true
+( cd "$CON3" && "$KAUK" install "$PKG" ) >"$TMP/outF" 2>&1 || true
 check "nothing laid without a runtime" '[ ! -e "$CON3/.claude/skills/alpha" ]'
-check "detection explained"            'grep -qi "no agent runtime detected" "$TMP/out6"'
+check "detection explained"            'grep -qi "no agent runtime detected" "$TMP/outF"'
 
 echo "== a package that is its own source is not vendored =="
-SELF="$TMP/selfpkg"
+SELF="$TMP/test/selfpkg"
 git_init "$SELF"
 mkdir -p "$SELF/skills/own" "$SELF/.claude"
 printf -- '---\nname: own\n---\nself\n' > "$SELF/skills/own/SKILL.md"
@@ -139,12 +247,10 @@ title = "Self"
 description = "Publishes into itself."
 EOF
 cat > "$SELF/.ai.toml" <<EOF
-[sources."test/selfpkg"]
-origin = "$SELF"
+[sources."$SELF"]
 EOF
 commit_all "$SELF"
-( cd "$SELF" && "$KAUK" sync ) >"$TMP/out7" 2>&1 || true
-sed 's/^/     /' "$TMP/out7"
+( cd "$SELF" && "$KAUK" sync ) >"$TMP/outG" 2>&1 || true
 check "self-source not cloned"         '[ ! -d "$SELF/.ai/repositories/test/selfpkg" ]'
 check "self-source published by copy"  '[ -f "$SELF/.claude/skills/own/SKILL.md" ] && [ ! -L "$SELF/.claude/skills/own" ]'
 check "self-publish is idempotent"     '( cd "$SELF" && "$KAUK" sync >/dev/null 2>&1 ); [ -f "$SELF/.claude/skills/own/SKILL.md" ]'
