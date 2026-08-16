@@ -13,7 +13,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · critical · plan-ready · ·` [Templates: beginning, end, inline, with a tracked marker](TODO.md.d/templates-spec.md)
   - `feature · todo · · blocked-on-answers · artifact-model ·` [Generated config headers ship as templates, not hardcoded strings](TODO.md.d/config-headers-as-templates.md) ⊘templates-spec
 - `feature · todo · critical · plan-ready · ·` [`roles:` becomes `categories:`, and agents gain the key](TODO.md.d/categories-rename.md)
-  - `feature · todo · critical · plan-ready · resolver ·` [Dependencies: a plain graph that is also an agent's capability boundary](TODO.md.d/dependencies-graph.md) ⊘categories-rename
+  - `feature · todo · critical · plan-ready · resolver ·` [Dependencies: a plain graph that is also an agent's capability boundary](TODO.md.d/dependency-graph.md) ⊘categories-rename
 
 ## federation
 
