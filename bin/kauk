@@ -6,9 +6,21 @@
 #
 #   kauk init                              bootstrap THIS repo (no data source)
 #   kauk install <owner>/<repo> | <path>   add + lay a package source
-#   kauk sync [--status]                   converge every installed source
+#   kauk sync [--status|--pull|--push]     the manual synchronisation: pull with
+#                                          rebase and lay (the default); --pull
+#                                          narrows to taking, --push to giving
 #   kauk resolve [--assist]                list destinations kauk refused to touch;
 #                                          --assist asks Claude to attempt a merge
+#
+# HEAD-TRACKING ONLY (Decision-051): versions, tags, locks and pins are one
+# deferred piece of work. Sync is what sync always was — run when the operator
+# wants it, pulling with rebase and laying. Push stays a separate, explicit act
+# (--push, Decision-049); pending migrations run after a successful pull
+# (Decision-022) and removals are warned about. A source carrying ref = "…" —
+# a version, tag, or specific commit — is NOT touched: kauk lays what is there
+# and leaves the clone alone until the versioning work exists. A rebase that
+# conflicts stops and reports; merge handling beyond that is deferred. The
+# "updates available" notice is a background check, not this command.
 #
 # .ai.toml is DEFAULTS-ONLY (Decision-047/049). A source table's key says it all:
 #
@@ -36,9 +48,7 @@
 #
 # Everything laid is a symlink into the clone (absolute, so git worktrees
 # resolve); a destination the user owns is reported and skipped, never replaced.
-# Laying happens only AFTER selection. Local edits to a clone are never pushed
-# by sync — publishing them is the explicit push verb's job (Decision-049,
-# arrives with the pin work).
+# Laying happens only AFTER selection.
 set -euo pipefail
 
 SELF_REPO="serialseb/kauk"
@@ -90,6 +100,7 @@ sources_list() { # sources_list <root> -> "<id> <origin> <tablekey>" per line
 source_origin() { sources_list "$1" | awk -v id="$2" '$1==id{print $2; exit}'; }
 source_key()    { sources_list "$1" | awk -v id="$2" '$1==id{print $3; exit}'; }
 source_select() { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" select; return 0; }
+source_ref()    { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" ref | head -1; return 0; }
 
 ensure_aitoml() {
   local root=$1 f="$root/.ai.toml"
@@ -513,6 +524,38 @@ ensure_gitignore() {
   grep -qx '\.ai/repositories/' "$root/.gitignore" 2>/dev/null || printf '.ai/repositories/\n' >> "$root/.gitignore"
 }
 
+# ---------- migrations ----------
+pkg_artifact_names() { # pkg_artifact_names <src> -> kind/name per line, sorted
+  local src=$1 t
+  { for t in "$src"/skills/*/; do [ -e "$t" ] && echo "s/$(basename "$t")"; done
+    for t in "$src"/agents/*.md; do [ -e "$t" ] && echo "a/$(basename "$t" .md)"; done
+    for t in "$src"/hooks/* "$src"/tools/*; do [ -e "$t" ] && echo "x/$(basename "$t")"; done
+    :
+  } 2>/dev/null | sort
+}
+
+run_pending_migrations() { # run_pending_migrations <root> <id> <src>
+  local root=$1 id=$2 src=$3 gcd wm last f base
+  [ -d "$src/migrations" ] || return 0
+  gcd=$(git -C "$root" rev-parse --git-common-dir)
+  case "$gcd" in /*) ;; *) gcd="$root/$gcd" ;; esac
+  wm="$gcd/the-works/migrated/$id"; last=""
+  [ -f "$wm" ] && last=$(cat "$wm")
+  for f in "$src"/migrations/*.md; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f" .md)
+    if [ -n "$last" ]; then [ "$base" \> "$last" ] || continue; fi
+    say "  migration $base: running scripted steps"
+    if awk '/^```sh$/{b=1;next} /^```/{b=0} b' "$f" | (cd "$root" && bash); then
+      mkdir -p "$(dirname "$wm")"; printf '%s\n' "$base" > "$wm"
+      say "  migration $base: applied (judgement steps, if any, are prose in the file)"
+    else
+      say "  migration $base: FAILED — apply manually, then advance $wm"
+      return 1
+    fi
+  done
+}
+
 # ---------- package dependencies ----------
 # package.toml may declare `dependencies = ["<owner>/<repo>", …]` — the package
 # graph resolves first, the artifact closure then runs across the union
@@ -640,26 +683,77 @@ cmd_init() {
 }
 
 # ---------- sync ----------
-# sync converges and lays. It PULLS (the pin arrives with the next task) but
-# NEVER pushes: local edits to a clone are reported and left; publishing them
-# is the explicit push verb's job (Decision-049).
-sync_source() { # sync_source <root> <id>
-  local root=$1 id=$2 clone
+# Bare sync converges to the pin and notifies. --pull takes updates; --push
+# publishes local edits. Rebase is the default; a conflict stops and reports
+# (Decision-050). Migrations run at --pull (Decision-022/043).
+commit_local_edits() { # preserve uncommitted clone edits so the rebase carries them
+  local clone=$1
+  [ -n "$(git -C "$clone" status --porcelain)" ] || return 0
+  git -C "$clone" add -A
+  git -C "$clone" commit --quiet -m "🔁 local edits, preserved for rebase"
+}
+
+rebase_onto() { # rebase_onto <id> <clone> <target> -> 0 ok; 1 conflict (aborted, reported)
+  local id=$1 clone=$2 target=$3
+  git -C "$clone" rebase --quiet "$target" 2>/dev/null && return 0
+  git -C "$clone" rebase --abort 2>/dev/null || true
+  say "$id: rebase onto $target CONFLICTS — nothing changed; the merge storyline is yours (clone: $clone)"
+  return 1
+}
+
+sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
+  local root=$1 id=$2 pull=$3 push=$4 clone origin target before after gone
   if is_self_source "$root" "$id"; then
     lay_source "$root" "$id"
     say "sync: $id (self-published from the working tree — not vendored)"
     return 0
   fi
   clone=$(clone_of "$root" "$id")
-  [ -d "$clone/.git" ] || { say "$id: no clone — run 'kauk install $id' first"; return 0; }
-
-  if [ -n "$(git -C "$clone" status --porcelain)" ]; then
-    say "$id: clone has local edits — sync never publishes them (the push verb will); pull skipped"
-  else
-    git -C "$clone" pull --rebase --quiet origin main 2>/dev/null || say "$id: pull failed (offline?)"
+  if [ ! -d "$clone/.git" ]; then
+    origin=$(source_origin "$root" "$id")
+    mkdir -p "$(dirname "$clone")"
+    git clone --quiet "$origin" "$clone" 2>/dev/null || { say "$id: clone failed from $origin (offline?)"; return 0; }
+    say "clone: $clone"
+    [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
   fi
-  ensure_dep_sources "$root" "$id"
+
+  # a ref'd source — version, tag, or commit — is not kauk's to move (Decision-051)
+  if [ -n "$(source_ref "$root" "$id")" ]; then
+    say "$id: ref'd — left untouched until the versioning work; laying what is there"
+    lay_source "$root" "$id"
+    return 0
+  fi
+
+  git -C "$clone" fetch --quiet origin 2>/dev/null || true
+  target=main
+  git -C "$clone" rev-parse --verify --quiet origin/main >/dev/null && target=origin/main
+
+  before=$(pkg_artifact_names "$clone")
+  commit_local_edits "$clone"
+  if ! rebase_onto "$id" "$clone" "$target"; then
+    lay_source "$root" "$id"
+    return 0
+  fi
+  after=$(pkg_artifact_names "$clone")
+  gone=$(comm -23 <(echo "$before") <(echo "$after") | grep . || true)
+  if [ -n "$gone" ]; then
+    say "  WARN $id: this sync removes or renames artifacts a running session may still hold:"
+    echo "$gone" | sed 's/^/    /'
+  fi
+
+  if [ "$push" = 1 ]; then
+    if pkg_flag "$clone" pull-only; then
+      say "$id: pull-only package — consumers never push back; your edits stay local"
+    elif git -C "$clone" push --quiet origin "HEAD:main" 2>/dev/null; then
+      say "push: $id → $(git -C "$clone" rev-parse --short HEAD) published"
+    else
+      say "$id: push failed (offline, or no write access) — your edits stay committed in the clone"
+    fi
+  fi
+
   lay_source "$root" "$id"
+  run_pending_migrations "$root" "$id" "$clone" || true
+  ensure_dep_sources "$root" "$id"
   say "sync: $id ($(git -C "$clone" rev-parse --short HEAD))"
 }
 
@@ -677,14 +771,22 @@ status_source() { # status_source <root> <id>
 
 cmd_sync() {
   local root; root=$(repo_root)
-  local status_only=0
-  [ "${1:-}" = "--status" ] && status_only=1
+  local status_only=0 pull=0 push=0 a
+  for a in "$@"; do
+    case "$a" in
+      --status) status_only=1 ;;
+      --pull)   pull=1 ;;
+      --push)   push=1 ;;
+      *) die "usage: kauk sync [--status | --pull | --push]" ;;
+    esac
+  done
+  [ "$pull" = 1 ] && [ "$push" = 1 ] && die "one of --pull or --push — taking and giving are separate acts"
   local list; list=$(sources_list "$root")
   [ -n "$list" ] || die "no sources in .ai.toml — run 'kauk init' first"
   local id origin key
   while read -r id origin key; do
     [ -n "$id" ] || continue
-    if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id"; fi
+    if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id" "$pull" "$push"; fi
   done < <({ echo "$list" | grep -v "^$SELF_REPO " || true; echo "$list" | grep "^$SELF_REPO " || true; })
   [ $status_only = 1 ] || resolve_xdeps "$root"
   prune_links "$root"
@@ -699,7 +801,7 @@ main() {
     install) shift; cmd_install "$@" ;;
     sync)    shift; cmd_sync "$@" ;;
     resolve) shift; cmd_resolve "$@" ;;
-    *) die "usage: kauk init | install <owner>/<repo> | <path> | sync [--status] | resolve [--assist]" ;;
+    *) die "usage: kauk init | install <owner>/<repo> | <path> | sync [--status|--pull|--push] | resolve [--assist]" ;;
   esac
 }
 main "$@"
