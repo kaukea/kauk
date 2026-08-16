@@ -777,6 +777,11 @@ sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
   fi
 
   if [ "$push" = 1 ]; then
+    if pkg_flag "$clone" pull-only; then
+      say "$id: pull-only package — consumers never push back; your edits stay local"
+      lay_source "$root" "$id"
+      return 0
+    fi
     commit_local_edits "$clone"
     rebase_onto "$id" "$clone" "$target" || return 0
     if git -C "$clone" push --quiet origin "HEAD:${target#origin/}" 2>/dev/null; then

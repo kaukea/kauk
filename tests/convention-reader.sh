@@ -129,6 +129,21 @@ check "conflict reported, not degraded" 'grep -q "CONFLICTS" "$TMP/outP7"'
 check "source repository untouched"    '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UP" ]'
 ( cd "$CON/.ai/repositories/test/pkg" && git reset -q --hard "$UP" 2>/dev/null || true )
 
+echo "== a pull-only package refuses --push =="
+PO="$TMP/test/pullonly"
+git_init "$PO"; mkdir -p "$PO/skills/ro"
+printf -- '---\nname: ro\n---\nro\n' > "$PO/skills/ro/SKILL.md"
+printf 'name = "pullonly"\ntitle = "RO"\ndescription = "x"\npull-only = true\n' > "$PO/package.toml"
+commit_all "$PO"
+CONR="$TMP/consumer-ro"
+git_init "$CONR"; mkdir -p "$CONR/.claude"
+commit_all "$CONR"
+( cd "$CONR" && "$KAUK" install "$PO" ) >/dev/null 2>&1 || true
+printf 'edit\n' >> "$CONR/.ai/repositories/test/pullonly/skills/ro/SKILL.md"
+ROUP=$(git -C "$PO" rev-parse HEAD)
+( cd "$CONR" && "$KAUK" sync --push ) >"$TMP/outRO" 2>&1 || true
+check "pull-only refuses --push"       'grep -q "pull-only" "$TMP/outRO" && [ "$(git -C "$PO" rev-parse HEAD)" = "$ROUP" ]'
+
 echo "== ref follows a tag, deaf to main moving =="
 git -C "$PKG" tag vPIN
 mkdir -p "$PKG/skills/afterpin"
