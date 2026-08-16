@@ -72,51 +72,34 @@ check "second run reports no error"    '! grep -qi "error\|refusing" "$TMP/out2"
 BEFORE=$(git -C "$PKG" rev-parse HEAD)
 printf 'edited by consumer\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
 ( cd "$CON" && "$KAUK" sync ) >"$TMP/out3" 2>&1 || true
-check "local edit reported, not pushed" 'grep -q "sync --push" "$TMP/out3" && [ "$(git -C "$PKG" rev-parse HEAD)" = "$BEFORE" ]'
+check "local edit stays local on sync"  '[ "$(git -C "$PKG" rev-parse HEAD)" = "$BEFORE" ]'
 ( cd "$CON/.ai/repositories/test/pkg" && git checkout -q -- . )
 
-echo "== the pin: bare sync notifies, --pull takes =="
-check "lock written with the pin"      'grep -q "test/pkg" "$CON/.ai.lock" && grep -q "do not edit" "$CON/.ai.lock"'
-mkdir -p "$PKG/skills/gamma"
+echo "== sync pulls with rebase; migrations run; removals warn =="
+mkdir -p "$PKG/skills/gamma" "$PKG/migrations"
 printf -- '---\nname: gamma\n---\nnew\n' > "$PKG/skills/gamma/SKILL.md"
-commit_all "$PKG" "add gamma"
-( cd "$CON" && "$KAUK" sync ) >"$TMP/outP1" 2>&1 || true
-check "bare sync holds the pin"        '[ ! -e "$CON/.claude/skills/gamma" ]'
-check "incoming notified"              'grep -q "incoming on main" "$TMP/outP1" && grep -q -- "sync --pull" "$TMP/outP1"'
-( cd "$CON" && "$KAUK" sync --pull ) >"$TMP/outP2" 2>&1 || true
-check "--pull takes the update"        '[ -L "$CON/.claude/skills/gamma" ]'
-check "the pin moved"                  'grep -q "$(git -C "$PKG" rev-parse HEAD)" "$CON/.ai.lock"'
-
-echo "== --pull runs migrations and warns on removals =="
-mkdir -p "$PKG/migrations"
 printf '# fixture migration\n\n```sh\ntouch mig-ran\n```\n' > "$PKG/migrations/2026-01-01-touch.md"
-rm -rf "$PKG/skills/gamma"
-commit_all "$PKG" "migration in, gamma out"
-( cd "$CON" && "$KAUK" sync --pull ) >"$TMP/outP3" 2>&1 || true
-check "removal warned"                 'grep -q "s/gamma" "$TMP/outP3"'
-check "removed skill pruned"           '[ ! -e "$CON/.claude/skills/gamma" ]'
+commit_all "$PKG" "gamma and a migration"
+( cd "$CON" && "$KAUK" sync ) >"$TMP/outP1" 2>&1 || true
+check "sync pulled the new skill"      '[ -L "$CON/.claude/skills/gamma" ]'
 check "migration scripted step ran"    '[ -f "$CON/mig-ran" ]'
 check "watermark advanced per package" 'grep -q "2026-01-01-touch" "$CON/.git/the-works/migrated/test/pkg"'
+rm -rf "$PKG/skills/gamma"; commit_all "$PKG" "remove gamma"
+( cd "$CON" && "$KAUK" sync ) >"$TMP/outP2" 2>&1 || true
+check "removal warned"                 'grep -q "s/gamma" "$TMP/outP2"'
+check "removed skill pruned"           '[ ! -e "$CON/.claude/skills/gamma" ]'
 
-echo "== a fresh clone converges to the pin =="
-PINNED=$(git -C "$CON/.ai/repositories/test/pkg" rev-parse HEAD)
+echo "== local edits stay local on sync; --push publishes =="
+printf 'consumer note\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
+UP=$(git -C "$PKG" rev-parse HEAD)
+( cd "$CON" && "$KAUK" sync ) >"$TMP/outP3" 2>&1 || true
+check "sync kept the edit local"       '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UP" ] && grep -q "consumer note" "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"'
 mkdir -p "$PKG/skills/zeta"
 printf -- '---\nname: zeta\n---\nz\n' > "$PKG/skills/zeta/SKILL.md"
-commit_all "$PKG" "zeta, beyond the pin"
-rm -rf "$CON/.ai/repositories"
-( cd "$CON" && "$KAUK" sync ) >"$TMP/outP4" 2>&1 || true
-check "clone recreated at the pin"     '[ "$(git -C "$CON/.ai/repositories/test/pkg" rev-parse HEAD)" = "$PINNED" ]'
-check "content beyond the pin absent"  '[ ! -e "$CON/.claude/skills/zeta" ]'
-check "and the incoming is notified"   'grep -q "incoming on main" "$TMP/outP4"'
-
-echo "== --push publishes local edits, rebased over upstream =="
-printf 'consumer note\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
-( cd "$CON" && "$KAUK" sync ) >"$TMP/outP5" 2>&1 || true
-check "local edits notified"           'grep -q -- "sync --push" "$TMP/outP5"'
-check "nothing published by bare sync" '! git -C "$PKG" log -1 --format=%s | grep -q "local edits"'
-( cd "$CON" && "$KAUK" sync --push ) >"$TMP/outP6" 2>&1 || true
+commit_all "$PKG" "zeta upstream"
+( cd "$CON" && "$KAUK" sync --push ) >"$TMP/outP4" 2>&1 || true
 check "edit published to the source"   'grep -q "consumer note" "$PKG/skills/alpha/SKILL.md"'
-check "history stayed linear"          '[ "$(git -C "$PKG" rev-list --count HEAD)" -gt 1 ] && git -C "$PKG" log --format=%p -1 | grep -qv " "'
+check "history stayed linear"          'git -C "$PKG" log --format=%p -1 | grep -qv " "'
 check "zeta arrived via the rebase"    '[ -L "$CON/.claude/skills/zeta" ]'
 
 echo "== a conflicting rebase stops and reports =="
@@ -124,10 +107,10 @@ printf 'upstream line\n' >> "$PKG/skills/alpha/SKILL.md"
 commit_all "$PKG" "upstream touches alpha"
 printf 'conflicting local line\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
 UP=$(git -C "$PKG" rev-parse HEAD)
-( cd "$CON" && "$KAUK" sync --push ) >"$TMP/outP7" 2>&1 || true
-check "conflict reported, not degraded" 'grep -q "CONFLICTS" "$TMP/outP7"'
+( cd "$CON" && "$KAUK" sync --push ) >"$TMP/outP5" 2>&1 || true
+check "conflict reported, not degraded" 'grep -q "CONFLICTS" "$TMP/outP5"'
 check "source repository untouched"    '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UP" ]'
-( cd "$CON/.ai/repositories/test/pkg" && git reset -q --hard "$UP" 2>/dev/null || true )
+( cd "$CON/.ai/repositories/test/pkg" && git reset -q --hard origin/main 2>/dev/null && git pull -q --rebase origin main 2>/dev/null || true )
 
 echo "== a pull-only package refuses --push =="
 PO="$TMP/test/pullonly"
@@ -144,19 +127,19 @@ ROUP=$(git -C "$PO" rev-parse HEAD)
 ( cd "$CONR" && "$KAUK" sync --push ) >"$TMP/outRO" 2>&1 || true
 check "pull-only refuses --push"       'grep -q "pull-only" "$TMP/outRO" && [ "$(git -C "$PO" rev-parse HEAD)" = "$ROUP" ]'
 
-echo "== ref follows a tag, deaf to main moving =="
-git -C "$PKG" tag vPIN
-mkdir -p "$PKG/skills/afterpin"
-printf -- '---\nname: afterpin\n---\nlate\n' > "$PKG/skills/afterpin/SKILL.md"
-commit_all "$PKG" "after the tag"
-KEY=$(grep -o '\[sources\."[^"]*"\]' "$CON/.ai.toml" | head -1)
-printf 'ref = "vPIN"\n' >> "$CON/.ai.toml"
-( cd "$CON" && "$KAUK" sync --pull ) >"$TMP/outP8" 2>&1 || true
-check "pull lands on the tag"          '[ "$(git -C "$CON/.ai/repositories/test/pkg" rev-parse HEAD)" = "$(git -C "$PKG" rev-parse vPIN^{commit})" ]'
-check "content after the tag absent"   '[ ! -e "$CON/.claude/skills/afterpin" ]'
-( cd "$CON" && "$KAUK" sync ) >"$TMP/outP9" 2>&1 || true
-check "no incoming against the tag"    '! grep -q "incoming" "$TMP/outP9"'
-sed -i '/ref = "vPIN"/d' "$CON/.ai.toml"
+echo "== a ref'd source is left untouched =="
+git -C "$PKG" tag vREF
+BEFORE_REF=$(git -C "$CON/.ai/repositories/test/pkg" rev-parse HEAD)
+mkdir -p "$PKG/skills/afterref"
+printf -- '---\nname: afterref\n---\nlate\n' > "$PKG/skills/afterref/SKILL.md"
+commit_all "$PKG" "after the ref"
+printf 'ref = "vREF"\n' >> "$CON/.ai.toml"
+( cd "$CON" && "$KAUK" sync ) >"$TMP/outP6" 2>&1 || true
+check "clone not moved"                '[ "$(git -C "$CON/.ai/repositories/test/pkg" rev-parse HEAD)" = "$BEFORE_REF" ]'
+check "untouched is announced"         'grep -q "left untouched" "$TMP/outP6"'
+check "still lays what is there"       '[ -L "$CON/.claude/skills/alpha" ]'
+sed -i '/ref = "vREF"/d' "$CON/.ai.toml"
+( cd "$CON" && "$KAUK" sync ) >/dev/null 2>&1 || true
 
 echo "== origin on an owner/repo source is an error =="
 CONE="$TMP/consumer-err"

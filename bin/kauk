@@ -6,20 +6,21 @@
 #
 #   kauk init                              bootstrap THIS repo (no data source)
 #   kauk install <owner>/<repo> | <path>   add + lay a package source
-#   kauk sync [--status|--pull|--push]     converge to the pin and notify; --pull
-#                                          takes updates (rebase, migrations),
-#                                          --push publishes local edits
+#   kauk sync [--status|--pull|--push]     the manual synchronisation: pull with
+#                                          rebase and lay (the default); --pull
+#                                          narrows to taking, --push to giving
 #   kauk resolve [--assist]                list destinations kauk refused to touch;
 #                                          --assist asks Claude to attempt a merge
 #
-# The PIN (Decision-043/050): .ai.lock — the only committed file kauk writes —
-# records each vendored source's resolved head. Bare sync CONVERGES to it and
-# NOTIFIES ("N incoming", "local edits"); nothing changes until the operator
-# says --pull (fetch, rebase local work onto the followed branch, move the pin,
-# run pending migrations, warn on removals) or --push (rebase, then publish the
-# clone's edits to the source). A source table may carry ref = "<branch|tag>"
-# to follow something other than main. A rebase that conflicts stops and
-# reports; merge handling beyond that is deferred.
+# HEAD-TRACKING ONLY (Decision-051): versions, tags, locks and pins are one
+# deferred piece of work. Sync is what sync always was — run when the operator
+# wants it, pulling with rebase and laying. Push stays a separate, explicit act
+# (--push, Decision-049); pending migrations run after a successful pull
+# (Decision-022) and removals are warned about. A source carrying ref = "…" —
+# a version, tag, or specific commit — is NOT touched: kauk lays what is there
+# and leaves the clone alone until the versioning work exists. A rebase that
+# conflicts stops and reports; merge handling beyond that is deferred. The
+# "updates available" notice is a background check, not this command.
 #
 # .ai.toml is DEFAULTS-ONLY (Decision-047/049). A source table's key says it all:
 #
@@ -99,6 +100,7 @@ sources_list() { # sources_list <root> -> "<id> <origin> <tablekey>" per line
 source_origin() { sources_list "$1" | awk -v id="$2" '$1==id{print $2; exit}'; }
 source_key()    { sources_list "$1" | awk -v id="$2" '$1==id{print $3; exit}'; }
 source_select() { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" select; return 0; }
+source_ref()    { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" ref | head -1; return 0; }
 
 ensure_aitoml() {
   local root=$1 f="$root/.ai.toml"
@@ -522,45 +524,13 @@ ensure_gitignore() {
   grep -qx '\.ai/repositories/' "$root/.gitignore" 2>/dev/null || printf '.ai/repositories/\n' >> "$root/.gitignore"
 }
 
-# ---------- the pin ----------
-# .ai.lock: [[repositories]] blocks with id + head (+ ref when following one).
-# The origin is not stored — it derives from .ai.toml exactly as everywhere else.
-lock_entries() { # lock_entries <root> -> "<id> <head> <ref>" per line ("-" for no ref)
-  [ -f "$1/.ai.lock" ] || return 0
-  awk '
-    function flush() { if (id!="" && head!="") print id " " head " " (ref==""?"-":ref); id=""; head=""; ref="" }
-    /^\[\[repositories\]\]/ { flush(); next }
-    /^id[ \t]*=/   { split($0,a,"\""); id=a[2] }
-    /^head[ \t]*=/ { split($0,a,"\""); head=a[2] }
-    /^ref[ \t]*=/  { split($0,a,"\""); ref=a[2] }
-    END { flush() }
-  ' "$1/.ai.lock"
-}
-
-lock_head() { lock_entries "$1" | awk -v id="$2" '$1==id{print $2; exit}'; }
-
-lock_write() { # lock_write <root> <id> <head> <ref> — rewrite one entry, keep the rest
-  local root=$1 id=$2 head=$3 ref=$4 tmp
-  tmp=$(mktemp)
-  { printf '# managed by kauk — do not edit by hand. The pin: each source'\''s resolved\n'
-    printf '# head; `kauk sync` converges to it, `--pull` and `--push` move it.\n'
-    { lock_entries "$root" | awk -v id="$id" '$1!=id'; echo "$id $head $ref"; } | sort |
-    while read -r i h r; do
-      printf '\n[[repositories]]\nid = "%s"\nhead = "%s"\n' "$i" "$h"
-      if [ "$r" != "-" ]; then printf 'ref = "%s"\n' "$r"; fi
-    done
-  } > "$tmp"
-  mv "$tmp" "$root/.ai.lock"
-}
-
-source_ref() { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" ref | head -1; return 0; }
-
-# ---------- migrations at --pull ----------
+# ---------- migrations ----------
 pkg_artifact_names() { # pkg_artifact_names <src> -> kind/name per line, sorted
   local src=$1 t
   { for t in "$src"/skills/*/; do [ -e "$t" ] && echo "s/$(basename "$t")"; done
     for t in "$src"/agents/*.md; do [ -e "$t" ] && echo "a/$(basename "$t" .md)"; done
     for t in "$src"/hooks/* "$src"/tools/*; do [ -e "$t" ] && echo "x/$(basename "$t")"; done
+    :
   } 2>/dev/null | sort
 }
 
@@ -731,88 +701,60 @@ rebase_onto() { # rebase_onto <id> <clone> <target> -> 0 ok; 1 conflict (aborted
   return 1
 }
 
-follow_target() { # follow_target <root> <id> <clone> -> the ref sync follows
-  local ref; ref=$(source_ref "$1" "$2")
-  ref=${ref:-main}
-  if git -C "$3" rev-parse --verify --quiet "origin/$ref" >/dev/null; then echo "origin/$ref"; else echo "$ref"; fi
-}
-
 sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
-  local root=$1 id=$2 pull=$3 push=$4 clone origin locked head target before after gone incoming
+  local root=$1 id=$2 pull=$3 push=$4 clone origin target before after gone
   if is_self_source "$root" "$id"; then
     lay_source "$root" "$id"
     say "sync: $id (self-published from the working tree — not vendored)"
     return 0
   fi
   clone=$(clone_of "$root" "$id")
-  locked=$(lock_head "$root" "$id")
   if [ ! -d "$clone/.git" ]; then
     origin=$(source_origin "$root" "$id")
     mkdir -p "$(dirname "$clone")"
     git clone --quiet "$origin" "$clone" 2>/dev/null || { say "$id: clone failed from $origin (offline?)"; return 0; }
     say "clone: $clone"
     [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
-    [ -n "$locked" ] && git -C "$clone" checkout --quiet "$locked" 2>/dev/null && say "$id: checked out at the pinned $(git -C "$clone" rev-parse --short HEAD)"
   fi
-  git -C "$clone" fetch --quiet --tags origin 2>/dev/null || true
-  target=$(follow_target "$root" "$id" "$clone")
 
-  if [ "$pull" = 1 ]; then
-    before=$(pkg_artifact_names "$clone")
-    commit_local_edits "$clone"
-    rebase_onto "$id" "$clone" "$target" || { lay_source "$root" "$id"; return 0; }
-    head=$(git -C "$clone" rev-parse HEAD)
-    lock_write "$root" "$id" "$head" "$(source_ref "$root" "$id" | grep . || echo -)"
-    say "pull: $id → $(git -C "$clone" rev-parse --short HEAD)"
-    after=$(pkg_artifact_names "$clone")
-    gone=$(comm -23 <(echo "$before") <(echo "$after") | grep . || true)
-    if [ -n "$gone" ]; then
-      say "  WARN $id: this pull removes or renames artifacts a running session may still hold:"
-      echo "$gone" | sed 's/^/    /'
-    fi
+  # a ref'd source — version, tag, or commit — is not kauk's to move (Decision-051)
+  if [ -n "$(source_ref "$root" "$id")" ]; then
+    say "$id: ref'd — left untouched until the versioning work; laying what is there"
     lay_source "$root" "$id"
-    run_pending_migrations "$root" "$id" "$clone" || true
-    ensure_dep_sources "$root" "$id"
     return 0
+  fi
+
+  git -C "$clone" fetch --quiet origin 2>/dev/null || true
+  target=main
+  git -C "$clone" rev-parse --verify --quiet origin/main >/dev/null && target=origin/main
+
+  before=$(pkg_artifact_names "$clone")
+  commit_local_edits "$clone"
+  if ! rebase_onto "$id" "$clone" "$target"; then
+    lay_source "$root" "$id"
+    return 0
+  fi
+  after=$(pkg_artifact_names "$clone")
+  gone=$(comm -23 <(echo "$before") <(echo "$after") | grep . || true)
+  if [ -n "$gone" ]; then
+    say "  WARN $id: this sync removes or renames artifacts a running session may still hold:"
+    echo "$gone" | sed 's/^/    /'
   fi
 
   if [ "$push" = 1 ]; then
     if pkg_flag "$clone" pull-only; then
       say "$id: pull-only package — consumers never push back; your edits stay local"
-      lay_source "$root" "$id"
-      return 0
-    fi
-    commit_local_edits "$clone"
-    rebase_onto "$id" "$clone" "$target" || return 0
-    if git -C "$clone" push --quiet origin "HEAD:${target#origin/}" 2>/dev/null; then
-      head=$(git -C "$clone" rev-parse HEAD)
-      lock_write "$root" "$id" "$head" "$(source_ref "$root" "$id" | grep . || echo -)"
+    elif git -C "$clone" push --quiet origin "HEAD:main" 2>/dev/null; then
       say "push: $id → $(git -C "$clone" rev-parse --short HEAD) published"
     else
       say "$id: push failed (offline, or no write access) — your edits stay committed in the clone"
     fi
-    lay_source "$root" "$id"
-    return 0
   fi
 
-  # bare sync: converge to the pin, notify, apply nothing
-  head=$(git -C "$clone" rev-parse HEAD)
-  if [ -z "$locked" ]; then
-    lock_write "$root" "$id" "$head" "$(source_ref "$root" "$id" | grep . || echo -)"
-    say "pin: $id at $(git -C "$clone" rev-parse --short HEAD)"
-  elif [ "$head" != "$locked" ] && [ -z "$(git -C "$clone" status --porcelain)" ]; then
-    if git -C "$clone" checkout --quiet "$locked" 2>/dev/null; then
-      say "$id: converged to the pinned $(git -C "$clone" rev-parse --short HEAD)"
-    else
-      say "$id: the pinned $locked is not in the clone — nothing changed; how to proceed is yours"
-    fi
-  fi
-  incoming=$(git -C "$clone" rev-list --count "HEAD..$target" 2>/dev/null || echo 0)
-  [ "$incoming" -gt 0 ] && say "$id: $incoming incoming on ${target#origin/} — take them with: kauk sync --pull"
-  [ -n "$(git -C "$clone" status --porcelain)" ] && say "$id: local edits — publish them with: kauk sync --push"
-  ensure_dep_sources "$root" "$id"
   lay_source "$root" "$id"
-  say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — pinned)"
+  run_pending_migrations "$root" "$id" "$clone" || true
+  ensure_dep_sources "$root" "$id"
+  say "sync: $id ($(git -C "$clone" rev-parse --short HEAD))"
 }
 
 status_source() { # status_source <root> <id>
