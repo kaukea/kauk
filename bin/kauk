@@ -6,7 +6,9 @@
 #
 #   kauk init                               bootstrap THIS repo (no data source)
 #   kauk install <owner>/<repo> [<origin>]  vendor + lay a data package
-#   kauk sync [--status]                    converge every installed source
+#   kauk sync [--status]                    converge every installed source to the lock
+#   kauk update [<owner>/<repo>]            move the pin: fetch (tags too), re-lock,
+#                                           run pending migrations, warn on removals
 #   kauk resolve [--assist]                 list destinations kauk refused to touch;
 #                                           --assist asks Claude to attempt a merge
 #
@@ -14,6 +16,18 @@
 # each is cloned at .ai/repositories/<owner>/<repo>/ (gitignored) — EXCEPT a source
 # that is this repository itself, which is read from its working tree and published
 # by copy instead of being vendored (docs/package-format.md).
+#
+# .ai.toml also carries the operator's SELECTION (Decision-025): per source,
+# `categories = ["node", …]` installs the matching subtree (plus each node's
+# ancestors' own artifacts) and `artifacts = ["s/<name>", "a/<name>"]` picks
+# individually. No selection keys = everything, as before. Selection is a request;
+# the installed set is its dependency closure (Decision-029), and an optional
+# `ref = "<branch|tag|sha>"` names the pin `kauk update` moves to.
+#
+# .ai.lock is the ONLY file kauk writes that is meant to be committed (Decision-023/043):
+# one entry per vendored source recording the resolved head. `sync` CONVERGES to it and
+# never changes content unrequested; `update` MOVES it. A self-published source records
+# no head.
 #
 # A package declares nothing about what it ships. Its contents are determined BY
 # CONVENTION and anything outside these directories is ignored:
@@ -83,6 +97,253 @@ register_source() { # register_source <root> <owner>/<repo> <origin> — idempot
   grep -q "^\[sources\.\"$id\"\]" "$f" 2>/dev/null && return 0
   printf '\n[sources."%s"]\norigin = "%s"\n' "$id" "$origin" >> "$f"
   say ".ai.toml: registered source $id"
+}
+
+source_key_list() { # source_key_list <root> <id> <key> -> quoted strings of that key in the source's table
+  [ -f "$1/.ai.toml" ] || return 0
+  awk -v id="$2" -v key="$3" '
+    /^\[sources\."/ { s=$0; sub(/^\[sources\."/,"",s); sub(/"\].*$/,"",s); cur=s; next }
+    /^\[/           { cur="" }
+    cur==id && $0 ~ "^"key"[ \t]*=" { n=split($0,a,"\""); for(i=2;i<=n;i+=2) if(a[i]!="") print a[i] }
+  ' "$1/.ai.toml"
+}
+
+# ---------- frontmatter ----------
+# Artifacts describe themselves in YAML frontmatter (Decisions 024/029): `categories:`
+# says where a skill or agent files, `dependencies: {skills,agents,tools}` what it
+# needs. `roles:` is read as a fallback until the orchids-side rename lands, and an
+# agent's runtime `skills:` list counts as skill dependencies (it is the same edge).
+
+fm_block() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1" 2>/dev/null; }
+
+fm_list() { # fm_list <file> <key> -> items of an inline [a, b] or dash-block list
+  [ -f "$1" ] || return 0
+  fm_block "$1" | awk -v k="$2" '
+    $0 ~ "^"k":[ \t]*\\[" {
+      v=$0; sub("^"k":[ \t]*\\[","",v); sub("\\].*$","",v)
+      n=split(v,a,","); for(i=1;i<=n;i++){gsub(/^[ \t"'\'']+|[ \t"'\'']+$/,"",a[i]); if(a[i]!="")print a[i]}
+      next
+    }
+    $0 ~ "^"k":[ \t]*$" { inb=1; next }
+    inb && /^[ \t]+-[ \t]/ { v=$0; sub(/^[ \t]+-[ \t]+/,"",v); gsub(/^["'\'']|["'\'']$/,"",v); print v; next }
+    inb { inb=0 }
+  '
+}
+
+fm_dep_list() { # fm_dep_list <file> <skills|agents|tools> -> names under dependencies:
+  [ -f "$1" ] || return 0
+  fm_block "$1" | awk -v k="$2" '
+    /^dependencies:[ \t]*$/ { ind=1; next }
+    ind && /^[^ \t]/        { ind=0 }
+    ind && $0 ~ "^[ \t]+"k":[ \t]*\\[" {
+      v=$0; sub("^[ \t]+"k":[ \t]*\\[","",v); sub("\\].*$","",v)
+      n=split(v,a,","); for(i=1;i<=n;i++){gsub(/^[ \t"'\'']+|[ \t"'\'']+$/,"",a[i]); if(a[i]!="")print a[i]}
+    }
+  '
+}
+
+artifact_file() { # artifact_file <src> <s|a> <name> -> the file carrying its frontmatter
+  case "$2" in
+    s) echo "$1/skills/$3/SKILL.md" ;;
+    a) echo "$1/agents/$3.md" ;;
+  esac
+}
+
+artifact_categories() { # artifact_categories <file> — categories:, falling back to roles:
+  local c; c=$(fm_list "$1" categories)
+  [ -n "$c" ] && { printf '%s\n' "$c"; return 0; }
+  fm_list "$1" roles
+}
+
+artifact_deps() { # artifact_deps <file> <kind-letter-of-owner> <skills|agents|tools> — kind prefixes stripped
+  local f=$1 owner=$2 dk=$3 d
+  d=$(fm_dep_list "$f" "$dk")
+  # an agent's runtime `skills:` list is the same dependency edge (Decision-029/030)
+  [ -z "$d" ] && [ "$owner" = a ] && [ "$dk" = skills ] && d=$(fm_list "$f" skills)
+  printf '%s\n' "$d" | sed 's|^[sat]/||' | grep . || true
+}
+
+# ---------- selection & closure ----------
+# Selection is a request; the installed set is its dependency closure (Decision-025).
+# A declared path D matches a selected node N when D==N, D lies under N, or N lies
+# under D (an ancestor's own artifact travels with its subtree). An artifact that
+# declares NO placement always lays — a package with no categories anywhere installs
+# exactly as before. Hooks and files/ carry no frontmatter and are never filtered;
+# tools lay unfiltered until they carry frontmatter (Decision-032).
+SEL_ACTIVE=0
+SEL_FILE=""
+XDEPS=""
+
+cat_hit() { # cat_hit <declared-paths (lines)> <selected-nodes (lines)>
+  local d n
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    while IFS= read -r n; do
+      [ -n "$n" ] || continue
+      case "$d" in "$n"|"$n"/*) return 0 ;; esac
+      case "$n" in "$d"/*) return 0 ;; esac
+    done <<< "$2"
+  done <<< "$1"
+  return 1
+}
+
+sel_add() { grep -qx "$2/$3" "$1" 2>/dev/null || echo "$2/$3" >> "$1"; }
+
+sel_allows() { # sel_allows <kind-letter> <name>
+  [ "$SEL_ACTIVE" = 0 ] && return 0
+  case "$1" in s|a) grep -qx "$1/$2" "$SEL_FILE" ;; *) return 0 ;; esac
+}
+
+seed_selection() { # seed_selection <src> <kind-letter> <cats>
+  local src=$1 k=$2 cats=$3 t n f decl
+  case "$k" in s) set -- "$src"/skills/*/ ;; a) set -- "$src"/agents/*.md ;; esac
+  for t in "$@"; do
+    [ -e "$t" ] || continue
+    n=$(basename "$t" .md)
+    f=$(artifact_file "$src" "$k" "$n")
+    decl=$(artifact_categories "$f")
+    if [ -z "$decl" ] || { [ -n "$cats" ] && cat_hit "$decl" "$cats"; }; then
+      sel_add "$SEL_FILE" "$k" "$n"
+    fi
+  done
+}
+
+close_selection() { # close_selection <src> <id> — fixpoint over declared dependencies
+  local src=$1 id=$2 grew=1 line k n f dk dn l
+  while [ $grew = 1 ]; do
+    grew=0
+    while IFS=/ read -r k n; do
+      case "$k" in s|a) ;; *) continue ;; esac
+      f=$(artifact_file "$src" "$k" "$n")
+      for dk in skills agents tools; do
+        case "$dk" in skills) l=s ;; agents) l=a ;; tools) l=t ;; esac
+        for dn in $(artifact_deps "$f" "$k" "$dk"); do
+          [ "$l" = t ] && continue            # tools lay unfiltered today
+          if [ -e "$(artifact_file "$src" "$l" "$dn")" ]; then
+            if ! grep -qx "$l/$dn" "$SEL_FILE"; then
+              sel_add "$SEL_FILE" "$l" "$dn"
+              say "  closure: +$l/$dn (needed by $k/$n)"
+              grew=1
+            fi
+          else
+            echo "$l $dn $k/$n $id" >> "$XDEPS"
+          fi
+        done
+      done
+    done < "$SEL_FILE"
+  done
+}
+
+build_selection() { # build_selection <root> <src> <id> — populates SEL_ACTIVE/SEL_FILE
+  local root=$1 src=$2 id=$3 cats arts p
+  SEL_ACTIVE=0; : > "$SEL_FILE"
+  cats=$(source_key_list "$root" "$id" categories)
+  arts=$(source_key_list "$root" "$id" artifacts)
+  [ -n "$cats$arts" ] || return 0
+  SEL_ACTIVE=1
+  seed_selection "$src" s "$cats"
+  seed_selection "$src" a "$cats"
+  for p in $arts; do
+    case "$p" in [sa]/*) echo "$p" >> "$SEL_FILE" ;; t/*) ;; *) say "  WARN $id: artifacts entry '$p' is not k/<name> — ignored" ;; esac
+  done
+  sort -u -o "$SEL_FILE" "$SEL_FILE"
+  close_selection "$src" "$id"
+}
+
+resolve_xdeps() { # resolve_xdeps <root> — cross-package closure over the installed union
+  local root=$1 l n needer from id origin src f found
+  [ -s "$XDEPS" ] || return 0
+  sort -u -o "$XDEPS" "$XDEPS"
+  while read -r l n needer from; do
+    [ -n "$l" ] || continue
+    found=""
+    while read -r id origin; do
+      [ -n "$id" ] && [ "$id" != "$from" ] || continue
+      src=$(source_tree "$root" "$id")
+      f=$(artifact_file "$src" "$l" "$n")
+      [ -e "$f" ] && { found=$id; break; }
+    done < <(sources_list "$root")
+    if [ -n "$found" ]; then
+      lay_one_artifact "$root" "$found" "$l" "$n"
+      say "  closure: +$l/$n (from $found, needed by $needer of $from)"
+    else
+      say "  WARN $from: $needer depends on $l/$n, found in no installed source"
+    fi
+  done < "$XDEPS"
+  : > "$XDEPS"
+}
+
+lay_one_artifact() { # lay_one_artifact <root> <owner>/<repo> <kind-letter> <name>
+  local root=$1 id=$2 l=$3 n=$4 src mode ns t dstdir
+  src=$(source_tree "$root" "$id"); mode=$(publish_mode "$root" "$id"); ns=$(pkg_namespace "$src" "$id")
+  case "$l" in
+    s) t="$src/skills/$n";    dstdir="$root/.claude/skills" ;;
+    a) t="$src/agents/$n.md"; dstdir="$root/.claude/agents"; n="$n.md" ;;
+    t) t="$src/tools/$n";     dstdir="$root/.claude/tools" ;;
+  esac
+  mkdir -p "$dstdir"
+  if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns"; fi
+  place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
+}
+
+# ---------- lock ----------
+# The committed pin (Decision-043): the only file kauk writes that is meant to be
+# committed. One entry per vendored source; a self-published source records no head.
+lock_header() {
+  cat <<'EOF'
+# managed by kauk — do not edit by hand. Records each source's resolved head;
+# `kauk sync` converges to it, `kauk update` moves it.
+EOF
+}
+
+lock_entries() { # lock_entries <root> -> "<id> <sha> <ref>" per line
+  [ -f "$1/.ai.lock" ] || return 0
+  awk '
+    function flush() { if (cur!="" && sha!="") print cur " " sha " " (ref==""?"-":ref); cur=""; sha=""; ref="" }
+    /^\[lock\."/ { flush(); s=$0; sub(/^\[lock\."/,"",s); sub(/"\].*$/,"",s); cur=s; next }
+    /^\[/        { flush() }
+    cur!="" && /^sha[ \t]*=/ { split($0,a,"\""); sha=a[2] }
+    cur!="" && /^ref[ \t]*=/ { split($0,a,"\""); ref=a[2] }
+    END { flush() }
+  ' "$1/.ai.lock"
+}
+
+lock_sha() { lock_entries "$1" | awk -v id="$2" '$1==id{print $2; exit}'; }
+
+lock_write() { # lock_write <root> <id> <sha> <ref> — rewrite the entry, keep the rest
+  local root=$1 id=$2 sha=$3 ref=$4 f="$root/.ai.lock" tmp
+  tmp=$(mktemp)
+  { lock_header
+    { lock_entries "$root" | awk -v id="$id" '$1!=id'; echo "$id $sha $ref"; } | sort |
+    while read -r i s r; do
+      printf '\n[lock."%s"]\nsha = "%s"\n' "$i" "$s"
+      [ "$r" != "-" ] && printf 'ref = "%s"\n' "$r"
+    done
+  } > "$tmp"
+  mv "$tmp" "$f"
+}
+
+# ---------- package dependencies ----------
+# A package may declare the sources it needs alongside it: package.toml
+# `dependencies = ["<owner>/<repo>", …]` (Decision-038's graph, location-form: the
+# slug resolves to https://github.com/<owner>/<repo> unless .ai.toml already names
+# an origin). The package graph resolves first; the artifact closure then resolves
+# across the union of installed sources.
+pkg_dep_sources() { # pkg_dep_sources <src> -> one <owner>/<repo> per line
+  [ -f "$1/package.toml" ] || return 0
+  awk '/^dependencies[ \t]*=/ { n=split($0,a,"\""); for(i=2;i<=n;i+=2) if(a[i]!="") print a[i] }' "$1/package.toml"
+}
+
+ensure_dep_sources() { # ensure_dep_sources <root> <owner>/<repo> — install missing package deps
+  local root=$1 id=$2 src dep origin
+  src=$(source_tree "$root" "$id")
+  for dep in $(pkg_dep_sources "$src"); do
+    case "$dep" in */*) ;; *) say "  WARN $id: package dependency '$dep' is not <owner>/<repo> — ignored"; continue ;; esac
+    grep -q "^\[sources\.\"$dep\"\]" "$root/.ai.toml" 2>/dev/null && [ -d "$(clone_of "$root" "$dep")/.git" ] && continue
+    say "  dependency: $dep (required by $id)"
+    origin=$(source_origin "$root" "$dep")
+    install_source "$root" "$dep" "${origin:-https://github.com/$dep}" || say "  WARN $id: could not install dependency $dep"
+  done
 }
 
 # ---------- package identity & convention ----------
@@ -171,14 +432,15 @@ namespace_for() { # namespace_for <dstdir> <name> <pkgns> — sets NS_DST
   NS_DST="$n"
 }
 
-lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns>
-  local mode=$1 srcdir=$2 dstdir=$3 ns=$5 t n
+lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns> <kind-letter>
+  local mode=$1 srcdir=$2 dstdir=$3 ns=$5 kind=${6:-} t n
   [ -d "$srcdir" ] || return 0
   mkdir -p "$dstdir"
   for t in "$srcdir"/*$4; do
     [ -e "$t" ] || continue
     n=$(basename "$t")
     case "$n" in .*|__pycache__|*"$NS_SEP"*) continue ;; esac
+    [ -n "$kind" ] && ! sel_allows "$kind" "$(basename "$n" .md)" && continue
     # Namespacing only applies where kauk LINKS. In copy mode the destination is a
     # real file because kauk put it there, and must not be mistaken for the user's.
     if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns"; fi
@@ -189,8 +451,8 @@ lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns>
 lay_claude() { # lay_claude <root> <src> <mode> <pkgns>
   local root=$1 src=$2 mode=$3 ns=$4
   NS_SEP=":"                                # Claude Code's own namespace syntax
-  lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""    "$ns"
-  lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md" "$ns"
+  lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""    "$ns" s
+  lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md" "$ns" a
   lay_kind "$mode" "$src/hooks"  "$root/.claude/hooks"  ""    "$ns"
   lay_kind "$mode" "$src/tools"  "$root/.claude/tools"  ""    "$ns"
 }
@@ -225,6 +487,7 @@ lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys r
   fi
 
   LAID=0
+  build_selection "$root" "$src" "$id"
   for rt in $runtimes; do
     case "$rt" in
       claude) lay_claude "$root" "$src" "$mode" "$ns" ;;
@@ -232,7 +495,24 @@ lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys r
     esac
   done
   lay_files "$root" "$src" "$mode"
+  prune_deselected "$root" "$src"
+  SEL_ACTIVE=0
   say "$mode: $LAID laid/verified ($id) [$(echo "$runtimes" | tr '\n' ' ')]"
+}
+
+prune_deselected() { # prune_deselected <root> <src-tree> — a link whose artifact fell out
+  [ "$SEL_ACTIVE" = 1 ] || return 0     # of the selection is removed; its target still
+  local root=$1 src=$2 l t k n          # exists, so prune_links would keep it
+  for l in "$root"/.claude/skills/* "$root"/.claude/agents/*; do
+    [ -L "$l" ] || continue
+    t=$(readlink "$l")
+    case "$t" in
+      "$src"/skills/*) k=s; n=${t#"$src"/skills/}; n=${n%%/*} ;;
+      "$src"/agents/*) k=a; n=$(basename "$t" .md) ;;
+      *) continue ;;
+    esac
+    sel_allows "$k" "$n" || { rm "$l"; say "  DESELECT ${l#"$root"/} (outside the selection)"; }
+  done
 }
 
 CONFLICTS=""
@@ -329,41 +609,73 @@ cmd_init() {
 }
 
 # ---------- install ----------
-cmd_install() {
-  local id=${1:-} origin=${2:-}
-  [ -n "$id" ] || die "usage: kauk install <owner>/<repo> [<origin>]"
-  case "$id" in */*) ;; *) die "source must be <owner>/<repo>" ;; esac
-  local root clone; root=$(repo_root); clone=$(clone_of "$root" "$id")
-  origin=${origin:-$(source_origin "$root" "$id")}
-  origin=${origin:-https://github.com/$id}
-
-  ensure_aitoml "$root"
-  ensure_gitignore "$root"
+install_source() { # install_source <root> <owner>/<repo> <origin> — clone, pin, lay
+  local root=$1 id=$2 origin=$3 clone src ref sha
   register_source "$root" "$id" "$origin"
-
-  local src
   if is_self_source "$root" "$id"; then
     src="$root"
     say "self: $id is this repository — not vendored, published from the working tree"
   else
+    clone=$(clone_of "$root" "$id")
     if [ ! -d "$clone/.git" ]; then
       mkdir -p "$(dirname "$clone")"
-      git clone --quiet "$origin" "$clone"
+      git clone --quiet "$origin" "$clone" || { say "  WARN $id: clone failed from $origin"; return 1; }
       say "clone: $clone"
     else
       say "clone: already present"
     fi
     src="$clone"
     [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
+    ref=$(source_key_list "$root" "$id" ref | head -1)
+    if [ -n "$ref" ]; then
+      git -C "$clone" fetch --quiet --tags origin 2>/dev/null || true
+      sha=$(git -C "$clone" rev-parse --verify --quiet "origin/$ref^{commit}") ||
+      sha=$(git -C "$clone" rev-parse --verify --quiet "$ref^{commit}") ||
+        { say "  WARN $id: ref '$ref' not found"; return 1; }
+      git -C "$clone" checkout --quiet "$sha"
+    else
+      sha=$(git -C "$clone" rev-parse HEAD)
+    fi
+    lock_write "$root" "$id" "$sha" "${ref:--}"
+    say "lock: $id pinned at ${sha:0:7}${ref:+ ($ref)}"
   fi
-  is_package "$src" || die "$id has no package contents — not a kauk package (expects any of: $KINDS)"
+  is_package "$src" || { say "  WARN $id has no package contents — not a kauk package (expects any of: $KINDS)"; return 1; }
 
   # A destination the user owns is REPORTED AND SKIPPED — never deleted, never merged
   # on their behalf, and nothing is dispatched to resolve it (Decision-016). Installing
   # does not write to the package either: kauk never adopts a consumer's file upstream.
   lay_source "$root" "$id"
+  ensure_dep_sources "$root" "$id"
+}
+
+offer_categories() { # offer_categories <root> <id> — the browsable tree (Decision-025)
+  local root=$1 id=$2 src cats f
+  [ -z "$(source_key_list "$root" "$id" categories)$(source_key_list "$root" "$id" artifacts)" ] || return 0
+  src=$(source_tree "$root" "$id")
+  cats=$({ for f in "$src"/skills/*/SKILL.md "$src"/agents/*.md; do artifact_categories "$f"; done; } 2>/dev/null | sort -u | grep . || true)
+  [ -n "$cats" ] || return 0
+  say ""
+  say "$id declares categories; nothing is selected, so everything installed. To trim,"
+  say "add under [sources.\"$id\"] in .ai.toml (subtrees included, dependencies follow):"
+  say "  categories = [$(echo "$cats" | sed 's/.*/"&"/' | paste -sd ', ' -)]"
+  say "  (drop the nodes this repository does not need; artifacts = [\"s/<name>\"] picks one)"
+}
+
+cmd_install() {
+  local id=${1:-} origin=${2:-}
+  [ -n "$id" ] || die "usage: kauk install <owner>/<repo> [<origin>]"
+  case "$id" in */*) ;; *) die "source must be <owner>/<repo>" ;; esac
+  local root; root=$(repo_root)
+  origin=${origin:-$(source_origin "$root" "$id")}
+  origin=${origin:-https://github.com/$id}
+
+  ensure_aitoml "$root"
+  ensure_gitignore "$root"
+  install_source "$root" "$id" "$origin" || die "install: $id failed"
+  resolve_xdeps "$root"
   prune_links "$root"
   say "install: $id done"
+  offer_categories "$root" "$id"
   report_conflicts
 }
 
@@ -409,8 +721,28 @@ cmd_resolve() {
 }
 
 # ---------- sync ----------
-sync_source() { # sync_source <root> <owner>/<repo>
-  local root=$1 id=$2 clone
+# `sync` CONVERGES to the lock and never changes content unrequested (Decision-043).
+# The one thing it still publishes is the operator's own local edits to an editable
+# clone — those are a requested change, pushed back and re-locked. Everything that
+# MOVES the pin lives in `kauk update`.
+publish_local_edits() { # publish_local_edits <root> <owner>/<repo> <clone> -> 0 if lock moved
+  local root=$1 id=$2 clone=$3 sha r
+  [ -n "$(git -C "$clone" status --porcelain)" ] || return 1
+  if pkg_flag "$clone" pull-only; then
+    say "$id: pull-only package has local edits — never pushed back; resolve manually"
+    return 1
+  fi
+  git -C "$clone" add -A
+  git -C "$clone" commit --quiet -m "🔁 sync: local edits from $(basename "$root")"
+  git -C "$clone" push --quiet origin HEAD:main || say "$id: push of local edits failed (offline?) — they stay committed in the clone"
+  sha=$(git -C "$clone" rev-parse HEAD)
+  r=$(source_key_list "$root" "$id" ref | head -1)
+  lock_write "$root" "$id" "$sha" "${r:--}"
+  say "$id: local edits published — lock moved to ${sha:0:7}"
+}
+
+sync_source() { # sync_source <root> <owner>/<repo> — converge, move nothing
+  local root=$1 id=$2 clone sha head origin
   # A self-published package is never vendored: publish straight from the working tree.
   if is_self_source "$root" "$id"; then
     lay_source "$root" "$id"
@@ -418,34 +750,121 @@ sync_source() { # sync_source <root> <owner>/<repo>
     return 0
   fi
   clone=$(clone_of "$root" "$id")
-  [ -d "$clone/.git" ] || { say "$id: no clone — run 'kauk install $id' first"; return 0; }
-
-  if pkg_flag "$clone" pull-only; then
-    if [ -n "$(git -C "$clone" status --porcelain)" ]; then
-      say "$id: pull-only package has local edits — never pushed back; resolve manually (pull skipped)"
-    else
-      git -C "$clone" pull --rebase --quiet origin main || say "$id: pull failed (offline?)"
+  sha=$(lock_sha "$root" "$id")
+  if [ ! -d "$clone/.git" ]; then
+    # a fresh checkout: the lock is what makes the clone reproducible
+    origin=$(source_origin "$root" "$id")
+    [ -n "$origin" ] || { say "$id: no clone and no origin — run 'kauk install $id'"; return 0; }
+    mkdir -p "$(dirname "$clone")"
+    git clone --quiet "$origin" "$clone" || { say "$id: clone failed (offline?)"; return 0; }
+    say "clone: $clone"
+    [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
+  fi
+  publish_local_edits "$root" "$id" "$clone" && sha=$(lock_sha "$root" "$id")
+  head=$(git -C "$clone" rev-parse HEAD)
+  if [ -z "$sha" ]; then
+    lock_write "$root" "$id" "$head" "-"
+    say "lock: $id pinned at ${head:0:7}"
+  elif [ "$head" != "$sha" ]; then
+    if ! git -C "$clone" checkout --quiet "$sha" 2>/dev/null; then
+      git -C "$clone" fetch --quiet --tags origin 2>/dev/null || true
+      git -C "$clone" checkout --quiet "$sha" 2>/dev/null || \
+        { say "$id: locked ${sha:0:7} is in neither clone nor origin — nothing changed; how to proceed is yours"; return 0; }
     fi
-    lay_source "$root" "$id"
-    say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — pull-only)"
+    say "$id: converged to locked ${sha:0:7}"
+  fi
+  ensure_dep_sources "$root" "$id"
+  lay_source "$root" "$id"
+  say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — pinned)"
+}
+
+# ---------- update ----------
+# The operator-owned moment content changes (Decision-043): fetch (tags too), move
+# the pin to the asked ref — `ref = "<branch|tag|sha>"` in the source's table, main
+# by default — then run pending migrations (Decision-022) and warn, without
+# repairing, when the delta removes or renames artifacts a session may still hold.
+pkg_artifact_names() { # pkg_artifact_names <src> -> kind/name per line, sorted
+  local src=$1 t
+  { for t in "$src"/skills/*/; do [ -e "$t" ] && echo "s/$(basename "$t")"; done
+    for t in "$src"/agents/*.md; do [ -e "$t" ] && echo "a/$(basename "$t" .md)"; done
+    for t in "$src"/hooks/* "$src"/tools/*; do [ -e "$t" ] && echo "x/$(basename "$t")"; done
+  } 2>/dev/null | sort
+}
+
+run_pending_migrations() { # run_pending_migrations <root> <owner>/<repo> <src>
+  local root=$1 id=$2 src=$3 gcd wm last f base
+  [ -d "$src/migrations" ] || return 0
+  gcd=$(git -C "$root" rev-parse --git-common-dir)
+  case "$gcd" in /*) ;; *) gcd="$root/$gcd" ;; esac
+  wm="$gcd/the-works/migrated/$id"; last=""
+  [ -f "$wm" ] && last=$(cat "$wm")
+  for f in "$src"/migrations/*.md; do
+    [ -e "$f" ] || continue
+    base=$(basename "$f" .md)
+    if [ -n "$last" ]; then [ "$base" \> "$last" ] || continue; fi
+    say "  migration $base: running scripted steps"
+    if awk '/^```sh$/{b=1;next} /^```/{b=0} b' "$f" | (cd "$root" && bash); then
+      mkdir -p "$(dirname "$wm")"; printf '%s\n' "$base" > "$wm"
+      say "  migration $base: applied (judgement steps, if any, are prose in the file)"
+    else
+      say "  migration $base: FAILED — apply manually, then advance $wm"
+      return 1
+    fi
+  done
+}
+
+update_source() { # update_source <root> <owner>/<repo>
+  local root=$1 id=$2 clone ref target sha cur before after gone
+  if is_self_source "$root" "$id"; then
+    say "update: $id is self-published — nothing to move"
     return 0
   fi
-
-  if [ -n "$(git -C "$clone" status --porcelain)" ]; then
-    git -C "$clone" add -A
-    git -C "$clone" commit --quiet -m "🔁 sync: local edits from $(basename "$root")"
-    say "$id: committed local edits"
+  clone=$(clone_of "$root" "$id")
+  [ -d "$clone/.git" ] || { say "$id: no clone — run 'kauk install $id' first"; return 0; }
+  publish_local_edits "$root" "$id" "$clone" || true
+  git -C "$clone" fetch --quiet --tags origin || { say "$id: fetch failed (offline?) — pin not moved"; return 0; }
+  ref=$(source_key_list "$root" "$id" ref | head -1)
+  target=${ref:-main}
+  sha=$(git -C "$clone" rev-parse --verify --quiet "origin/$target^{commit}") ||
+  sha=$(git -C "$clone" rev-parse --verify --quiet "$target^{commit}") ||
+    { say "$id: '$target' resolves to nothing after fetch — pin not moved"; return 0; }
+  before=$(pkg_artifact_names "$clone")
+  cur=$(git -C "$clone" rev-parse HEAD)
+  if [ "$cur" = "$sha" ]; then
+    lock_write "$root" "$id" "$sha" "${ref:--}"
+    say "update: $id already at ${sha:0:7}${ref:+ ($ref)}"
+  else
+    git -C "$clone" checkout --quiet "$sha"
+    lock_write "$root" "$id" "$sha" "${ref:--}"
+    say "update: $id $(git -C "$clone" rev-parse --short "$cur") → ${sha:0:7}${ref:+ ($ref)}"
   fi
-  if ! git -C "$clone" pull --rebase --quiet origin main; then
-    say "CONFLICT — $id and this repo edited the same skill."
-    say "Resolve in $clone (skills change rarely, are added often — a union merge is usually right),"
-    say "then: git -C $clone rebase --continue && kauk sync"
-    exit 1
+  after=$(pkg_artifact_names "$clone")
+  gone=$(comm -23 <(echo "$before") <(echo "$after") | grep . || true)
+  if [ -n "$gone" ]; then
+    say "  WARN $id: this update removes or renames artifacts a running session may still hold — restarting is your call:"
+    echo "$gone" | sed 's/^/    /'
   fi
-  git -C "$clone" push --quiet origin main
-
   lay_source "$root" "$id"
-  say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — in step with its source)"
+  run_pending_migrations "$root" "$id" "$clone" || true
+  ensure_dep_sources "$root" "$id"
+}
+
+cmd_update() {
+  local only=${1:-} root; root=$(repo_root)
+  local list; list=$(sources_list "$root")
+  [ -n "$list" ] || die "no sources in .ai.toml — run 'kauk init' first"
+  if [ -n "$only" ]; then
+    echo "$list" | awk -v id="$only" '$1==id{f=1} END{exit !f}' || die "unknown source: $only"
+  fi
+  local id origin
+  while read -r id origin; do
+    [ -n "$id" ] || continue
+    [ -n "$only" ] && [ "$id" != "$only" ] && continue
+    update_source "$root" "$id"
+  done <<< "$list"
+  resolve_xdeps "$root"
+  prune_links "$root"
+  report_conflicts
 }
 
 status_source() { # status_source <root> <owner>/<repo>
@@ -472,17 +891,21 @@ cmd_sync() {
     [ -n "$id" ] || continue
     if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id"; fi
   done < <({ echo "$list" | grep -v "^$SELF_REPO " || true; echo "$list" | grep "^$SELF_REPO " || true; })
+  [ $status_only = 1 ] || resolve_xdeps "$root"
   prune_links "$root"
   report_conflicts
 }
 
 main() {
+  SEL_FILE=$(mktemp); XDEPS=$(mktemp)
+  trap 'rm -f "$SEL_FILE" "$XDEPS"' EXIT
   case "${1:-}" in
     init)    shift; cmd_init "$@" ;;
     install) shift; cmd_install "$@" ;;
     sync)    shift; cmd_sync "$@" ;;
+    update)  shift; cmd_update "$@" ;;
     resolve) shift; cmd_resolve "$@" ;;
-    *) die "usage: kauk init | install <owner>/<repo> [<origin>] | sync [--status] | resolve [--assist]" ;;
+    *) die "usage: kauk init | install <owner>/<repo> [<origin>] | sync [--status] | update [<owner>/<repo>] | resolve [--assist]" ;;
   esac
 }
 main "$@"
