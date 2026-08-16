@@ -6,6 +6,17 @@ _base: (root)_
 
 ### ✨ New features
 
+- ✨ **The reader lays what you select, and nothing else** — `.ai.toml` becomes
+  defaults-only: `[sources."owner/repo"]` resolves to GitHub, a full path is local,
+  an `origin` key is refused. Each source carries only the operator's `select` list
+  of category paths; laying happens after selection plus dependency closure — flat
+  `dependencies-<kind>:` frontmatter keys (or the nested map), agents' `skills:`
+  lists, name-rooted `package/…/artifact` references across packages, and
+  `package.toml` dependencies pulling their sources in. Sync stops pushing local
+  clone edits; that becomes the explicit push verb's job.
+  `tests/convention-reader.sh` rewritten, 56 assertions.
+  Migration: `migrations/2026-08-16-defaults-only-aitoml.md`.
+
 - 🌳 **kauk reads packages by convention** — `bin/kauk` no longer reads `manifest.conf`.
   A package's contents are its `skills/ agents/ hooks/ tools/ files/` directories and
   nothing else; `files/` mirrors to the repository root at its own relative paths.
@@ -49,3 +60,20 @@ _base: (root)_
   from the naming memory), and the `kauk.ai` `site/` projection scaffold.
 - 📦 Namespace reservations: PyPI + npm `kauk` placeholder packages (`0.0.0`) under
   `namespace-reservation/`, ready for the operator to publish (`UPLOAD.md`).
+
+---
+
+#### ✨ `f/reader-select` → `archive/reader-select`
+
+The reader lays what you select, and nothing else. `.ai.toml` becomes
+defaults-only — `[sources."owner/repo"]` resolves to GitHub, a full path is
+local, an `origin` key is refused — and each source carries only the
+operator's `select` list of category paths. Laying happens after selection
+plus dependency closure: flat `dependencies-<kind>:` frontmatter keys (or the
+nested map), agents' `skills:` lists, name-rooted `package/…/artifact`
+references across packages, and `package.toml` dependencies pulling their
+sources in. Sync stops pushing local clone edits — that becomes the explicit
+push verb's job. Ships `migrations/2026-08-16-defaults-only-aitoml.md`
+converting existing files.
+
+_Board: dependency-graph, categories-rename · Decisions 046–049._
