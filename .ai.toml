@@ -1,9 +1,8 @@
 # Yours to edit — this file says what this repository consumes.
-# Sources live in [sources."<owner>/<repo>"] tables (origin = "URL or local path");
-# clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
+# [sources."<owner>/<repo>"] resolves to github.com; [sources."/full/path"] is
+# local. Each table may carry select = ["<category-path>", ...]; no select
+# means everything. Clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
 
-[sources."serialseb/orchids"]
-origin = "/home/sudoku/src/serialseb/orchids"
+[sources."/home/sudoku/src/serialseb/orchids"]
 
-[sources."serialseb/kauk"]
-origin = "/home/sudoku/src/serialseb/kauk"
+[sources."/home/sudoku/src/serialseb/kauk"]

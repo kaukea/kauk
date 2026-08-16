@@ -1,35 +1,44 @@
 #!/usr/bin/env bash
 # kauk — stopgap distribution of file packages (skills, agents, shared rule
-# files) for AI-agent-driven repositories. The real `kauk` CLI ships at 0.1.0 and
-# inherits this grammar; until then this bash MVP dies gracefully: delete .ai/ and
-# the symlinks, nothing else breaks.
+# files) for AI-agent-driven repositories. The real CLI ships at 0.1.0 and
+# inherits this grammar; until then this bash MVP dies gracefully: delete .ai/
+# and the symlinks, nothing else breaks.
 #
-#   kauk init                               bootstrap THIS repo (no data source)
-#   kauk install <owner>/<repo> [<origin>]  vendor + lay a data package
-#   kauk sync [--status]                    converge every installed source
-#   kauk resolve [--assist]                 list destinations kauk refused to touch;
-#                                           --assist asks Claude to attempt a merge
+#   kauk init                              bootstrap THIS repo (no data source)
+#   kauk install <owner>/<repo> | <path>   add + lay a package source
+#   kauk sync [--status]                   converge every installed source
+#   kauk resolve [--assist]                list destinations kauk refused to touch;
+#                                          --assist asks Claude to attempt a merge
 #
-# Sources are recorded in .ai.toml ([sources."<owner>/<repo>"] origin = "URL|path");
-# each is cloned at .ai/repositories/<owner>/<repo>/ (gitignored) — EXCEPT a source
-# that is this repository itself, which is read from its working tree and published
-# by copy instead of being vendored (docs/package-format.md).
+# .ai.toml is DEFAULTS-ONLY (Decision-047/049). A source table's key says it all:
 #
-# A package declares nothing about what it ships. Its contents are determined BY
-# CONVENTION and anything outside these directories is ignored:
-#   skills/<name>/     -> .claude/skills/<name>
-#   agents/<name>.md   -> .claude/agents/<name>.md
-#   hooks/<entry>      -> .claude/hooks/<entry>
-#   tools/<entry>      -> .claude/tools/<entry>
-#   files/<path>       -> <repo root>/<path>          verbatim, no transformation
+#   [sources."<owner>/<repo>"]     resolves to https://github.com/<owner>/<repo>
+#   [sources."/full/path"]         a local working tree; its <owner>/<repo>
+#                                  identity derives from its origin remote, else
+#                                  from the last two path components
 #
-# Everything is a symlink into the clone (absolute, so git worktrees resolve). A
-# destination that already holds a real file is reported and skipped, never replaced.
-# Where the artifacts land is decided by runtime detection, which yields a SET of
-# runtimes rather than a winner; Claude is one destination, never the destination.
+# An `origin =` key on an <owner>/<repo> source is an ERROR — nothing else lives
+# in a source table except the operator's selection:
 #
-# package.toml at a repository root declares that it IS a package: name, title,
-# description, and `pull-only = true` for a package whose consumers never push back.
+#   select = ["process/orchard", "development", "misc/helper"]
+#
+# Package-relative category paths: a node takes its subtree, its ancestors' own
+# artifacts, and the dependency closure; a "<category>/<artifact>" entry picks
+# one artifact. No select key = everything, exactly as before selection existed.
+#
+# A package declares nothing centrally (Decision-046). Contents are determined
+# BY CONVENTION — skills/ agents/ hooks/ tools/ files/ — and artifacts
+# self-declare in frontmatter: `categories:` (with `roles:` read as fallback
+# until the rename lands), dependencies as `dependencies-skills:` /
+# `dependencies-agents:` / `dependencies-tools:` flat lists (the nested
+# `dependencies:` map is accepted too), bare names within the package,
+# `<package>/<category>/…/<artifact>` across packages.
+#
+# Everything laid is a symlink into the clone (absolute, so git worktrees
+# resolve); a destination the user owns is reported and skipped, never replaced.
+# Laying happens only AFTER selection. Local edits to a clone are never pushed
+# by sync — publishing them is the explicit push verb's job (Decision-049,
+# arrives with the pin work).
 set -euo pipefail
 
 SELF_REPO="serialseb/kauk"
@@ -41,69 +50,73 @@ repo_root() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git
 clone_of() { echo "$1/.ai/repositories/$2"; }
 
 # ---------- .ai.toml ----------
-# The OPERATOR's file: what this checkout consumes. kauk reads it and never writes
-# delivery markings into it (Decision-023).
-sources_list() { # sources_list <root> -> "<owner>/<repo> <origin>" per line
-  local f="$1/.ai.toml"
-  [ -f "$f" ] || return 0
-  awk '
-    /^\[sources\."/ { s=$0; sub(/^\[sources\."/,"",s); sub(/"\].*$/,"",s); src=s; next }
-    /^\[/           { src="" }
-    src != "" && /^origin[ \t]*=/ {
-      v=$0; sub(/^origin[ \t]*=[ \t]*"/,"",v); sub(/".*$/,"",v)
-      print src " " v; src=""
-    }
-  ' "$f"
+# The OPERATOR's file: what this checkout consumes, and nothing else.
+src_tables() { # src_tables <root> -> one table key per line
+  [ -f "$1/.ai.toml" ] || return 0
+  awk '/^\[sources\."/ { s=$0; sub(/^\[sources\."/,"",s); sub(/"\].*$/,"",s); print s }' "$1/.ai.toml"
+}
+
+key_field() { # key_field <root> <tablekey> <field> -> quoted strings of that field
+  [ -f "$1/.ai.toml" ] || return 0
+  awk -v id="$2" -v key="$3" '
+    /^\[sources\."/ { s=$0; sub(/^\[sources\."/,"",s); sub(/"\].*$/,"",s); cur=s; next }
+    /^\[/           { cur="" }
+    cur==id && $0 ~ "^"key"[ \t]*=" { n=split($0,a,"\""); for(i=2;i<=n;i+=2) if(a[i]!="") print a[i] }
+  ' "$1/.ai.toml"
+}
+
+path_id() { # path_id <path> -> <owner>/<repo>: the last two path components
+  local p=${1%/}          # Decision-143's vendoring rule; the origin remote is
+  echo "$(basename "$(dirname "$p")")/$(basename "$p")"   # NOT consulted, so a
+}                         # renamed remote never silently relocates a clone
+
+sources_list() { # sources_list <root> -> "<id> <origin> <tablekey>" per line
+  local root=$1 k o
+  while IFS= read -r k; do
+    [ -n "$k" ] || continue
+    case "$k" in
+      /*)
+        echo "$(path_id "$k") $k $k" ;;
+      */*)
+        o=$(key_field "$root" "$k" origin | head -1)
+        [ -z "$o" ] || die "source \"$k\": origin is retired — an <owner>/<repo> source resolves to github.com/$k; a local source is keyed by its full path. Edit .ai.toml."
+        echo "$k https://github.com/$k $k" ;;
+      *)
+        say "WARN .ai.toml: source \"$k\" is neither <owner>/<repo> nor a full path — ignored" ;;
+    esac
+  done < <(src_tables "$root")
 }
 
 source_origin() { sources_list "$1" | awk -v id="$2" '$1==id{print $2; exit}'; }
+source_key()    { sources_list "$1" | awk -v id="$2" '$1==id{print $3; exit}'; }
+source_select() { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" select; return 0; }
 
-ensure_aitoml() { # create if missing; migrate v1 (canonical = "...") in place
-  local root=$1 f="$root/.ai.toml" c
-  if [ ! -f "$f" ]; then
-    cat > "$f" <<'EOF'
+ensure_aitoml() {
+  local root=$1 f="$root/.ai.toml"
+  [ -f "$f" ] && return 0
+  cat > "$f" <<'EOF'
 # Yours to edit — this file says what this repository consumes.
-# Sources live in [sources."<owner>/<repo>"] tables (origin = "URL or local path");
-# clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
+# [sources."<owner>/<repo>"] resolves to github.com; [sources."/full/path"] is
+# local. Each table may carry select = ["<category-path>", ...]; no select
+# means everything. Clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
 EOF
-    say ".ai.toml: created"
-    return 0
-  fi
-  c=$(sed -n 's/^canonical *= *"\(.*\)"/\1/p' "$f" | head -1)
-  if [ -n "$c" ]; then
-    sed -i '/^canonical *= */d; s/managed by orchids/managed by kauk/' "$f"
-    grep -q '^\[sources\."serialseb/orchids"\]' "$f" || \
-      printf '\n[sources."serialseb/orchids"]\norigin = "%s"\n' "$c" >> "$f"
-    say ".ai.toml: migrated v1 canonical → sources table"
-  fi
+  say ".ai.toml: created"
 }
 
-register_source() { # register_source <root> <owner>/<repo> <origin> — idempotent
-  local root=$1 id=$2 origin=$3 f="$root/.ai.toml"
-  grep -q "^\[sources\.\"$id\"\]" "$f" 2>/dev/null && return 0
-  printf '\n[sources."%s"]\norigin = "%s"\n' "$id" "$origin" >> "$f"
-  say ".ai.toml: registered source $id"
+register_source() { # register_source <root> <tablekey> — idempotent
+  local root=$1 k=$2 f="$root/.ai.toml"
+  grep -q "^\[sources\.\"$k\"\]" "$f" 2>/dev/null && return 0
+  printf '\n[sources."%s"]\n' "$k" >> "$f"
+  say ".ai.toml: registered source $k"
 }
 
 # ---------- package identity & convention ----------
-# A package is a repository of files that knows nothing about kauk. Its contents are
-# determined BY CONVENTION — the directories below — and anything outside them is
-# ignored. There is no manifest; the tree is the contract. See docs/package-format.md.
-#
-# TRANSITIONAL: a repository carrying convention directories but no package.toml is
-# still treated as a package, so packages can adopt package.toml on their own schedule.
-
 KINDS="skills agents hooks tools files templates"
 
-pkg_field() { # pkg_field <src> <key> -> value of a bare string key in package.toml
-  sed -n "s/^$2[[:space:]]*=[[:space:]]*\"\(.*\)\"/\1/p" "$1/package.toml" 2>/dev/null | head -1
-}
+pkg_field() { sed -n "s/^$2[[:space:]]*=[[:space:]]*\"\(.*\)\"/\1/p" "$1/package.toml" 2>/dev/null | head -1; }
+pkg_flag()  { grep -Eq "^$2[[:space:]]*=[[:space:]]*true[[:space:]]*$" "$1/package.toml" 2>/dev/null; }
 
-pkg_flag() { # pkg_flag <src> <key> — true only for an explicit `key = true`
-  grep -Eq "^$2[[:space:]]*=[[:space:]]*true[[:space:]]*$" "$1/package.toml" 2>/dev/null
-}
-
-is_package() { # package.toml, or at least one convention directory
+is_package() {
   local src=$1 d
   [ -f "$src/package.toml" ] && return 0
   for d in $KINDS; do [ -d "$src/$d" ] && return 0; done
@@ -114,27 +127,235 @@ same_path() { [ -d "$1" ] && [ -d "$2" ] && [ "$(cd "$1" && pwd -P)" = "$(cd "$2
 
 is_self_source() { # the repository IS this package — never vendored (Decision-037)
   local root=$1 origin; origin=$(source_origin "$root" "$2")
-  [ -n "$origin" ] && same_path "$origin" "$root"
+  [ -n "$origin" ] && [ -d "$origin" ] && same_path "$origin" "$root"
 }
 
-source_tree() { # where a source's files are read from: its working tree, or its clone
-  if is_self_source "$1" "$2"; then echo "$1"; else clone_of "$1" "$2"; fi
-}
-
-# A self-published package is COPIED back into its own repository and committed;
-# every other package is LINKED (Decision-016/037).
+source_tree() { if is_self_source "$1" "$2"; then echo "$1"; else clone_of "$1" "$2"; fi; }
 publish_mode() { if is_self_source "$1" "$2"; then echo copy; else echo link; fi; }
 
-managed_paths() { # repo-relative paths this package manages (migration guard scope)
-  local src=$1 d
-  for d in skills agents hooks tools; do [ -d "$src/$d" ] && printf '.claude/%s\n' "$d"; done
-  [ -d "$src/files" ] && (cd "$src/files" && find . -type f 2>/dev/null | sed 's|^\./||')
+pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
+  local src=$1 id=$2 n; n=$(pkg_field "$src" name)
+  echo "${n:-${id##*/}}"
+}
+
+# ---------- frontmatter ----------
+# Artifacts self-declare (Decisions 046/047/048): `categories:` (roles: as
+# fallback until the orchids rename lands), dependencies as flat
+# `dependencies-<kind>:` lists or the nested `dependencies:` map, and their own
+# files as globs. Kept trivially parseable for the thin CLI: flat inline lists.
+fm_block() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1" 2>/dev/null; }
+
+fm_list() { # fm_list <file> <key> -> items of an inline [a, b] or dash-block list
+  [ -f "$1" ] || return 0
+  fm_block "$1" | awk -v k="$2" '
+    $0 ~ "^"k":[ \t]*\\[" {
+      v=$0; sub("^"k":[ \t]*\\[","",v); sub("\\].*$","",v)
+      n=split(v,a,","); for(i=1;i<=n;i++){gsub(/^[ \t"'\'']+|[ \t"'\'']+$/,"",a[i]); if(a[i]!="")print a[i]}
+      next
+    }
+    $0 ~ "^"k":[ \t]*$" { inb=1; next }
+    inb && /^[ \t]+-[ \t]/ { v=$0; sub(/^[ \t]+-[ \t]+/,"",v); gsub(/^["'\'']|["'\'']$/,"",v); print v; next }
+    inb { inb=0 }
+  '
+}
+
+fm_nested_dep() { # fm_nested_dep <file> <skills|agents|tools> — the map form
+  [ -f "$1" ] || return 0
+  fm_block "$1" | awk -v k="$2" '
+    /^dependencies:[ \t]*$/ { ind=1; next }
+    ind && /^[^ \t]/        { ind=0 }
+    ind && $0 ~ "^[ \t]+"k":[ \t]*\\[" {
+      v=$0; sub("^[ \t]+"k":[ \t]*\\[","",v); sub("\\].*$","",v)
+      n=split(v,a,","); for(i=1;i<=n;i++){gsub(/^[ \t"'\'']+|[ \t"'\'']+$/,"",a[i]); if(a[i]!="")print a[i]}
+    }
+  '
+}
+
+artifact_file() { # artifact_file <src> <s|a> <name>
+  case "$2" in
+    s) echo "$1/skills/$3/SKILL.md" ;;
+    a) echo "$1/agents/$3.md" ;;
+  esac
+}
+
+artifact_categories() { # categories:, falling back to roles:
+  local c; c=$(fm_list "$1" categories)
+  [ -n "$c" ] && { printf '%s\n' "$c"; return 0; }
+  fm_list "$1" roles
+}
+
+artifact_deps() { # artifact_deps <file> <owner-kind-letter> <skills|agents|tools>
+  local f=$1 owner=$2 dk=$3 d
+  d=$(fm_list "$f" "dependencies-$dk")
+  [ -n "$d" ] || d=$(fm_nested_dep "$f" "$dk")
+  # an agent's runtime skills: list is the same dependency edge (Decision-029/030)
+  [ -z "$d" ] && [ "$owner" = a ] && [ "$dk" = skills ] && d=$(fm_list "$f" skills)
+  printf '%s\n' "$d" | grep . || true
+}
+
+each_artifact() { # each_artifact <src> -> "<kind-letter> <name>" per line
+  local src=$1 t
+  for t in "$src"/skills/*/; do [ -e "$t" ] && echo "s $(basename "$t")"; done
+  for t in "$src"/agents/*.md; do [ -e "$t" ] && echo "a $(basename "$t" .md)"; done
   return 0
 }
 
+# ---------- selection & closure ----------
+# Selection is the operator's per-source select list; the installed set is its
+# dependency closure (Decision-025/047). A declared path D matches an entry E
+# when D==E, D lies under E, or E lies under D (a node brings its ancestors'
+# own artifacts). "<category>/<artifact>" picks one artifact. Undeclared
+# artifacts always lay; hooks, files/ and tools are never filtered.
+SEL_ACTIVE=0
+SEL_FILE=""
+XDEPS=""
+
+cat_hit() { # cat_hit <declared-paths (lines)> <entry>
+  local d
+  while IFS= read -r d; do
+    [ -n "$d" ] || continue
+    case "$d" in "$2"|"$2"/*) return 0 ;; esac
+    case "$2" in "$d"/*) return 0 ;; esac
+  done <<< "$1"
+  return 1
+}
+
+sel_add() { grep -qx "$1/$2" "$SEL_FILE" 2>/dev/null || echo "$1/$2" >> "$SEL_FILE"; }
+
+sel_allows() { # sel_allows <kind-letter> <name>
+  [ "$SEL_ACTIVE" = 0 ] && return 0
+  case "$1" in s|a) grep -qx "$1/$2" "$SEL_FILE" ;; *) return 0 ;; esac
+}
+
+leaf_pick() { # leaf_pick <src> <entry> -> 0 if the entry named one artifact (and selected it)
+  local src=$1 e=$2 name=${2##*/} cat k f decl
+  cat=${e%/*}
+  [ "$cat" != "$e" ] || return 1
+  for k in s a; do
+    f=$(artifact_file "$src" "$k" "$name")
+    [ -e "$f" ] || continue
+    decl=$(artifact_categories "$f")
+    [ -n "$decl" ] && echo "$decl" | grep -qx "$cat" && { sel_add "$k" "$name"; return 0; }
+  done
+  return 1
+}
+
+close_selection() { # fixpoint over declared dependencies, in-package; cross-package staged
+  local src=$1 id=$2 grew=1 k n f dk dn l ref
+  while [ $grew = 1 ]; do
+    grew=0
+    while IFS=/ read -r k n; do
+      case "$k" in s|a) ;; *) continue ;; esac
+      f=$(artifact_file "$src" "$k" "$n")
+      for dk in skills agents tools; do
+        case "$dk" in skills) l=s ;; agents) l=a ;; tools) l=t ;; esac
+        for ref in $(artifact_deps "$f" "$k" "$dk"); do
+          [ "$l" = t ] && continue                 # tools lay unfiltered today
+          case "$ref" in
+            */*) echo "$l ${ref##*/} $k/$n ${ref%%/*}" >> "$XDEPS" ;;
+            *)
+              dn=$ref
+              if [ -e "$(artifact_file "$src" "$l" "$dn")" ]; then
+                if ! grep -qx "$l/$dn" "$SEL_FILE"; then
+                  sel_add "$l" "$dn"
+                  say "  closure: +$l/$dn (needed by $k/$n)"
+                  grew=1
+                fi
+              else
+                say "  WARN $id: $k/$n depends on $l/$dn, absent from this package"
+              fi ;;
+          esac
+        done
+      done
+    done < "$SEL_FILE"
+  done
+}
+
+build_selection() { # build_selection <root> <src> <id>
+  local root=$1 src=$2 id=$3 entries e k n f decl
+  SEL_ACTIVE=0; : > "$SEL_FILE"
+  entries=$(source_select "$root" "$id")
+  [ -n "$entries" ] || return 0
+  SEL_ACTIVE=1
+  while read -r k n; do
+    [ -n "$k" ] || continue
+    f=$(artifact_file "$src" "$k" "$n")
+    decl=$(artifact_categories "$f")
+    [ -z "$decl" ] && sel_add "$k" "$n"          # undeclared always lays
+  done < <(each_artifact "$src")
+  for e in $entries; do
+    leaf_pick "$src" "$e" && continue
+    while read -r k n; do
+      [ -n "$k" ] || continue
+      f=$(artifact_file "$src" "$k" "$n")
+      decl=$(artifact_categories "$f")
+      [ -n "$decl" ] && cat_hit "$decl" "$e" && sel_add "$k" "$n"
+    done < <(each_artifact "$src")
+  done
+  close_selection "$src" "$id"
+}
+
+resolve_xdeps() { # cross-package closure by the name-rooted grammar (one level)
+  local root=$1 l n needer pkg id origin key src found
+  [ -s "$XDEPS" ] || return 0
+  sort -u -o "$XDEPS" "$XDEPS"
+  while read -r l n needer pkg; do
+    [ -n "$l" ] || continue
+    found=""
+    while read -r id origin key; do
+      [ -n "$id" ] || continue
+      src=$(source_tree "$root" "$id")
+      [ "$(pkg_namespace "$src" "$id")" = "$pkg" ] || continue
+      [ -e "$(artifact_file "$src" "$l" "$n")" ] || [ -e "$src/tools/$n" ] && { found=$id; break; }
+    done < <(sources_list "$root")
+    if [ -n "$found" ]; then
+      lay_one_artifact "$root" "$found" "$l" "$n"
+      say "  closure: +$pkg/$l/$n (needed by $needer)"
+    else
+      say "  WARN: $needer depends on $pkg/…/$n, and no installed source is the package \"$pkg\""
+    fi
+  done < "$XDEPS"
+  : > "$XDEPS"
+}
+
+lay_one_artifact() { # lay_one_artifact <root> <id> <kind-letter> <name>
+  local root=$1 id=$2 l=$3 n=$4 src mode ns t dstdir
+  src=$(source_tree "$root" "$id"); mode=$(publish_mode "$root" "$id"); ns=$(pkg_namespace "$src" "$id")
+  case "$l" in
+    s) t="$src/skills/$n";    dstdir="$root/.claude/skills" ;;
+    a) t="$src/agents/$n.md"; dstdir="$root/.claude/agents"; n="$n.md" ;;
+    t) t="$src/tools/$n";     dstdir="$root/.claude/tools" ;;
+  esac
+  mkdir -p "$dstdir"
+  if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns"; fi
+  place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
+}
+
+render_tree() { # render_tree <root> <id> — the derived tree, for the add-time conversation
+  local root=$1 id=$2 src k n f decl c
+  src=$(source_tree "$root" "$id")
+  { while read -r k n; do
+      [ -n "$k" ] || continue
+      f=$(artifact_file "$src" "$k" "$n")
+      decl=$(artifact_categories "$f")
+      if [ -n "$decl" ]; then while IFS= read -r c; do echo "$c $k/$n"; done <<< "$decl"
+      else echo "(uncategorised) $k/$n"; fi
+    done < <(each_artifact "$src")
+  } | sort | awk '{ if($1!=p){ printf "%s%s:", (NR>1?"\n":""), $1; p=$1 } printf " %s", $2 } END { print "" }'
+}
+
+offer_tree() { # after an unselected install: show the tree, invite a select
+  local root=$1 id=$2 key
+  [ -z "$(source_select "$root" "$id")" ] || return 0
+  key=$(source_key "$root" "$id")
+  say ""
+  say "$id declares this tree; nothing is selected, so everything installed."
+  render_tree "$root" "$id" | sed 's/^/  /'
+  say "To trim, add under [sources.\"$key\"] in .ai.toml:  select = [\"<category-path>\", …]"
+}
+
 # ---------- runtime detection ----------
-# Detection yields a SET, not a winner: every runtime in use is served (Decision-018).
-detect_runtimes() { # detect_runtimes <root> -> one name per line
+detect_runtimes() { # -> a SET, one name per line (Decision-018)
   local root=$1
   { [ -d "$root/.claude" ] || [ -f "$root/CLAUDE.md" ]; } && echo claude
   return 0
@@ -143,26 +364,15 @@ detect_runtimes() { # detect_runtimes <root> -> one name per line
 # ---------- layout ----------
 LAID=0
 
-place_one() { # place_one <mode> <abs-src> <dst>
-  case "$1" in copy) copy_one "$2" "$3" ;; *) link_one "$2" "$3" ;; esac
-}
+place_one() { case "$1" in copy) copy_one "$2" "$3" ;; *) link_one "$2" "$3" ;; esac; }
 
-# A name collision is NOT a conflict to merge: two artifacts sharing a name are
-# almost certainly different things. Both are kept, under namespaces — the user's
-# becomes `local<sep><name>`, the package's `<package><sep><name>` (Decision-042).
-# The user merges or renames them later if they want to; kauk decides nothing.
-#
-# The SEPARATOR is per runtime: kauk adopts whatever syntax each agent already uses
-# for namespacing, rather than imposing one. Claude Code writes `plugin:command`.
 NS_LOCAL="local"
-NS_SEP=":"                                  # set per runtime by its renderer
-NS_DST=""                                   # out-param: never echoed, so notices are free
+NS_SEP=":"
+NS_DST=""
 
-namespace_for() { # namespace_for <dstdir> <name> <pkgns> — sets NS_DST
+namespace_for() { # a name collision keeps both, namespaced (Decision-042)
   local dstdir=$1 n=$2 ns=$3
-  # already namespaced by an earlier run: stay namespaced
   if [ -e "$dstdir/$NS_LOCAL$NS_SEP$n" ]; then NS_DST="$ns$NS_SEP$n"; return 0; fi
-  # a real entry the user owns sits on the bare name: move it aside, keep both
   if [ -e "$dstdir/$n" ] && [ ! -L "$dstdir/$n" ]; then
     mv "$dstdir/$n" "$dstdir/$NS_LOCAL$NS_SEP$n"
     say "  NAMESPACED $NS_LOCAL$NS_SEP$n (yours) and $ns$NS_SEP$n (package) — same name, different things"
@@ -171,16 +381,15 @@ namespace_for() { # namespace_for <dstdir> <name> <pkgns> — sets NS_DST
   NS_DST="$n"
 }
 
-lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns>
-  local mode=$1 srcdir=$2 dstdir=$3 ns=$5 t n
+lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns> <kind-letter>
+  local mode=$1 srcdir=$2 dstdir=$3 ns=$5 kind=${6:-} t n
   [ -d "$srcdir" ] || return 0
   mkdir -p "$dstdir"
   for t in "$srcdir"/*$4; do
     [ -e "$t" ] || continue
     n=$(basename "$t")
     case "$n" in .*|__pycache__|*"$NS_SEP"*) continue ;; esac
-    # Namespacing only applies where kauk LINKS. In copy mode the destination is a
-    # real file because kauk put it there, and must not be mistaken for the user's.
+    [ -n "$kind" ] && ! sel_allows "$kind" "$(basename "$n" .md)" && continue
     if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns"; fi
     place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
   done
@@ -188,9 +397,9 @@ lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns>
 
 lay_claude() { # lay_claude <root> <src> <mode> <pkgns>
   local root=$1 src=$2 mode=$3 ns=$4
-  NS_SEP=":"                                # Claude Code's own namespace syntax
-  lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""    "$ns"
-  lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md" "$ns"
+  NS_SEP=":"
+  lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""    "$ns" s
+  lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md" "$ns" a
   lay_kind "$mode" "$src/hooks"  "$root/.claude/hooks"  ""    "$ns"
   lay_kind "$mode" "$src/tools"  "$root/.claude/tools"  ""    "$ns"
 }
@@ -205,12 +414,7 @@ lay_files() { # files/<path> -> <root>/<path>, verbatim (Decision-015)
   done < <(cd "$src/files" && find . -type f 2>/dev/null | sed 's|^\./||')
 }
 
-pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
-  local src=$1 id=$2 n; n=$(pkg_field "$src" name)
-  echo "${n:-${id##*/}}"
-}
-
-lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys real files)
+lay_source() { # lay_source <root> <id>  (idempotent; never destroys real files)
   local root=$1 id=$2 src mode rt runtimes ns
   src=$(source_tree "$root" "$id")
   is_package "$src" || { say "$id: no package contents — nothing to lay"; return 0; }
@@ -225,6 +429,7 @@ lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys r
   fi
 
   LAID=0
+  build_selection "$root" "$src" "$id"
   for rt in $runtimes; do
     case "$rt" in
       claude) lay_claude "$root" "$src" "$mode" "$ns" ;;
@@ -232,7 +437,24 @@ lay_source() { # lay_source <root> <owner>/<repo>  (idempotent; never destroys r
     esac
   done
   lay_files "$root" "$src" "$mode"
+  prune_deselected "$root" "$src"
+  SEL_ACTIVE=0
   say "$mode: $LAID laid/verified ($id) [$(echo "$runtimes" | tr '\n' ' ')]"
+}
+
+prune_deselected() { # a link whose artifact fell out of the selection is removed
+  [ "$SEL_ACTIVE" = 1 ] || return 0
+  local root=$1 src=$2 l t k n
+  for l in "$root"/.claude/skills/* "$root"/.claude/agents/*; do
+    [ -L "$l" ] || continue
+    t=$(readlink "$l")
+    case "$t" in
+      "$src"/skills/*) k=s; n=${t#"$src"/skills/}; n=${n%%/*} ;;
+      "$src"/agents/*) k=a; n=$(basename "$t" .md) ;;
+      *) continue ;;
+    esac
+    sel_allows "$k" "$n" || { rm "$l"; say "  DESELECT ${l#"$root"/} (outside the selection)"; }
+  done
 }
 
 CONFLICTS=""
@@ -244,8 +466,6 @@ link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
     [ "$(readlink "$link")" = "$target" ] || ln -sfn "$target" "$link"
     return 0
   fi
-  # Report and skip: a destination the user owns is never overwritten (Decision-016).
-  # kauk cannot tell the user's intent from anyone else's, so it decides nothing here.
   if [ -e "$link" ]; then
     say "  BLOCKED $link (a real file is already there — kauk did not place it, so kauk will not touch it)"
     CONFLICTS="$CONFLICTS$link|$target"$'\n'
@@ -265,12 +485,11 @@ report_conflicts() { # invite the user to decide — never decide for them (Deci
   say "  (or merge them yourself — that is always the fallback)"
 }
 
-copy_one() { # copy_one <src> <dst> — self-published packages copy into their own repo
+copy_one() { # self-published packages copy into their own repo
   local src=$1 dst=$2
   [ -e "$src" ] || { say "  SKIP $dst (missing in package)"; return 1; }
-  # Never recurse-delete anything that is not a published destination.
   case "$dst" in */.claude/*|"$PWD"/*) ;; *) die "refusing to write outside a published destination: $dst" ;; esac
-  [ -L "$dst" ] && rm "$dst"                               # was linked, now self-published
+  [ -L "$dst" ] && rm "$dst"
   if [ -d "$src" ]; then
     [ -d "$dst" ] && diff -rq "$src" "$dst" >/dev/null 2>&1 && return 0
     rm -rf "${dst:?}"; cp -r "$src" "$dst"; return 0
@@ -279,7 +498,7 @@ copy_one() { # copy_one <src> <dst> — self-published packages copy into their 
   cp "$src" "$dst"
 }
 
-prune_links() { # remove dead symlinks that point into this repo's .ai/repositories/
+prune_links() { # remove dead symlinks pointing into this repo's .ai/repositories/
   local root=$1 l
   while IFS= read -r l; do
     [ -e "$l" ] && continue
@@ -294,61 +513,44 @@ ensure_gitignore() {
   grep -qx '\.ai/repositories/' "$root/.gitignore" 2>/dev/null || printf '.ai/repositories/\n' >> "$root/.gitignore"
 }
 
-# ---------- init ----------
-cmd_init() {
-  local root; root=$(repo_root)
-  local self_clone script_repo
-  ensure_aitoml "$root"
-  ensure_gitignore "$root"
-  # this script may run from the machine canonical or from any vendored clone;
-  # the repo being initialized gets its own self-clone either way
-  script_repo=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
-  # kauk's own repository is a self-source: it is never vendored into itself.
-  if same_path "$script_repo" "$root"; then
-    register_source "$root" "$SELF_REPO" "$root"
-    lay_source "$root" "$SELF_REPO"
-    prune_links "$root"
-    say "init: done — this repository is itself the kauk package (self-published)"
-    return 0
-  fi
-  self_clone=$(clone_of "$root" "$SELF_REPO")
-  local self_origin
-  if [ -d "$self_clone/.git" ]; then
-    self_origin=$(git -C "$self_clone" config --get remote.origin.url 2>/dev/null || true)
-    self_origin=${self_origin:-${KAUK_ORIGIN:-$script_repo}}
-  else
-    self_origin="${KAUK_ORIGIN:-$script_repo}"
-    mkdir -p "$(dirname "$self_clone")"
-    git clone --quiet "$self_origin" "$self_clone"
-    say "clone: $self_clone"
-  fi
-  register_source "$root" "$SELF_REPO" "$self_origin"
-  lay_source "$root" "$SELF_REPO"
-  prune_links "$root"
-  say "init: done — add a data package with 'kauk install <owner>/<repo> [<origin>]'"
+# ---------- package dependencies ----------
+# package.toml may declare `dependencies = ["<owner>/<repo>", …]` — the package
+# graph resolves first, the artifact closure then runs across the union
+# (Decision-038, build authorised 2026-08-13).
+pkg_dep_sources() {
+  [ -f "$1/package.toml" ] || return 0
+  awk '/^dependencies[ \t]*=/ { n=split($0,a,"\""); for(i=2;i<=n;i+=2) if(a[i]!="") print a[i] }' "$1/package.toml"
+}
+
+ensure_dep_sources() { # ensure_dep_sources <root> <id> — install missing package deps
+  local root=$1 id=$2 src dep key
+  src=$(source_tree "$root" "$id")
+  for dep in $(pkg_dep_sources "$src"); do
+    case "$dep" in */*) ;; *) say "  WARN $id: package dependency '$dep' is not <owner>/<repo> — ignored"; continue ;; esac
+    key=$(source_key "$root" "$dep")     # an existing registration (path or repo form) wins
+    [ -n "$key" ] && [ -d "$(clone_of "$root" "$dep")/.git" ] && continue
+    say "  dependency: $dep (required by $id)"
+    install_source "$root" "${key:-$dep}" || say "  WARN $id: could not install dependency $dep"
+  done
 }
 
 # ---------- install ----------
-cmd_install() {
-  local id=${1:-} origin=${2:-}
-  [ -n "$id" ] || die "usage: kauk install <owner>/<repo> [<origin>]"
-  case "$id" in */*) ;; *) die "source must be <owner>/<repo>" ;; esac
-  local root clone; root=$(repo_root); clone=$(clone_of "$root" "$id")
-  origin=${origin:-$(source_origin "$root" "$id")}
-  origin=${origin:-https://github.com/$id}
-
-  ensure_aitoml "$root"
-  ensure_gitignore "$root"
-  register_source "$root" "$id" "$origin"
-
-  local src
+install_source() { # install_source <root> <tablekey-or-id> — register, clone, lay
+  local root=$1 ref=$2 id origin clone src
+  case "$ref" in
+    /*) register_source "$root" "$ref"; id=$(path_id "$ref") ;;
+    */*) register_source "$root" "$ref"; id=$ref ;;
+    *) say "  WARN install: '$ref' is neither <owner>/<repo> nor a full path"; return 1 ;;
+  esac
+  origin=$(source_origin "$root" "$id")
   if is_self_source "$root" "$id"; then
     src="$root"
     say "self: $id is this repository — not vendored, published from the working tree"
   else
+    clone=$(clone_of "$root" "$id")
     if [ ! -d "$clone/.git" ]; then
       mkdir -p "$(dirname "$clone")"
-      git clone --quiet "$origin" "$clone"
+      git clone --quiet "$origin" "$clone" 2>/dev/null || { say "  WARN $id: clone failed from $origin"; return 1; }
       say "clone: $clone"
     else
       say "clone: already present"
@@ -356,23 +558,34 @@ cmd_install() {
     src="$clone"
     [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
   fi
-  is_package "$src" || die "$id has no package contents — not a kauk package (expects any of: $KINDS)"
+  is_package "$src" || { say "  WARN $id has no package contents — not a kauk package (expects any of: $KINDS)"; return 1; }
 
-  # A destination the user owns is REPORTED AND SKIPPED — never deleted, never merged
-  # on their behalf, and nothing is dispatched to resolve it (Decision-016). Installing
-  # does not write to the package either: kauk never adopts a consumer's file upstream.
+  # A destination the user owns is REPORTED AND SKIPPED (Decision-016); a name
+  # collision is namespaced (Decision-042); nothing is dispatched (Decision-041).
   lay_source "$root" "$id"
+  ensure_dep_sources "$root" "$id"
+}
+
+cmd_install() {
+  local ref=${1:-}
+  [ -n "$ref" ] || die "usage: kauk install <owner>/<repo> | <path>"
+  local root; root=$(repo_root)
+  ensure_aitoml "$root"
+  ensure_gitignore "$root"
+  install_source "$root" "$ref" || die "install: $ref failed"
+  resolve_xdeps "$root"
   prune_links "$root"
+  local id; case "$ref" in /*) id=$(path_id "$ref") ;; *) id=$ref ;; esac
   say "install: $id done"
+  offer_tree "$root" "$id"
   report_conflicts
 }
 
 # ---------- resolve ----------
-# The manual-resolution point. kauk never reaches it on its own: the user asks.
-collect_conflicts() { # collect_conflicts <root> — re-run layout to populate CONFLICTS
-  local root=$1 id origin
+collect_conflicts() {
+  local root=$1 id origin key
   CONFLICTS=""
-  while read -r id origin; do
+  while read -r id origin key; do
     [ -n "$id" ] || continue
     lay_source "$root" "$id" >/dev/null
   done < <(sources_list "$root")
@@ -408,10 +621,30 @@ cmd_resolve() {
     || say "assisted merge did not complete — resolve these yourself"
 }
 
+# ---------- init ----------
+cmd_init() {
+  local root; root=$(repo_root)
+  local script_repo
+  ensure_aitoml "$root"
+  ensure_gitignore "$root"
+  script_repo=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
+  if same_path "$script_repo" "$root"; then
+    install_source "$root" "$root" || true
+    prune_links "$root"
+    say "init: done — this repository is itself the kauk package (self-published)"
+    return 0
+  fi
+  install_source "$root" "${KAUK_ORIGIN:-$script_repo}" || true
+  prune_links "$root"
+  say "init: done — add a data package with 'kauk install <owner>/<repo> | <path>'"
+}
+
 # ---------- sync ----------
-sync_source() { # sync_source <root> <owner>/<repo>
+# sync converges and lays. It PULLS (the pin arrives with the next task) but
+# NEVER pushes: local edits to a clone are reported and left; publishing them
+# is the explicit push verb's job (Decision-049).
+sync_source() { # sync_source <root> <id>
   local root=$1 id=$2 clone
-  # A self-published package is never vendored: publish straight from the working tree.
   if is_self_source "$root" "$id"; then
     lay_source "$root" "$id"
     say "sync: $id (self-published from the working tree — not vendored)"
@@ -420,39 +653,21 @@ sync_source() { # sync_source <root> <owner>/<repo>
   clone=$(clone_of "$root" "$id")
   [ -d "$clone/.git" ] || { say "$id: no clone — run 'kauk install $id' first"; return 0; }
 
-  if pkg_flag "$clone" pull-only; then
-    if [ -n "$(git -C "$clone" status --porcelain)" ]; then
-      say "$id: pull-only package has local edits — never pushed back; resolve manually (pull skipped)"
-    else
-      git -C "$clone" pull --rebase --quiet origin main || say "$id: pull failed (offline?)"
-    fi
-    lay_source "$root" "$id"
-    say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — pull-only)"
-    return 0
-  fi
-
   if [ -n "$(git -C "$clone" status --porcelain)" ]; then
-    git -C "$clone" add -A
-    git -C "$clone" commit --quiet -m "🔁 sync: local edits from $(basename "$root")"
-    say "$id: committed local edits"
+    say "$id: clone has local edits — sync never publishes them (the push verb will); pull skipped"
+  else
+    git -C "$clone" pull --rebase --quiet origin main 2>/dev/null || say "$id: pull failed (offline?)"
   fi
-  if ! git -C "$clone" pull --rebase --quiet origin main; then
-    say "CONFLICT — $id and this repo edited the same skill."
-    say "Resolve in $clone (skills change rarely, are added often — a union merge is usually right),"
-    say "then: git -C $clone rebase --continue && kauk sync"
-    exit 1
-  fi
-  git -C "$clone" push --quiet origin main
-
+  ensure_dep_sources "$root" "$id"
   lay_source "$root" "$id"
-  say "sync: $id ($(git -C "$clone" rev-parse --short HEAD) — in step with its source)"
+  say "sync: $id ($(git -C "$clone" rev-parse --short HEAD))"
 }
 
-status_source() { # status_source <root> <owner>/<repo>
+status_source() { # status_source <root> <id>
   local root=$1 id=$2 clone dirty ahead behind
   clone=$(clone_of "$root" "$id")
   [ -d "$clone/.git" ] || { say "$id: no clone"; return 0; }
-  git -C "$clone" fetch --quiet origin || { say "$id: fetch failed (offline?)"; return 0; }
+  git -C "$clone" fetch --quiet origin 2>/dev/null || { say "$id: fetch failed (offline?)"; return 0; }
   dirty=$(git -C "$clone" status --porcelain | wc -l)
   ahead=$(git -C "$clone" rev-list --count origin/main..HEAD)
   behind=$(git -C "$clone" rev-list --count HEAD..origin/main)
@@ -466,23 +681,25 @@ cmd_sync() {
   [ "${1:-}" = "--status" ] && status_only=1
   local list; list=$(sources_list "$root")
   [ -n "$list" ] || die "no sources in .ai.toml — run 'kauk init' first"
-  local id origin
-  # data sources first; the kauk self-clone (pull-only) last
-  while read -r id origin; do
+  local id origin key
+  while read -r id origin key; do
     [ -n "$id" ] || continue
     if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id"; fi
   done < <({ echo "$list" | grep -v "^$SELF_REPO " || true; echo "$list" | grep "^$SELF_REPO " || true; })
+  [ $status_only = 1 ] || resolve_xdeps "$root"
   prune_links "$root"
   report_conflicts
 }
 
 main() {
+  SEL_FILE=$(mktemp); XDEPS=$(mktemp)
+  trap 'rm -f "$SEL_FILE" "$XDEPS"' EXIT
   case "${1:-}" in
     init)    shift; cmd_init "$@" ;;
     install) shift; cmd_install "$@" ;;
     sync)    shift; cmd_sync "$@" ;;
     resolve) shift; cmd_resolve "$@" ;;
-    *) die "usage: kauk init | install <owner>/<repo> [<origin>] | sync [--status] | resolve [--assist]" ;;
+    *) die "usage: kauk init | install <owner>/<repo> | <path> | sync [--status] | resolve [--assist]" ;;
   esac
 }
 main "$@"
