@@ -21,3 +21,7 @@ Executable ships as `kaukea` with a `kai` symlink created at install, reported a
 ## Testing
 
 `kaukea` and `kai` both work; an existing `kai` on PATH is not clobbered.
+
+Operator emphasis (2026-08-16): `kai` is the MAIN command; `kauk` stays as the
+backup alias. The Decision-026 mechanics (executable ships as `kaukea`, `kai`
+symlinked at install, reported-and-skipped if taken) stand unchanged.
