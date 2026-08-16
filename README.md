@@ -19,7 +19,11 @@ hoard. See `ARCHITECTURE.md`.
 ## Layout
 
 - `bin/kauk` — the bash stopgap that vendors and lays file packages until `0.1.0`:
-  `init` / `install <owner>/<repo>` / `sync` / `resolve`.
+  `init` / `install <owner>/<repo> | <path>` / `sync` / `resolve`. `.ai.toml` is
+  defaults-only: a source key of `owner/repo` resolves to GitHub, a full path is a
+  local working tree, and each source may carry `select = ["<category-path>", …]` —
+  without it, everything installs. Sync converges and lays; it never publishes your
+  local edits to a source.
 - `docs/package-format.md` — **what a package is.** A package is a repository of files
   that knows nothing about kauk: its contents are the convention directories
   `skills/ agents/ hooks/ tools/ files/`, and anything outside them is ignored. There is
