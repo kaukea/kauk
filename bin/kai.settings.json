@@ -1,0 +1,63 @@
+{
+    "permissions": {
+        "defaultMode": "auto",
+        "allow": []
+    },
+    "hooks": {
+        "SessionStart": [
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" session.start; exit 0"
+                    }
+                ]
+            }
+        ],
+        "SessionEnd": [
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" session.end; exit 0"
+                    }
+                ]
+            }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" tool.shell.before; exit 0"
+                    }
+                ]
+            }
+        ],
+        "UserPromptSubmit": [
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" prompt.submit; exit 0"
+                    }
+                ]
+            }
+        ],
+        "Notification": [
+            {
+                "matcher": "",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" notification; exit 0"
+                    }
+                ]
+            }
+        ]
+    }
+}
