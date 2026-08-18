@@ -6,6 +6,14 @@ _base: (root)_
 
 ### ✨ New features
 
+- 🚚 **Two repositories cross to kaukea; orchard takes its name** — kaukea/kauk
+  and kaukea/orchard are the homes, checkouts at `~/src/kaukea` with
+  compatibility symlinks behind them. Migration `2026-08-18-kaukea-move.md`
+  converts every consumer's sources to the GitHub default form, carries
+  watermarks across the identity change, and removes the old clones; the estate
+  walked the same day. Rides along: the SIGPIPE fix for early-exit source
+  lookups.
+
 - ✨ **kai leads; kaukea carries; kauk stands backup** — the executable is
   `bin/kaukea`, `bin/kai` in front, `bin/kauk` the fallback alias; messages and
   the tool's own skill speak kai. Migration: `2026-08-16-command-is-kai.md`.

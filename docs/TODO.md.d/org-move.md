@@ -55,3 +55,11 @@ _Board: org-move · Decisions 026, 035, 052._
 
 No README change needed: it names no GitHub URL or org — evidenced by grep;
 the layout section already speaks kaukea-neutral paths.
+
+Estate walk complete (2026-08-18): ten repositories crossed — sources
+kaukea/kauk + kaukea/orchard, fresh GitHub clones, links retargeted,
+watermarks travelled. Pushed: SignMc, TitanShield, fastcut, packages,
+seb.house. Local-only (no remote): dns, Panopticon, seb.crash, seb.throwy.
+voice on its WIP branch, local. kmscon-pi still excluded (two open
+branches); forensics untouched. Old ~/src/serialseb symlinks remain as
+compatibility until the operator retires them.
