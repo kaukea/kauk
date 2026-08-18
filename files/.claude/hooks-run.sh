@@ -2,6 +2,7 @@
 set -uo pipefail
 
 event="${1:-}"
+[ -n "$event" ] || exit 0
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 hooks_dir="$repo_root/.claude/hooks"
 
