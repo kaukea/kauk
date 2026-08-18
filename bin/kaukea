@@ -554,23 +554,106 @@ pkg_artifact_names() { # pkg_artifact_names <src> -> kind/name per line, sorted
   } 2>/dev/null | sort
 }
 
-run_pending_migrations() { # run_pending_migrations <root> <id> <src>
-  local root=$1 id=$2 src=$3 gcd wm last f base
-  [ -d "$src/migrations" ] || return 0
+gcd_of() { # gcd_of <root> -> absolute path to the git common dir
+  local root=$1 gcd
   gcd=$(git -C "$root" rev-parse --git-common-dir)
   case "$gcd" in /*) ;; *) gcd="$root/$gcd" ;; esac
+  printf '%s\n' "$gcd"
+}
+
+# A step's fence is its unit of work: bare ```sh (default applied-by: shell,
+# so all pre-existing migrations run unchanged) or ```sh applied-by:agent —
+# the only other recognised value. split_migration_steps writes one <NNN>.meta
+# (the applied-by value) and one <NNN>.body (the fence content) per step into
+# outdir, in fence order.
+split_migration_steps() { # split_migration_steps <file> <outdir>
+  awk -v outdir="$2" '
+    function stepid() { return sprintf("%03d", n) }
+    function open_step(applied) {
+      n++; print applied > (outdir "/" stepid() ".meta"); close(outdir "/" stepid() ".meta")
+      inblock = 1
+    }
+    $0 == "```sh"                  { open_step("shell"); next }
+    $0 == "```applied-by:shell"    { open_step("shell"); next }
+    $0 == "```sh applied-by:shell" { open_step("shell"); next }
+    $0 == "```applied-by:agent"    { open_step("agent"); next }
+    $0 == "```sh applied-by:agent" { open_step("agent"); next }
+    /^```/ { inblock=0; next }
+    inblock { print > (outdir "/" stepid() ".body") }
+  ' "$1"
+}
+
+# A shell step's body is normally run inline. When its only non-blank line is
+# a `./relative/path`, that path is an external script shipped alongside the
+# migration (resolved relative to the migration file's own directory) and is
+# run instead — cwd is the consumer root either way, same as an inline step.
+run_shell_step() { # run_shell_step <root> <migration-file> <body-file>
+  local root=$1 f=$2 body=$3 trimmed
+  trimmed=$(sed '/^[[:space:]]*$/d' "$body")
+  case "$trimmed" in
+    ./*)
+      if [ "$(printf '%s\n' "$trimmed" | wc -l)" -eq 1 ]; then
+        (cd "$root" && bash "$(dirname "$f")/${trimmed#./}")
+        return $?
+      fi
+      ;;
+  esac
+  (cd "$root" && bash) < "$body"
+}
+
+# A step kai cannot finish itself — applied-by: agent, or a shell step that
+# failed — is recorded durably under .git/the-works/asks/ so it survives past
+# this run. Delivery into a session is migrations-pending.sh's job, not this
+# one; clearing an ask is deleting its file (defined there too).
+record_ask() { # record_ask <gcd> <id> <base> <step> <body-file> <kind>
+  local gcd=$1 id=$2 base=$3 step=$4 body=$5 kind=$6 dir dst
+  dir="$gcd/the-works/asks/$id"
+  mkdir -p "$dir"
+  dst="$dir/$base-$step"
+  { printf 'kind: %s\nmigration: %s\nstep: %s\n---\n' "$kind" "$base" "$step"; cat "$body"; } > "$dst"
+  say "  migration $base step $step: recorded for follow-up ($kind) at ${dst#"$gcd"/}"
+}
+
+run_pending_migrations() { # run_pending_migrations <root> <id> <src>
+  local root=$1 id=$2 src=$3 gcd wm last f base outdir meta step body applied ok askfile
+  [ -d "$src/migrations" ] || return 0
+  gcd=$(gcd_of "$root")
   wm="$gcd/the-works/migrated/$id"; last=""
   [ -f "$wm" ] && last=$(cat "$wm")
   for f in "$src"/migrations/*.md; do
     [ -e "$f" ] || continue
     base=$(basename "$f" .md)
     if [ -n "$last" ]; then [ "$base" \> "$last" ] || continue; fi
-    say "  migration $base: running scripted steps"
-    if awk '/^```sh$/{b=1;next} /^```/{b=0} b' "$f" | (cd "$root" && bash); then
+    say "  migration $base: running steps"
+    outdir="$gcd/the-works/tmp/mig-$$"
+    rm -rf "$outdir"; mkdir -p "$outdir"
+    split_migration_steps "$f" "$outdir"
+    ok=1
+    for meta in "$outdir"/*.meta; do
+      [ -e "$meta" ] || continue
+      step=$(basename "$meta" .meta)
+      body="$outdir/$step.body"
+      [ -f "$body" ] || : > "$body"
+      applied=$(cat "$meta")
+      askfile="$gcd/the-works/asks/$id/$base-$step"
+      if [ "$applied" = agent ]; then
+        record_ask "$gcd" "$id" "$base" "$step" "$body" agent
+        continue
+      fi
+      if run_shell_step "$root" "$f" "$body"; then
+        rm -f "$askfile"
+      else
+        record_ask "$gcd" "$id" "$base" "$step" "$body" shell-failed
+        ok=0
+        break
+      fi
+    done
+    rm -rf "$outdir"
+    if [ "$ok" = 1 ]; then
       mkdir -p "$(dirname "$wm")"; printf '%s\n' "$base" > "$wm"
-      say "  migration $base: applied (judgement steps, if any, are prose in the file)"
+      say "  migration $base: applied"
     else
-      say "  migration $base: FAILED — apply manually, then advance $wm"
+      say "  migration $base: a step failed — recorded for follow-up, not advancing"
       return 1
     fi
   done
@@ -722,9 +805,10 @@ rebase_onto() { # rebase_onto <id> <clone> <target> -> 0 ok; 1 conflict (aborted
 }
 
 sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
-  local root=$1 id=$2 pull=$3 push=$4 clone origin target before after gone
+  local root=$1 id=$2 pull=$3 push=$4 clone origin target before after gone dirty
   if is_self_source "$root" "$id"; then
     lay_source "$root" "$id"
+    run_pending_migrations "$root" "$id" "$root" || true
     say "sync: $id (self-published from the working tree — not vendored)"
     return 0
   fi
@@ -747,6 +831,23 @@ sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
   git -C "$clone" fetch --quiet origin 2>/dev/null || true
   target=main
   git -C "$clone" rev-parse --verify --quiet origin/main >/dev/null && target=origin/main
+
+  # Ruled order (Decision on record): apply what everyone is already on
+  # BEFORE local work rebases on top, so the rebase replays onto a tree in
+  # the same reality as everyone else's. Migrations are append-only and
+  # never rewritten (AGENTS.files.md §Migrations), so the watermark this
+  # advances to already excludes anything the rebase below is about to
+  # bring in — the later call at the bottom of this function only ever
+  # sees what newly arrived. Uncommitted local edits already sitting in the
+  # clone's working tree are not "everyone's reality" yet — set them aside
+  # for this pass so a pending migration sees the same tree a fresh clone
+  # would, then restore them for commit_local_edits/rebase_onto below.
+  dirty=$(git -C "$clone" status --porcelain)
+  [ -n "$dirty" ] && git -C "$clone" stash push --quiet --include-untracked -m "kai: set aside for pre-existing migrations" 2>/dev/null
+  run_pending_migrations "$root" "$id" "$clone" || true
+  if [ -n "$dirty" ]; then
+    git -C "$clone" stash pop --quiet 2>/dev/null || say "  WARN $id: local edits are still stashed in the clone (a pending migration touched the same files) — resolve by hand: git -C $clone stash pop"
+  fi
 
   before=$(pkg_artifact_names "$clone")
   commit_local_edits "$clone"
