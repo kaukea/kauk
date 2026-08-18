@@ -36,7 +36,18 @@ the carrier of ONE feature that also delivers [[stale-laid-links]] (its sidecar 
 its own scope) and absorbs the former [[clone-local-object-leak]] as steps — one
 branch, one close.** The interlock is real: all three edit `bin/kaukea`'s sync path.
 
-Execute at sync time inside kauk; per-repository watermark; order pull → apply → rebase → write; structured wrapper over existing prose, no rewrite (Decision-022).
+Execute at sync time inside kauk; per-repository watermark; structured wrapper
+over existing prose, no rewrite (Decision-022).
+
+Application ORDER corrected at launch review (operator, 2026-08-18, replacing
+the earlier pull → apply → rebase → write): you apply WHERE EVERYONE IS —
+migrations already pending run against the shared state before local work is
+replayed; any migration NEWLY ARRIVED with this pull runs AFTER the rebase,
+on the rebased result, so every consumer experiences the same sequence.
+Applying new migrations before the rebase is inconsistent (local edits made
+against pre-migration shapes would replay onto post-migration state). So:
+fetch → apply pre-existing pending migrations → rebase local work onto the
+new head → apply the newly arrived migrations → write the watermark.
 
 Absorbed clone-leak steps (rulings 2026-08-18, from that task's sidecar):
 
