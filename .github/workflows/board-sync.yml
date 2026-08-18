@@ -1,5 +1,5 @@
 # Thin shim — lays in a consuming repo as .github/workflows/board-sync.yml.
-# All logic lives in the orchids package's central reusable workflow; this
+# All logic lives in the orchard package's central reusable workflow; this
 # file should never need to change.
 name: board-sync
 
@@ -13,4 +13,4 @@ permissions:
 
 jobs:
   board:
-    uses: kaukea/orchids/.github/workflows/board-sync.yml@main
+    uses: kaukea/orchard/.github/workflows/board-sync.yml@main
