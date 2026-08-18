@@ -49,3 +49,11 @@ f/jabra-gnp-map, not swept. forensics untouched by design.
 The BLOCKED inventory came back EMPTY across all nine — the diverged skill
 copies the merge-back task expects do not collide at laid names; finding them
 needs a diff of committed real files against orchids, its own pass.
+
+Update 2026-08-18 (operator rulings): forensics is left entirely alone — it
+consolidates itself with other projects. serialseb.voice converged ON its
+open branch f/jabra-gnp-map (384dd91, kept local — the operator's WIP
+branch), passing the only-one-open-branch condition. kmscon-pi FAILS that
+condition (fix/terminfo is also open) — but two convergence commits already
+sit on feat/console-launcher from before the rule; their removal or keeping
+is with the operator.
