@@ -65,4 +65,4 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `housekeeping · todo · · queued · · gh#33` [Take over the in-flight branches: Valve, delivery-restoring, kauk's stale f/*](TODO.md.d/takeover-inflight.md) ~estate-converge
 - `housekeeping · todo · critical · queued · · gh#34` [Merge diverged skill copies back into orchids — one codebase before round two](TODO.md.d/skills-merge-back.md) ~estate-converge
 - `housekeeping · todo · · blocked-on-answers · agent-rules · gh#12` [Fix the contradictory commit-trailer rules between the rule files (fix lives in orchids)](TODO.md.d/commit-trailer-conflict.md)
-- `feature · todo · · plan-ready · agent-rules ·` [Applying migrations is the agent's job — encode the duty in the workflow rules](TODO.md.d/package-migration-reach.md) ~stale-laid-links ~migrations-at-sync
+- `feature · todo · · plan-ready · agent-rules · gh#35` [Applying migrations is the agent's job — encode the duty in the workflow rules](TODO.md.d/package-migration-reach.md) ~stale-laid-links ~migrations-at-sync
