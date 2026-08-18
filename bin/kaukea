@@ -510,14 +510,33 @@ copy_one() { # self-published packages copy into their own repo
   cp "$src" "$dst"
 }
 
-prune_links() { # remove dead symlinks pointing into this repo's .ai/repositories/
-  local root=$1 l
+prune_links() { # dead symlinks into this repo's .ai/repositories/: repoint if the tail moved to exactly one cloned source, else prune true orphans, else flag ambiguity
+  local root=$1 l target rel rest d candidate matches n
   while IFS= read -r l; do
     [ -e "$l" ] && continue
-    case "$(readlink "$l")" in
-      "$root/.ai/repositories/"*) rm "$l"; say "  PRUNE ${l#"$root"/} (target gone from package)" ;;
+    target=$(readlink "$l")
+    case "$target" in
+      "$root/.ai/repositories/"*) ;;
+      *) continue ;;
     esac
-  done < <(find "$root/.claude" -type l 2>/dev/null; find "$root" -maxdepth 1 -type l 2>/dev/null)
+    rel=${target#"$root/.ai/repositories/"}
+    case "$rel" in
+      */*/*) rest=${rel#*/}; rest=${rest#*/} ;;
+      *) continue ;; # not <owner>/<repo>/<tail> — nothing to derive
+    esac
+    matches="" n=0
+    for d in "$root"/.ai/repositories/*/*/; do
+      [ -d "${d}.git" ] || continue
+      candidate="${d%/}/$rest"
+      [ -e "$candidate" ] || continue
+      matches=$candidate n=$((n + 1))
+    done
+    case $n in
+      0) rm "$l"; say "  PRUNE ${l#"$root"/} (target gone from package)" ;;
+      1) ln -sfn "$matches" "$l"; say "  RELINK ${l#"$root"/} -> ${matches#"$root"/}" ;;
+      *) say "  AMBIGUOUS ${l#"$root"/} ($n sources carry $rest — kai will not guess)" ;;
+    esac
+  done < <(find "$root" \( -name .git -o -name .ai \) -prune -o -type l -print 2>/dev/null)
 }
 
 ensure_gitignore() {
