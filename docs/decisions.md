@@ -961,3 +961,14 @@ from time to time, not part of the sync command — boarded as its own task.
 No `.ai.lock` exists. Decision-023's lock clause and Decision-043's pin
 mechanics are DEFERRED with the versioning work, not implemented; Decision-050
 is reshaped by this entry (its flag surface stands, its pin does not).
+
+## [2026-08-18 17:10 CEST] Decision-052: The move takes both repositories, and orchids becomes orchard
+#naming #kaukea #org-move #orchard #rename #migration
+
+Operator ruling. The kaukea move covers BOTH repositories in one campaign:
+serialseb/kauk → kaukea/kauk (name unchanged, Decision-035), and
+serialseb/orchids → kaukea/orchard — the repository takes the workbench's
+name, matching the process node and the fleet vocabulary. Disk follows
+(~/src/kaukea/), every estate .ai.toml source repoints, and the whole thing
+ships as the org-move task's fleet-wide migration. The GitHub transfers and
+the rename are the operator's own acts; everything after them is the tool's.

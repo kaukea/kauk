@@ -21,3 +21,7 @@ Transfer `serialseb/kauk` to `kaukea`, move to `~/src/kaukea/kauk`, rewrite kauk
 ## Testing
 
 Remote resolves after transfer; every link in kauk resolves after the move; other repos are untouched.
+
+Scope expanded (Decision-052, 2026-08-18): both repositories move, and
+orchids RENAMES to orchard in the same campaign — kaukea/kauk +
+kaukea/orchard. Estate .ai.toml sources repoint; disk paths follow.
