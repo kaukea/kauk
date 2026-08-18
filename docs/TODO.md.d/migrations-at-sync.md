@@ -52,6 +52,66 @@ Close determinations (landscaper, 2026-08-18):
   entry above) — its board entry should be closed as cancelled, not merged back
   into the backlog.
 
+## Operator requests
+
+- (2026-08-18, at the done gate) tmux window sprawl is confusing — operator will
+  fix in the place that owns it. Not this feature's scope; recorded for the
+  record only.
+- (2026-08-18, at the done gate) Estate walk: pilot with ONE repository first —
+  SignMc, which appears to lack the gardener command — as the example first run;
+  update the rest of the estate after. Status: pilot RUN (branch bin/kaukea sync
+  in /home/sudoku/src/SafeKeepIt/SignMc, log /tmp/signmc-pilot-sync.log). Engine
+  clean: both migration passes correct no-ops (nothing pending on pushed main
+  beyond the watermarks), no asks, clones advanced, 82 links laid/verified —
+  orchard's files/ conversion delivered (root AGENTS.*.md, .claude/settings.json
+  at the correct destination). Findings: (1) SignMc's two stale
+  files/AGENTS.*.md links have RELATIVE targets — invisible to prune_links and
+  to the move-links migration, both of which match absolute
+  $root/.ai/repositories/* only; even normalized, their tail exists in BOTH kauk
+  and orchard → AMBIGUOUS by design, so they need a call either way (they look
+  like old-stopgap debris; the same content is now laid at repo root).
+  (2) No gardener slash-command exists in ANY package estate-wide — gardener
+  ships only as an agent; its absence in SignMc is not a sync failure.
+  Resolution pending operator.
+- (2026-08-18, at the gate) Operator was told the estate had switched to the
+  shared laid `.claude/settings.json` carrying the custom hook configuration,
+  and is confused why that appears not done. Status: investigating actual
+  estate state (two explorers: orchard's shipped settings.json content/history;
+  per-repo survey of settings.json / settings.local.json / hooks wiring) before
+  answering.
+- (2026-08-18, at the gate) "Files left behind" in SignMc: do NOT fix — figure
+  out WHY the scripted migration path left them, given migrations were built
+  to run script-led without agents. Status: root-caused in part (kaukea-move
+  deletes clones and defers link retargeting to sync; sync only repoints
+  currently-laid destinations; files/AGENTS.*.md ceased to be lay destinations
+  after the files/ conversion; their targets are also relative, invisible to
+  both new scripted matchers); SignMc forensics explorer pending on who
+  relativized the link targets.
+- (2026-08-18, at the gate) Operator was told orchard replication was removed
+  in favor of the actual repository; observed estate contradicts it: live
+  serialseb/orchids clones in orphan/forensics/judada/kmscon-pi/seb.tv, and
+  seb.secrets holds FOUR orchard replicas under invented ids (kaukea/orchids,
+  orchea, orichea, orichidarium — hallucinated identities, hand-drift).
+  Status: reported to operator; estate cleanup is follow-up territory, not
+  this branch.
+- (2026-08-18, at the gate) Formal review requested: the four instructed
+  tasks vs what was actually implemented. Status: in progress (two explorers
+  reading kauk + orchard boards/decisions/changelogs; audit will be presented
+  against measured estate state).
+
+Mechanical-closure amendment (operator, at the gate, 2026-08-18 late): the drift
+findings are THIS feature's problem to close. Ratified steps: (1) prune_links +
+the move-links migration normalize relative link targets before matching;
+(2) sync sweeps orphaned clones — an .ai/repositories/<owner>/<repo> not
+declared in .ai.toml is removed only when clean AND contained in its origin,
+else reported with its divergence; (3) tracked dangling links are never
+removed — repointed when unique, otherwise reported as DEBRIS; removal is one
+operator ruling applied by script; (4) fixtures for all of the above.
+Constraint, operator verbatim: "everything to be fixed HERE before any
+repository is subjected to another fuck up" — the estate run stays HELD until
+this repo and its tests prove the whole path. The settings/hooks switch stays
+excluded (gh#30 owns it).
+
 ## Proposal
 
 **Combined launch (operator, 2026-08-18, Decision-050 pre-launch round): this task is
@@ -118,7 +178,17 @@ normal install from a local path still lays every skill.
   whole tree (not just `.claude/` and the root), repoints any dead link whose
   tail path exists under exactly one currently-cloned source, removes only true
   orphans with no candidate anywhere, and reports `AMBIGUOUS` — touching
-  nothing — when several sources could claim the link.
+  nothing — when several sources could claim the link. The matcher reads the
+  link's target string wherever it names `.ai/repositories/` — hand-laid links
+  were found relative, and relative against the wrong base — and repointing
+  rewrites them absolute, healing the base too; the shipped
+  `2026-08-18-kaukea-move-links` migration matches the same way. A tracked
+  dangling link no source can claim is reported as `DEBRIS`, never removed.
+- Sync sweeps orphaned clones: an `.ai/repositories/<owner>/<repo>` that
+  `.ai.toml` no longer declares is removed only when its tree is clean and its
+  head is contained in its origin, and otherwise reported (`ORPHAN`) with the
+  reason it was kept — mechanically retiring invented-identity replicas
+  without any possibility of destroying unpushed work.
 - `tests/migrations-at-sync.sh` ships as the black-box suite for migrations-at-
   sync and stale-laid-links, in `tests/convention-reader.sh`'s own style,
   exercising all eight ruled behaviours from interleaved-date migrations across
