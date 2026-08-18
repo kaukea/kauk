@@ -56,7 +56,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
   - `feature · todo · critical · plan-ready · · gh#30` [Fleet settings ride every spawn: --settings + the visible /gardener skill](TODO.md.d/fleet-settings-wiring.md) ~claude-marketplace
 - `housekeeping · functional · · complete · cli-core ·` [The command becomes `kai`; the executable is `kaukea`](TODO.md.d/cli-rename-kai.md) ~org-move
 - `feature · todo · idea · blocked-on-answers · cmd-install · gh#31` [kauk installs itself alongside the first package](TODO.md.d/bootstrap-with-first-package.md) ~claude-marketplace
-- `feature · todo · · plan-ready · cmd-install ·` [Shared rule markdown lands in .claude/rules/ — AGENTS.md stays visible at root](TODO.md.d/shared-rules-placement.md) ~runtime-topology ~stale-laid-links
+- `feature · todo · · plan-ready · cmd-install · gh#92` [Shared rule markdown lands in .claude/rules/ — AGENTS.md stays visible at root](TODO.md.d/shared-rules-placement.md) ~runtime-topology ~stale-laid-links
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)
 - `feature · todo · · blocked-on-answers · cli-core · gh#8` [Installer picks agents first, then bundles the skills those agents require](TODO.md.d/agent-deployment.md) ⊘runtime-topology ~role-aware-delivery ~cli-mvp
 

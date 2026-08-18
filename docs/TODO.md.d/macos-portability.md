@@ -29,3 +29,6 @@ a future Mac consumer survives them.
 ## Testing
 
 The full fixture suite green on macOS (or a faithful BSD-tools environment).
+
+Deferred by the operator (2026-08-18): fixed when they next run on a Mac —
+not in the current must-fix launch set.
