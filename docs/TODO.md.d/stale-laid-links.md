@@ -48,6 +48,8 @@ Remaining work, per Decision-054:
    the rest) and verify no dangling laid link remains anywhere.
 
 GATE (Decision-054): done before kauk is used by any project.
+Decision-055: every essential step above is SCRIPTED (bin/kaukea code and shipped
+migration scripts) — no agent-performed step in the repair or its verification.
 
 ## Testing
 

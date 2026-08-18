@@ -1001,3 +1001,20 @@ Three parts:
   substance: an update scans links pointing into the repository store and
   repoints them.
 - GATE: this is fixed before kauk is actually used by any project.
+
+## [2026-08-18 17:55 CEST] Decision-055: kai owns migration application — scripted, ordered, agent-independent
+#migrations #kai #script #watermark #urgent
+
+Operator ruling, superseding the same-day "applying migrations is the
+agent's job" reading (package-migration-reach). Migrations are technical in
+nature: each ships as a script (or markdown carrying its script), and the
+APPLYING is owned by a kai script — applied in order, watermark dates set by
+the tool, identical behaviour whichever agent (or none) is present. Agents
+hold no essential step: everything essential in the migration path (and in
+the stale-links repair) is scripted. gh#35 is cancelled into gh#23
+(migrations-at-sync), which becomes URGENT — this class of failure is judged
+really bad and is solved before anything leans on migrations again.
+
+Same ruling, second part: the shared fleet settings.json laid over consumers'
+.claude/settings.json OVERWRITES per-project Claude settings — not acceptable.
+Boarded as settings-lay-clobbers; composition design is the open question.

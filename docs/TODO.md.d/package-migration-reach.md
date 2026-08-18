@@ -1,6 +1,15 @@
 - created: 2026-08-18
 - created_by: fable-5
 - created_during: (gardener boot triage — fallout of stale-laid-links)
+- completed: 2026-08-18
+
+### Why cancelled
+
+Decision-055 supersedes the agent-duty reading the same day it was recorded:
+migration application belongs to a kai SCRIPT — ordered, watermarked by the tool,
+agent-independent. Encoding an agent duty in the workflow rules is the opposite of
+that. The delivery-reach problem this task carried folds into migrations-at-sync
+(gh#23), now urgent.
 
 ## Blockers
 
