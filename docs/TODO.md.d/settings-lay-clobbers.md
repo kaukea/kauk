@@ -61,15 +61,23 @@
 
 ## Proposal
 
-The package ships its fleet settings as a JSON Patch document laid adjacent to the
-consumer's `.claude/settings.json`; the kai sync script applies it to the
-project-owned file, idempotently (re-sync converges, never duplicates). The laid
-symlink at `.claude/settings.json` goes away; a shipped migration converts
-consumers (link removed, project file created/patched) — all steps scripted
-(Decision-055). Note for adjacent tasks: plugin `hooks/hooks.json` is additive
-across scopes per the docs — relevant to claude-marketplace (gh#22) and
-fleet-settings-wiring (gh#30) as a hooks-only channel, but the patch mechanism
-covers permissions and the rest uniformly.
+Two-tier mechanism (operator, 2026-08-18):
+
+1. **Fleet-launched agents need no project settings at all**: every fleet agent
+   is spawned by our own dispatch tooling, and `claude --settings <file>`
+   applies a custom settings file per-invocation (partial merge). The spawn
+   commands carry the package's settings file — hooks and permission mode ride
+   the launch, not the repository (see [[fleet-settings-wiring]]).
+2. **Whatever must affect the operator's own interactive session** (possibly
+   nothing) ships as a JSON Patch document laid adjacent to the consumer's
+   `.claude/settings.json`, applied to the project-owned file by the kai sync
+   script, idempotently.
+
+Either way the laid symlink at `.claude/settings.json` goes away; a shipped
+migration converts consumers (link removed, project file created/patched where
+needed) — all steps scripted (Decision-055). Note for adjacent tasks: plugin
+`hooks/hooks.json` is additive across scopes — relevant to the marketplace task
+as a hooks channel.
 
 ## Testing
 

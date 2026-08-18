@@ -22,9 +22,17 @@ Decision-019.
 
 ## Proposal
 
-Author kauk's own .claude/settings.json from orchard's as the reference,
-adapted to this repository; run the work as the first gardener-dispatched
-task here.
+Superseding mechanism (operator, 2026-08-18): the fleet launches every agent
+itself, and `claude --settings <file>` applies a custom settings file
+per-invocation (partial merge — omitted keys keep their file-based values).
+So the fleet's hooks and permission wiring ride the SPAWN COMMANDS — dispatch
+tooling appends `--settings` pointing at the package's own settings file —
+and need not live in the repository's `.claude/settings.json` at all. Author
+the package settings file and wire the dispatch paths accordingly; the
+repository's own settings.json stays project-owned (see
+[[settings-lay-clobbers]] — its JSON Patch shrinks to whatever must affect
+the operator's own interactive session, possibly nothing). Run as the first
+gardener-dispatched task here.
 
 ## Testing
 
