@@ -8,10 +8,7 @@ None hard; informs and is informed by the adopting-orchard skill design
 
 ## Questions
 
-- What does "orcharded" mean for kauk concretely — the full agent topology
-  (gardener session, landscaper dispatches, couriers) or the process
-  artifacts alone, which kauk largely follows already? Operator defines the
-  bar.
+_None open — the bar is ruled (below)._
 
 ## Findings
 
@@ -29,6 +26,14 @@ workflow, and feed the experience into the adopting-orchard skill.
 
 To be agreed; the operator judging a real session running orcharded is the
 obvious bar.
+
+THE BAR (operator, 2026-08-18): "You were built by orchard — wrote your own
+rules under its direction, so they replicate. Now we swap: you build
+yourself, and for that you follow the workflow that built you." Adoption =
+kauk's own work henceforth runs through the orchard topology — gardener
+atop the repository, bloom rounds, landscaper dispatches, the gates, the
+close. Once adopted, the queued topics (plugin integration first) get
+prioritised.
 
 Context (operator, 2026-08-18, corrected transcription): kauk already
 follows the process because the agent working it "was WRITTEN by orchard" —
