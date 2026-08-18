@@ -510,16 +510,21 @@ copy_one() { # self-published packages copy into their own repo
   cp "$src" "$dst"
 }
 
-prune_links() { # dead symlinks into this repo's .ai/repositories/: repoint if the tail moved to exactly one cloned source, else prune true orphans, else flag ambiguity
+prune_links() { # dead symlinks into this repo's .ai/repositories/: repoint if the tail moved to exactly one cloned source; tracked debris is reported, only untracked true orphans are pruned
   local root=$1 l target rel rest d candidate matches n
   while IFS= read -r l; do
     [ -e "$l" ] && continue
+    # match the target STRING anywhere it mentions the store: hand-laid links
+    # have been found relative, and relative against the wrong base — a dead
+    # link naming .ai/repositories/ is a store link whatever its base claims,
+    # and the repoint below rewrites it absolute, healing the base too
     target=$(readlink "$l")
     case "$target" in
-      "$root/.ai/repositories/"*) ;;
+      *".ai/repositories/"*) ;;
       *) continue ;;
     esac
-    rel=${target#"$root/.ai/repositories/"}
+    rel=${target##*".ai/repositories/"}
+    rel=${rel#/}
     case "$rel" in
       */*/*) rest=${rel#*/}; rest=${rest#*/} ;;
       *) continue ;; # not <owner>/<repo>/<tail> — nothing to derive
@@ -532,7 +537,12 @@ prune_links() { # dead symlinks into this repo's .ai/repositories/: repoint if t
       matches=$candidate n=$((n + 1))
     done
     case $n in
-      0) rm "$l"; say "  PRUNE ${l#"$root"/} (target gone from package)" ;;
+      0)
+        if git -C "$root" ls-files --error-unmatch "${l#"$root"/}" >/dev/null 2>&1; then
+          say "  DEBRIS ${l#"$root"/} (tracked dangling link, no source carries its tail — removal is the operator's call)"
+        else
+          rm "$l"; say "  PRUNE ${l#"$root"/} (target gone from package)"
+        fi ;;
       1) ln -sfn "$matches" "$l"; say "  RELINK ${l#"$root"/} -> ${matches#"$root"/}" ;;
       *) say "  AMBIGUOUS ${l#"$root"/} ($n sources carry $rest — kai will not guess)" ;;
     esac
@@ -878,6 +888,35 @@ sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
   say "sync: $id ($(git -C "$clone" rev-parse --short HEAD))"
 }
 
+sweep_orphan_clones() { # clones under .ai/repositories/ that .ai.toml no longer declares: removed only when provably disposable, else reported
+  local root=$1 d id keep head
+  [ -d "$root/.ai/repositories" ] || return 0
+  keep=$(sources_list "$root" | awk '{print $1}')
+  for d in "$root"/.ai/repositories/*/*/; do
+    [ -d "$d" ] || continue
+    d=${d%/}
+    id=${d#"$root/.ai/repositories/"}
+    printf '%s\n' "$keep" | grep -qx "$id" && continue
+    if [ ! -d "$d/.git" ]; then
+      say "  ORPHAN $id: undeclared and not a clone (no .git) — left in place for the operator"
+      continue
+    fi
+    if [ -n "$(git -C "$d" status --porcelain 2>/dev/null)" ]; then
+      say "  ORPHAN $id: undeclared but carries uncommitted changes — kept"
+      continue
+    fi
+    head=$(git -C "$d" rev-parse HEAD 2>/dev/null) || { say "  ORPHAN $id: undeclared, unreadable HEAD — kept"; continue; }
+    git -C "$d" fetch --quiet origin 2>/dev/null || true
+    if [ -n "$(git -C "$d" branch -r --contains "$head" 2>/dev/null)" ]; then
+      rm -rf "$d"
+      rmdir "$(dirname "$d")" 2>/dev/null || true
+      say "  SWEEP $id: undeclared clone removed (clean, contained in its origin)"
+    else
+      say "  ORPHAN $id: undeclared, but its head is not on any origin ref — kept"
+    fi
+  done
+}
+
 status_source() { # status_source <root> <id>
   local root=$1 id=$2 clone dirty ahead behind
   clone=$(clone_of "$root" "$id")
@@ -909,6 +948,7 @@ cmd_sync() {
     [ -n "$id" ] || continue
     if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id" "$pull" "$push"; fi
   done < <({ echo "$list" | grep -v "^$SELF_REPO " || true; echo "$list" | grep "^$SELF_REPO " || true; })
+  [ $status_only = 1 ] || sweep_orphan_clones "$root"
   [ $status_only = 1 ] || resolve_xdeps "$root"
   prune_links "$root"
   report_conflicts

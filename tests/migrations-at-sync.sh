@@ -213,5 +213,59 @@ check "hook laid"   '[ -L "$CON8/.claude/hooks/ih.sh" ]'
 check "tool laid"   '[ -L "$CON8/.claude/tools/it.py" ]'
 check "files/ mirrored to repo root" '[ -L "$CON8/AGENTS.shared.md" ]'
 
+echo "== a RELATIVE dangling link into the store is normalized and repointed =="
+PKGJ="$TMP/test/pkgj"; git_init "$PKGJ"; mkdir -p "$PKGJ/skills/j1"
+printf -- '---\nname: j1\n---\nj\n' > "$PKGJ/skills/j1/SKILL.md"
+pkg_toml "$PKGJ" pkgj
+commit_all "$PKGJ"
+CON9="$TMP/consumer-rel"; git_init "$CON9"; mkdir -p "$CON9/.claude"; printf "placeholder\n" > "$CON9/.claude/.keep"; commit_all "$CON9"
+( cd "$CON9" && "$KAUK" install "$PKGJ" ) >/dev/null 2>&1 || true
+ln -s ".ai/repositories/test/gone/skills/j1/SKILL.md" "$CON9/rel-toplevel.md"
+mkdir -p "$CON9/sub/dir"
+ln -s "../../.ai/repositories/test/gone/skills/j1/SKILL.md" "$CON9/sub/dir/rel-nested.md"
+( cd "$CON9" && "$KAUK" sync ) >"$TMP/out9" 2>&1 || true
+check "relative dead link repointed to the one source carrying its tail" \
+  '[ -e "$CON9/rel-toplevel.md" ] && readlink "$CON9/rel-toplevel.md" | grep -q "repositories/test/pkgj/skills/j1/SKILL.md"'
+check "nested ../.. relative dead link normalized and repointed too" \
+  '[ -e "$CON9/sub/dir/rel-nested.md" ] && readlink "$CON9/sub/dir/rel-nested.md" | grep -q "repositories/test/pkgj/skills/j1/SKILL.md"'
+
+echo "== a TRACKED dangling link with no candidate is reported, never removed =="
+CON10="$TMP/consumer-debris"; git_init "$CON10"; mkdir -p "$CON10/.claude"; printf "placeholder\n" > "$CON10/.claude/.keep"; commit_all "$CON10"
+( cd "$CON10" && "$KAUK" install "$PKGJ" ) >/dev/null 2>&1 || true
+ln -s "$CON10/.ai/repositories/test/gone/nowhere/at-all.md" "$CON10/tracked-debris.md"
+git -C "$CON10" add tracked-debris.md && git -C "$CON10" commit -qm "tracked debris fixture"
+ln -s "$CON10/.ai/repositories/test/gone/nowhere/at-all.md" "$CON10/untracked-orphan.md"
+( cd "$CON10" && "$KAUK" sync ) >"$TMP/out10" 2>&1 || true
+check "tracked dangling link still present"   '[ -L "$CON10/tracked-debris.md" ]'
+check "tracked dangling link reported as DEBRIS" 'grep -q "DEBRIS tracked-debris.md" "$TMP/out10"'
+check "untracked orphan with no candidate pruned as before" '[ ! -L "$CON10/untracked-orphan.md" ]'
+
+echo "== orphan clone sweep: undeclared clean clones removed, diverged or dirty kept =="
+CON11="$TMP/consumer-sweep"; git_init "$CON11"; mkdir -p "$CON11/.claude"; printf "placeholder\n" > "$CON11/.claude/.keep"; commit_all "$CON11"
+( cd "$CON11" && "$KAUK" install "$PKGJ" ) >/dev/null 2>&1 || true
+git clone --quiet "$PKGJ" "$CON11/.ai/repositories/orichea/orchids" 2>/dev/null
+git clone --quiet "$PKGJ" "$CON11/.ai/repositories/orchea/diverged" 2>/dev/null
+( cd "$CON11/.ai/repositories/orchea/diverged" && printf 'drift\n' > drift.md && git add -A && git -c user.email=t@example.com -c user.name=Test commit -qm "local drift" )
+git clone --quiet "$PKGJ" "$CON11/.ai/repositories/orchea/dirty" 2>/dev/null
+printf 'uncommitted\n' > "$CON11/.ai/repositories/orchea/dirty/mess.md"
+( cd "$CON11" && "$KAUK" sync ) >"$TMP/out11" 2>&1 || true
+check "undeclared clean clone swept"          '[ ! -d "$CON11/.ai/repositories/orichea" ]'
+check "sweep reported"                        'grep -q "SWEEP orichea/orchids" "$TMP/out11"'
+check "undeclared clone with unpushed commit kept" '[ -d "$CON11/.ai/repositories/orchea/diverged/.git" ]'
+check "diverged clone reported as ORPHAN"     'grep -q "ORPHAN orchea/diverged" "$TMP/out11"'
+check "undeclared dirty clone kept"           '[ -d "$CON11/.ai/repositories/orchea/dirty/.git" ]'
+check "declared source clone untouched"       '[ -d "$CON11/.ai/repositories/test/pkgj/.git" ]'
+
+echo "== the shipped move-links migration heals RELATIVE serialseb targets =="
+MIG="$(cd "$(dirname "$0")/.." && pwd)/migrations/2026-08-18-kaukea-move-links.md"
+CON12="$TMP/consumer-mig-rel"; git_init "$CON12"
+mkdir -p "$CON12/.ai/repositories/kaukea/kauk/skills" "$CON12/files"
+printf 'the moved file\n' > "$CON12/.ai/repositories/kaukea/kauk/skills/thing.md"
+ln -s ".ai/repositories/serialseb/kauk/skills/thing.md" "$CON12/files/rel-stale.md"
+commit_all "$CON12"
+( cd "$CON12" && awk '/^```sh$/{f=1;next} /^```$/{f=0} f' "$MIG" | bash ) >"$TMP/out12" 2>&1 || true
+check "relative serialseb link repointed by the migration" \
+  '[ -e "$CON12/files/rel-stale.md" ] && readlink "$CON12/files/rel-stale.md" | grep -q "repositories/kaukea/kauk/skills/thing.md"'
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
