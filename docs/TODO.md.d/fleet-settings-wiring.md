@@ -8,15 +8,18 @@ in this repository ([[adopt-orchard-here]]).
 
 ## Questions
 
-- ~~Bootstrap of the first session via a visible gardener skill spawning the
-  real session with `--settings`?~~ Considered and PARKED with the whole task
-  (operator, 2026-08-18): the spawn-flag route relies on entering through
-  `/gardener`, and the designated solution is the PLUGIN — when packages become
-  plugins ([[claude-marketplace]]), the plugin ships its own hooks and
-  settings, self-contained in the repository, no file editing and no laying at
-  all. The hooks wiring stays as it is today until then. This task is parked,
-  not cancelled: if the plugin path stalls, the spawn-flag + skill-bootstrap
-  design above is the recorded fallback.
+_None open — direction ruled (operator, 2026-08-18, superseding the same-day
+parking): the settings takeover is a NEVER-EVENT, so this wiring does not wait
+for the plugin._ The scope: a package-shipped settings file; every fleet
+dispatch appends `claude --settings <file>` (partial merge, per-invocation);
+the operator's entry is a VISIBLE `/gardener` skill in a plain session that
+spawns the real gardener session with `--settings` into its own window and
+hands over (a session cannot re-settings itself — subprocess is the only way;
+the pattern is the fleet's existing dispatch). The plugin
+([[claude-marketplace]]) remains the eventual self-contained delivery; this
+wiring is what lets [[settings-lay-clobbers]] retire the laid link NOW. Open
+edge for the plan: where the skill comes from on a fresh machine (installing
+kai vs installing orchard).
 
 ## Findings
 

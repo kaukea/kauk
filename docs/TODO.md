@@ -12,8 +12,8 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · low · plan-ready · artifact-model · gh#16` [Hooks become declarative artifacts with a per-runtime transpiler](TODO.md.d/hooks-declarative.md) ⊘runtime-detection ~claude-marketplace
 - `feature · todo · critical · plan-ready · · gh#17` [Templates: beginning, end, inline, with a tracked marker](TODO.md.d/templates-spec.md)
   - `feature · todo · · blocked-on-answers · artifact-model · gh#18` [Generated config headers ship as templates, not hardcoded strings](TODO.md.d/config-headers-as-templates.md) ⊘templates-spec
-- `feature · todo · critical · plan-ready · · gh#19` [`roles:` becomes `categories:`, and agents gain the key](TODO.md.d/categories-rename.md)
-  - `feature · todo · critical · plan-ready · resolver · gh#20` [Dependencies: a plain graph that is also an agent's capability boundary](TODO.md.d/dependency-graph.md) ⊘categories-rename
+- `feature · functional · critical · plan-ready · · gh#19` [`roles:` becomes `categories:` — reader shipped; orchard's declarations remain](TODO.md.d/categories-rename.md)
+  - `feature · functional · critical · plan-ready · resolver · gh#20` [Dependencies: reader closure shipped; declarations and boundary enforcement remain](TODO.md.d/dependency-graph.md) ⊘categories-rename
 
 ## federation
 
@@ -39,7 +39,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
 - `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Installing from a local path drags in the source repo's leftover git objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
 - `bug · todo · critical · plan-ready · cli-core · gh#21` [Stale laid links survive layout changes — kauk's own rule files dangle since the kaukea move](TODO.md.d/stale-laid-links.md) ~estate-converge ~migrations-at-sync
-- `bug · todo · critical · plan-ready · cmd-install · gh#90` [The laid settings.json owns consumers' Claude settings — retires when the plugin carries hooks](TODO.md.d/settings-lay-clobbers.md) ⊘claude-marketplace ~templates-spec
+- `bug · todo · critical · plan-ready · cmd-install · gh#90` [NEVER-EVENT: the laid settings.json takes over the user's — retire it behind spawn-time settings](TODO.md.d/settings-lay-clobbers.md) ⊘fleet-settings-wiring ~claude-marketplace
 - `bug · functional · critical · complete · · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md) ~files-kind ~ai-toml-cleanup
   - `feature · functional · critical · complete · cmd-install ·` [The `files/` kind: contents placed verbatim at their path](TODO.md.d/files-kind.md) ⊘manifest-by-convention
   - `housekeeping · functional · critical · complete · cli-core ·` [.ai.toml goes back to being the operator's file](TODO.md.d/ai-toml-cleanup.md)
@@ -53,9 +53,10 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `bug · todo · critical · plan-ready · cli-core · gh#27` [macOS portability: BSD awk/sed, bash 3.2 — migrations fail on Macs today](TODO.md.d/macos-portability.md)
 - `feature · todo · · queued · ci · gh#28` [macOS suite in CI — visibility route is the open call](TODO.md.d/ci-macos.md) ~macos-portability
 - `housekeeping · todo · critical · queued · · gh#29` [kauk adopts orchard — the plugin discussion is gated on it](TODO.md.d/adopt-orchard-here.md) ~takeover-inflight
-  - `feature · todo · · queued · · gh#30` [Wire kauk's own fleet settings — parked on the plugin path](TODO.md.d/fleet-settings-wiring.md) ~claude-marketplace
+  - `feature · todo · critical · plan-ready · · gh#30` [Fleet settings ride every spawn: --settings + the visible /gardener skill](TODO.md.d/fleet-settings-wiring.md) ~claude-marketplace
 - `housekeeping · functional · · complete · cli-core ·` [The command becomes `kai`; the executable is `kaukea`](TODO.md.d/cli-rename-kai.md) ~org-move
 - `feature · todo · idea · blocked-on-answers · cmd-install · gh#31` [kauk installs itself alongside the first package](TODO.md.d/bootstrap-with-first-package.md) ~claude-marketplace
+- `feature · todo · · plan-ready · cmd-install ·` [Shared rule markdown lands in .claude/rules/ — AGENTS.md stays visible at root](TODO.md.d/shared-rules-placement.md) ~runtime-topology ~stale-laid-links
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)
 - `feature · todo · · blocked-on-answers · cli-core · gh#8` [Installer picks agents first, then bundles the skills those agents require](TODO.md.d/agent-deployment.md) ⊘runtime-topology ~role-aware-delivery ~cli-mvp
 

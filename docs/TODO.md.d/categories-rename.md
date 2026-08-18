@@ -14,6 +14,12 @@ _None open — the spec is ruled._
 
 All 19 orchids skills declare `roles:`; none of the 10 agents declare anything. The word is inherited from the retired `dev|infra|org` layer.
 
+State correction (2026-08-18, verified in bin/kaukea): the READER half is
+SHIPPED — `artifact_categories()` reads `categories:` with `roles:` as
+fallback (landed with reader-select). Status is functional. What remains is
+the ORCHARD half: skills renamed to `categories:`, agents gaining the key,
+and the rename migration (Decision-024) so the fallback can retire.
+
 ## Proposal
 
 Read `categories:` instead of `roles:`, node list unchanged; agents gain the key. Migration carries the rename (Decision-024).
