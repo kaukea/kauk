@@ -30,7 +30,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 - `feature · todo · urgent · blocked-on-answers · dns · gh#3` [Decide where kauk.ai is hosted, then stand it up](TODO.md.d/kauk-ai-hosting.md)
 - `feature · todo · · blocked-on-answers · dns · gh#13` [Serve a real apt repo at kauk.ai/debian for signmc (route undecided)](TODO.md.d/deb-apt-host.md) ~kauk-ai-hosting
-- `housekeeping · todo · critical · plan-ready · hosting ·` [Move the repository to the kaukea organisation](TODO.md.d/org-move.md)
+- `housekeeping · functional · critical · complete · hosting ·` [Move the repository to the kaukea organisation](TODO.md.d/org-move.md)
 
 ## cli
 
