@@ -21,3 +21,11 @@ Transform each package to a plugin and publish into a kauk-maintained local mark
 ## Testing
 
 Adding a source regenerates the marketplace; `/plugin marketplace update` takes it; the plugin's hooks fire; removing the source removes the entry.
+
+Operator insight (2026-08-18), raising this task's stakes: the plugin path
+happily solves the UPDATE problem — updating means packaging to the
+filesystem under a new id/version and Claude's native update flow does the
+rest; notifications become a non-problem (which likely supersedes
+[[update-notify]]). Discussion scheduled once kauk is orcharded
+([[adopt-orchard-here]]). Hooks refactor is ruled LOW priority and no longer
+gates a first cut conversation.

@@ -25,3 +25,7 @@ display "N incoming on <source> — kai sync" once, without applying anything.
 ## Testing
 
 To be agreed at build.
+
+Likely superseded (operator insight, 2026-08-18): on the plugin path the
+native update flow makes notifications a non-problem — hold this task until
+the claude-marketplace discussion settles it.

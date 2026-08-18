@@ -9,7 +9,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · urgent · queued · artifact-model · gh#14` [Write agents/skills/hooks once, lay them per runtime (Claude now, opencode next) — includes redoing hooks](TODO.md.d/runtime-topology.md) ~manifest-by-convention ~extension-point-survey
 - `feature · todo · · queued · artifact-model · gh#15` [Survey each runtime's extension points (prompt + code injection) and pick kauk's integration model — likely a Claude plugin](TODO.md.d/extension-point-survey.md) ~runtime-topology
 - `feature · functional · critical · complete · artifact-model ·` [package.toml: a repository declares what it is](TODO.md.d/package-toml.md) ~self-publishing
-- `feature · todo · critical · plan-ready · artifact-model ·` [Hooks become declarative artifacts with a per-runtime transpiler](TODO.md.d/hooks-declarative.md) ⊘runtime-detection ~claude-marketplace
+- `feature · todo · low · plan-ready · artifact-model ·` [Hooks become declarative artifacts with a per-runtime transpiler](TODO.md.d/hooks-declarative.md) ⊘runtime-detection ~claude-marketplace
 - `feature · todo · critical · plan-ready · ·` [Templates: beginning, end, inline, with a tracked marker](TODO.md.d/templates-spec.md)
   - `feature · todo · · blocked-on-answers · artifact-model ·` [Generated config headers ship as templates, not hardcoded strings](TODO.md.d/config-headers-as-templates.md) ⊘templates-spec
 - `feature · todo · critical · plan-ready · ·` [`roles:` becomes `categories:`, and agents gain the key](TODO.md.d/categories-rename.md)
@@ -49,6 +49,8 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · · blocked-on-answers · cli-core ·` [A committed lock records each repository and its resolved head — deferred whole (D-051)](TODO.md.d/lockfile.md)
 - `feature · todo · · queued · cli-core ·` [Background update check displays when a source moved](TODO.md.d/update-notify.md)
 - `bug · todo · critical · plan-ready · cli-core ·` [macOS portability: BSD awk/sed, bash 3.2 — migrations fail on Macs today](TODO.md.d/macos-portability.md)
+- `feature · todo · · queued · ci ·` [macOS suite in CI — visibility route is the open call](TODO.md.d/ci-macos.md) ~macos-portability
+- `housekeeping · todo · critical · queued · ·` [kauk adopts orchard — the plugin discussion is gated on it](TODO.md.d/adopt-orchard-here.md) ~takeover-inflight
 - `housekeeping · functional · · complete · cli-core ·` [The command becomes `kai`; the executable is `kaukea`](TODO.md.d/cli-rename-kai.md) ~org-move
 - `feature · todo · idea · blocked-on-answers · cmd-install ·` [kauk installs itself alongside the first package](TODO.md.d/bootstrap-with-first-package.md) ~claude-marketplace
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)
