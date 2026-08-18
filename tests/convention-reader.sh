@@ -7,7 +7,7 @@
 #   tests/convention-reader.sh          run all cases
 set -uo pipefail
 
-KAUK=$(cd "$(dirname "$0")/.." && pwd)/bin/kauk
+KAUK=$(cd "$(dirname "$0")/.." && pwd)/bin/kai
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -272,7 +272,7 @@ commit_all "$CON2"
 ( cd "$CON2" && "$KAUK" install "$PKG" ) >"$TMP/outB" 2>&1 || true
 check "user file not replaced"         'grep -q "MINE" "$CON2/AGENTS.shared.md"'
 check "conflict reported"              'grep -qi "blocked" "$TMP/outB"'
-check "user invited to decide"         'grep -q "kauk resolve" "$TMP/outB"'
+check "user invited to decide"         'grep -q "kai resolve" "$TMP/outB"'
 check "no agent dispatched on install" '! grep -qi "dispatching\|claude -p" "$TMP/outB"'
 
 echo "== resolve lists conflicts and decides nothing =="
