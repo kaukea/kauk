@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/agents/orchestrator-cloud.md
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/agents/orchestrator-cloud.md

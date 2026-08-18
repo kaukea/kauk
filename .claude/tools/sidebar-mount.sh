@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/sidebar-mount.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/sidebar-mount.sh

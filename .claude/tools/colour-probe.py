@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/colour-probe.py
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/colour-probe.py

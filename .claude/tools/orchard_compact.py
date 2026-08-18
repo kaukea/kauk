@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/orchard_compact.py
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/orchard_compact.py

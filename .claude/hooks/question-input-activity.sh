@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/hooks/question-input-activity.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/hooks/question-input-activity.sh

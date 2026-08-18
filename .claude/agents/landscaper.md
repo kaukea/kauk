@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/agents/landscaper.md
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/agents/landscaper.md

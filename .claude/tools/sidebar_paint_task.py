@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/sidebar_paint_task.py
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/sidebar_paint_task.py

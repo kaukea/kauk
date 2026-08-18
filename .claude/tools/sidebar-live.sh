@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/sidebar-live.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/sidebar-live.sh

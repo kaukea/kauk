@@ -98,8 +98,8 @@ sources_list() { # sources_list <root> -> "<id> <origin> <tablekey>" per line
   done < <(src_tables "$root")
 }
 
-source_origin() { sources_list "$1" | awk -v id="$2" '$1==id{print $2; exit}'; }
-source_key()    { sources_list "$1" | awk -v id="$2" '$1==id{print $3; exit}'; }
+source_origin() { sources_list "$1" | awk -v id="$2" '$1==id{v=$2} END{if(v!="")print v}'; }
+source_key()    { sources_list "$1" | awk -v id="$2" '$1==id{v=$3} END{if(v!="")print v}'; }
 source_select() { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" select; return 0; }
 source_ref()    { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" ref | head -1; return 0; }
 

@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/bloomer-launch.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/bloomer-launch.sh

@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/board_gh.py
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/board_gh.py

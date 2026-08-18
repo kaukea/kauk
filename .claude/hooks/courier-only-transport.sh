@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/hooks/courier-only-transport.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/hooks/courier-only-transport.sh

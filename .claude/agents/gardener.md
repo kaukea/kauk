@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/agents/gardener.md
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/agents/gardener.md

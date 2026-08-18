@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/dispatch-agent.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/dispatch-agent.sh

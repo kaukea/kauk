@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/landscaper-teardown.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/landscaper-teardown.sh

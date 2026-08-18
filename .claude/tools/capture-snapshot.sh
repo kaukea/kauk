@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/tools/capture-snapshot.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/capture-snapshot.sh

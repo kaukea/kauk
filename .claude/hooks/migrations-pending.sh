@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/hooks/migrations-pending.sh
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/hooks/migrations-pending.sh
