@@ -34,6 +34,19 @@ _All answered by the operator, 2026-07-21 (Decision-013):_
 - Related reshaping in flight: Decision-011 removes manifest.conf (the tree
   defines the package) — the topology model decides where each artifact type
   LANDS per runtime; the tree decides WHAT ships. The two must compose.
+- Rule-file landing, ruled 2026-08-18 (verified against the harness docs,
+  memory.md): Claude Code auto-loads every markdown file under
+  `.claude/rules/` (recursive, symlinks, `paths:` scoping) with no CLAUDE.md
+  edit. The operator's placement ruling: the project-owned AGENTS.md stays
+  VISIBLE at repo root — never hidden in `.claude/rules/`; the package-shipped
+  AGENTS.shared.md / AGENTS.files.md MAY land in `.claude/rules/` instead of
+  root links + CLAUDE.md imports — settle it in this task's topology model.
+  Prepend templates demote to fallback for this use.
+- Settings landing, same date: no additive settings surface exists (levels
+  override wholesale) — fleet settings ship as an adjacent JSON Patch applied
+  to the project-owned `settings.json` by the sync script (see
+  [[settings-lay-clobbers]]), replacing the wholesale settings.json link this
+  sidecar lists as current state.
 
 ## Proposal
 

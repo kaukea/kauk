@@ -22,6 +22,11 @@ Transform each package to a plugin and publish into a kauk-maintained local mark
 
 Adding a source regenerates the marketplace; `/plugin marketplace update` takes it; the plugin's hooks fire; removing the source removes the entry.
 
+Operator, 2026-08-18: the docs' "plugins cannot ship rule/memory markdown"
+does not bound this path — plugins ship their own hooks and settings, and a
+plugin's startup hook can ADD the rule files/context itself. Rules can ride
+the plugin channel via its hooks.
+
 Operator insight (2026-08-18), raising this task's stakes: the plugin path
 happily solves the UPDATE problem — updating means packaging to the
 filesystem under a new id/version and Claude's native update flow does the
