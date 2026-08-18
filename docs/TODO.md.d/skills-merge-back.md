@@ -52,3 +52,14 @@ skills are investigated for adoption into orchids too.
    package; consumers reach it as a cross-package source, not via orchids.
 6. **judada** carries skills with NO kai at all — after rulings, kai install
    there and pull through kai instead of copies.
+
+## Rulings and execution (2026-08-18)
+
+1. orchids.forensics = the one-codebase — CONFIRMED; forensics-repo install
+   is the operator's (Decision-145 exclusion stands).
+2. web-debug-browser: NOT the operator's repo or code — struck from scope.
+3. core-stuff: empty stub — DELETED (SignMc c1f4270, pushed).
+4. judada: kai + orchids INSTALLED (a206fdb, local-only — no remote);
+   calibrate-camera stays local beside the links.
+5. voice-setup: stays the voice package; NOT yet correctly folded into a repo
+   — packaging it properly is follow-up work in serialseb.voice.
