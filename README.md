@@ -18,7 +18,7 @@ hoard. See `ARCHITECTURE.md`.
 
 ## Layout
 
-- `bin/kauk` — the bash stopgap that vendors and lays file packages until `0.1.0`:
+- `bin/kaukea` — the bash stopgap that vendors and lays file packages until `0.1.0`, invoked as **`kai`** (`kauk` stays as the backup alias):
   `init` / `install <owner>/<repo> | <path>` / `sync [--pull|--push]` / `resolve`.
   Sync pulls with rebase and lays; `--push` publishes your local edits, explicitly
   and only then; a source pinned to a `ref` is never touched. `.ai.toml` is

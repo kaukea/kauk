@@ -6,6 +6,10 @@ _base: (root)_
 
 ### ✨ New features
 
+- ✨ **kai leads; kaukea carries; kauk stands backup** — the executable is
+  `bin/kaukea`, `bin/kai` in front, `bin/kauk` the fallback alias; messages and
+  the tool's own skill speak kai. Migration: `2026-08-16-command-is-kai.md`.
+
 - ♻️ **Sync is what sync was; push is deliberate** — `kai sync` pulls with rebase,
   runs pending migrations, warns when an update removes artifacts, and lays by
   selection. `--push` is the separate explicit act (pull-only packages refuse it);
@@ -96,3 +100,13 @@ the "updates available" notice moves to a background check boarded as
 update-notify.
 
 _Board: lockfile (deferred whole), update-notify · Decisions 049–051._
+
+#### ✨ `f/cli-kai` → `archive/cli-kai`
+
+kai leads; kaukea carries; kauk stands backup. The executable ships as
+`bin/kaukea` with `bin/kai` in front and `bin/kauk` as the fallback alias —
+three names, one behaviour. User-facing messages speak kai, and the tool's
+skill renames to `kai` with its content rewritten to the current model.
+Migration `2026-08-16-command-is-kai.md` cleans consumers' dangling links.
+
+_Board: cli-rename-kai · Decision-026, operator emphasis 2026-08-16._
