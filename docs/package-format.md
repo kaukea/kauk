@@ -297,12 +297,14 @@ package version *is* the highest filename.
 
 - Content stays **natural language**, wrapped in a structured format. Existing
   migrations are not rewritten.
-- Codified step types — `reload`, `restart`, `rename`, `apply skill` — follow the
-  same closed-set, one-key-per-step pattern as hook actions, and host-specific steps
-  are transpiler territory.
-- Codified steps execute **inside kauk, deterministically**; only the prose residue
-  is handed to an agent. This is what makes execution independent of what any agent
-  chooses to do, and what makes most of a migration testable.
+- There is no closed set of step verbs. A step's flexibility comes from its
+  `applied-by` routing and from relative scripts shipped next to the migration
+  file (operator, 2026-08-18, superseding the earlier `reload`/`restart`/
+  `rename`/`apply skill` closed-set sketch).
+- `shell` steps execute **inside kauk, deterministically**; only `agent` steps
+  are handed over, as structured fenced steps rather than loose prose. This is
+  what makes execution independent of what any agent chooses to do, and what
+  makes most of a migration testable.
 - **Migrations run at sync time — the tool owns the applying.** No agent reads,
   applies, or advances a watermark by hand (Decision-055).
 - A `reload` step is available on any update, not only inside a migration: on the Claude
