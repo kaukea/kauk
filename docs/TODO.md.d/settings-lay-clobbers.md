@@ -50,11 +50,14 @@
   So markdown rules are DROPPED files — prepend is only the fallback had this
   not existed, and the CLAUDE.md include-stub is unnecessary for rules. JSON
   settings remain the adjacent JSON Patch (no additive settings surface).
-  Design option this opens (for the runtime-topology/stale-links scope round,
-  not decided here): lay AGENTS rule files into `.claude/rules/` instead of
-  repo root + CLAUDE.md imports. Also verified: plugins CANNOT ship rule/memory
-  markdown (plugins-reference.md — skills, agents, hooks, MCP only), which
-  bounds claude-marketplace (gh#22): rules never ride the plugin channel.
+  Operator refinements (2026-08-18): AGENTS.md — the project-owned rules the
+  user edits — stays VISIBLE at repo root, never hidden in `.claude/rules/`;
+  the package-shipped AGENTS.shared.md and AGENTS.files.md MAY lay into
+  `.claude/rules/` (accepted as a possibility, settled at the scope round).
+  And the plugin bound is narrower than the docs' "no rule markdown": plugins
+  ship their own hooks and settings, and a plugin hook at startup can ADD the
+  rule files/context itself — so rules can ride the plugin channel via its
+  hooks (relevant to claude-marketplace gh#22).
 
 ## Proposal
 
