@@ -3,6 +3,6 @@
 # local. Each table may carry select = ["<category-path>", ...]; no select
 # means everything. Clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
 
-[sources."/home/sudoku/src/serialseb/orchids"]
+[sources."kaukea/orchard"]
 
-[sources."/home/sudoku/src/serialseb/kauk"]
+[sources."/home/sudoku/src/kaukea/kauk"]
