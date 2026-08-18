@@ -51,6 +51,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `bug · todo · critical · plan-ready · cli-core ·` [macOS portability: BSD awk/sed, bash 3.2 — migrations fail on Macs today](TODO.md.d/macos-portability.md)
 - `feature · todo · · queued · ci ·` [macOS suite in CI — visibility route is the open call](TODO.md.d/ci-macos.md) ~macos-portability
 - `housekeeping · todo · critical · queued · ·` [kauk adopts orchard — the plugin discussion is gated on it](TODO.md.d/adopt-orchard-here.md) ~takeover-inflight
+  - `feature · todo · critical · plan-ready · ·` [Wire kauk's own fleet settings — the first task run through orchard here](TODO.md.d/fleet-settings-wiring.md)
 - `housekeeping · functional · · complete · cli-core ·` [The command becomes `kai`; the executable is `kaukea`](TODO.md.d/cli-rename-kai.md) ~org-move
 - `feature · todo · idea · blocked-on-answers · cmd-install ·` [kauk installs itself alongside the first package](TODO.md.d/bootstrap-with-first-package.md) ~claude-marketplace
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)
