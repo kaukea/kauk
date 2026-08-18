@@ -8,8 +8,17 @@ in this repository ([[adopt-orchard-here]]).
 
 ## Questions
 
-_None open — orchard's own settings.json is the reference; deviations
-surface at the plan gate._
+- Bootstrap of the FIRST session (tentative operator direction, 2026-08-18 —
+  confirm at the scope round): `--settings` covers every fleet-SPAWNED agent,
+  but the session the operator starts by hand cannot re-settings itself — a
+  subprocess is the only way. Proposed shape: no `--agent gardener` at the
+  door; instead a VISIBLE `gardener` skill in a plain claude session that
+  spawns the real gardener session with `--settings` (and the agent def) into
+  its own window and hands over — the same dispatch pattern the fleet already
+  uses for landscapers and sowers. Open edge: where the skill comes from on a
+  fresh machine (installing kai vs installing orchard — undecided). Relates to
+  orchard's summon-restarting design, which the operator ruled is designed
+  with him — this is that design starting.
 
 ## Findings
 

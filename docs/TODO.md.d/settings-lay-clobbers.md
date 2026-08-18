@@ -61,23 +61,19 @@
 
 ## Proposal
 
-Two-tier mechanism (operator, 2026-08-18):
-
-1. **Fleet-launched agents need no project settings at all**: every fleet agent
-   is spawned by our own dispatch tooling, and `claude --settings <file>`
-   applies a custom settings file per-invocation (partial merge). The spawn
-   commands carry the package's settings file — hooks and permission mode ride
-   the launch, not the repository (see [[fleet-settings-wiring]]).
-2. **Whatever must affect the operator's own interactive session** (possibly
-   nothing) ships as a JSON Patch document laid adjacent to the consumer's
-   `.claude/settings.json`, applied to the project-owned file by the kai sync
-   script, idempotently.
-
-Either way the laid symlink at `.claude/settings.json` goes away; a shipped
-migration converts consumers (link removed, project file created/patched where
-needed) — all steps scripted (Decision-055). Note for adjacent tasks: plugin
-`hooks/hooks.json` is additive across scopes — relevant to the marketplace task
-as a hooks channel.
+Single mechanism (operator, 2026-08-18 — the JSON Patch tier was considered and
+DROPPED the same day): every fleet session is a SPAWNED session — dispatched
+agents already launch through our own tooling, and the first session enters
+through the visible gardener skill that spawns the real session (see
+[[fleet-settings-wiring]]). Each spawn carries `claude --settings <file>` with
+the package's settings (partial merge, per-invocation). With no session left
+that needs the repository file, there is no reason for a JSON Patch: the laid
+symlink at `.claude/settings.json` is simply RETIRED via a shipped migration
+(link removed; `.claude/settings.json` belongs wholly to the project and the
+operator) — all steps scripted (Decision-055). Depends on the spawn-time
+settings being wired first, or sessions lose their hooks in the gap. Note for
+adjacent tasks: plugin `hooks/hooks.json` is additive across scopes — relevant
+to the marketplace task as a hooks channel.
 
 ## Testing
 
