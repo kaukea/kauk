@@ -16,8 +16,15 @@ f="$root/.ai.toml"
 [ -f "$f" ] || { echo "no .ai.toml — nothing to do"; exit 0; }
 
 # A path source that IS this repository stays a PATH — self-publishing needs
-# the working tree, never a clone. Re-key it to the current root first.
-sed -i "s|^\[sources\.\"/home/[^\"]*/serialseb/$(basename "$root")\"\]|[sources.\"$root\"]|" "$f"
+# the working tree, never a clone. Resolve each path key (old-path symlinks
+# included) against the MAIN checkout and re-key matches to it, first.
+maindir=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
+grep -o '^\[sources\."/[^"]*"\]' "$f" | sed 's/^\[sources\."//;s/"\]$//' | while read -r p; do
+  rp=$(realpath -m "$p" 2>/dev/null || echo "$p")
+  if [ "$rp" = "$(realpath "$maindir")" ]; then
+    sed -i "s|^\[sources\.\"$p\"\]|[sources.\"$maindir\"]|" "$f"
+  fi
+done
 
 sed -i \
   -e 's|^\[sources\."/home/[^"]*/serialseb/orchids"\]|[sources."kaukea/orchard"]|' \

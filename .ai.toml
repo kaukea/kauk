@@ -5,4 +5,4 @@
 
 [sources."kaukea/orchard"]
 
-[sources."kaukea/kauk"]
+[sources."/home/sudoku/src/kaukea/kauk"]
