@@ -1,1 +1,1 @@
-/home/sudoku/src/serialseb/kauk/.ai/repositories/serialseb/orchids/AGENTS.files.md
+/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/files/AGENTS.files.md

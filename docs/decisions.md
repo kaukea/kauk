@@ -984,3 +984,20 @@ BSD backup argument in both shipped migrations, `realpath -m` in the
 kaukea-move self-guard, `readlink -f` in init. Boarded as a portability
 pass; from here on, new shell code is written to the POSIX subset and
 flag use is checked against both implementations, never memory.
+
+## [2026-08-18 17:15 CEST] Decision-054: Renames carry their links — the migration moves what it breaks
+#migrations #links #laying #rename #sync #gate
+
+Operator ruling, on the dangling rule-file links (board: stale-laid-links).
+Three parts:
+
+- Every move or rename of a laid artifact — package root ↔ `files/`, a
+  repository identity change, a path change — ships IN ITS MIGRATION the
+  repointing of links already laid in consumers. The kaukea-move migration
+  was incomplete for omitting it; the files→root→files oscillation without
+  carried migrations should never have happened.
+- Sync's historic scan-and-repoint of laid links (in the stopgap until the
+  convention-reader rewrite, removed there without a ruling) is restored in
+  substance: an update scans links pointing into the repository store and
+  repoints them.
+- GATE: this is fixed before kauk is actually used by any project.

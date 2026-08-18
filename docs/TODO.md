@@ -38,7 +38,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · done ·  · complete · cli-core · ` [Interim bash `kauk` CLI that vendors and syncs packages](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
 - `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
 - `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Installing from a local path drags in the source repo's leftover git objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
-- `bug · todo · critical · blocked-on-answers · cli-core · gh#21` [Stale laid links survive layout changes — kauk's own rule files dangle since the kaukea move](TODO.md.d/stale-laid-links.md) ~estate-converge
+- `bug · todo · critical · plan-ready · cli-core · gh#21` [Stale laid links survive layout changes — kauk's own rule files dangle since the kaukea move](TODO.md.d/stale-laid-links.md) ~estate-converge
 - `bug · functional · critical · complete · · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md) ~files-kind ~ai-toml-cleanup
   - `feature · functional · critical · complete · cmd-install ·` [The `files/` kind: contents placed verbatim at their path](TODO.md.d/files-kind.md) ⊘manifest-by-convention
   - `housekeeping · functional · critical · complete · cli-core ·` [.ai.toml goes back to being the operator's file](TODO.md.d/ai-toml-cleanup.md)
@@ -65,3 +65,4 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `housekeeping · todo · · queued · · gh#33` [Take over the in-flight branches: Valve, delivery-restoring, kauk's stale f/*](TODO.md.d/takeover-inflight.md) ~estate-converge
 - `housekeeping · todo · critical · queued · · gh#34` [Merge diverged skill copies back into orchids — one codebase before round two](TODO.md.d/skills-merge-back.md) ~estate-converge
 - `housekeeping · todo · · blocked-on-answers · agent-rules · gh#12` [Fix the contradictory commit-trailer rules between the rule files (fix lives in orchids)](TODO.md.d/commit-trailer-conflict.md)
+- `feature · todo · · plan-ready · agent-rules ·` [Applying migrations is the agent's job — encode the duty in the workflow rules](TODO.md.d/package-migration-reach.md) ~stale-laid-links ~migrations-at-sync
