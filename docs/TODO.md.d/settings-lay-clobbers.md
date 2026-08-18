@@ -42,11 +42,19 @@
   its own project-level `settings.json` at all.
 - Orchard's own `.claude/settings.json` was and remains a self-link — no content
   was lost there.
-- Mechanism boundaries (operator, 2026-08-18): prepend is the CLAUDE.md
-  mechanism — and even CLAUDE.md composes from multiple files via `@` imports
-  (this repo's CLAUDE.md does exactly that), so prepend's job there is only the
-  minimal project-owned stub carrying the imports. JSON settings get the
-  adjacent JSON Patch; markdown gets @-imports with prepend for the stub.
+- Mechanism boundaries, VERIFIED against the harness docs (2026-08-18,
+  code.claude.com/docs/en/memory.md): the operator's recollection holds —
+  MULTIPLE markdown rule files auto-load natively from `./.claude/rules/*.md`
+  (recursive, symlinks supported, optional `paths:` frontmatter scoping), with
+  no edit to the project's CLAUDE.md; `@`-imports also exist (4-hop recursive).
+  So markdown rules are DROPPED files — prepend is only the fallback had this
+  not existed, and the CLAUDE.md include-stub is unnecessary for rules. JSON
+  settings remain the adjacent JSON Patch (no additive settings surface).
+  Design option this opens (for the runtime-topology/stale-links scope round,
+  not decided here): lay AGENTS rule files into `.claude/rules/` instead of
+  repo root + CLAUDE.md imports. Also verified: plugins CANNOT ship rule/memory
+  markdown (plugins-reference.md — skills, agents, hooks, MCP only), which
+  bounds claude-marketplace (gh#22): rules never ride the plugin channel.
 
 ## Proposal
 
