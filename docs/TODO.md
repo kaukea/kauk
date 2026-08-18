@@ -66,5 +66,6 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · · blocked-on-answers · · gh#32` [Register the usage: committed lock + per-repo category selection across the estate](TODO.md.d/usage-register.md) ⊘lockfile ⊘categories-rename ~estate-converge
 - `housekeeping · todo · · queued · · gh#33` [Take over the in-flight branches: Valve, delivery-restoring, kauk's stale f/*](TODO.md.d/takeover-inflight.md) ~estate-converge
 - `housekeeping · todo · critical · queued · · gh#34` [Merge diverged skill copies back into orchids — one codebase before round two](TODO.md.d/skills-merge-back.md) ~estate-converge
+- `bug · todo · · queued · agent-rules ·` [tmux layout contract: window per feature, right column stacked — dispatch mis-renders it](TODO.md.d/tmux-layout-contract.md)
 - `housekeeping · todo · · blocked-on-answers · agent-rules · gh#12` [Fix the contradictory commit-trailer rules between the rule files (fix lives in orchids)](TODO.md.d/commit-trailer-conflict.md)
 - `feature · cancelled · · complete · agent-rules · gh#35` [~~Applying migrations is the agent's job — encode the duty in the workflow rules~~](TODO.md.d/package-migration-reach.md) ~migrations-at-sync
