@@ -1,46 +1,56 @@
 ---
 name: orchard
-description: "Run when the operator says start the gardener, open the board, or /orchard. A running session cannot re-apply --settings to itself, so this is the only way to get the fleet's hook wiring (.claude/kauk.settings.json, dispatched through .claude/hooks-run.sh) into a real gardener session: launches a fresh `claude --agent gardener --settings .claude/kauk.settings.json` process in its own tmux window and hands over."
+description: "Read before launching any agent in this fleet, and before treating any agent's finished work as valid. States the hard rule: every agent is launched through .claude/tools/dispatch-agent.sh, the dispatcher that supplies the fleet's permission mode and its hook wiring — courier, session lifecycle hooks, and the question broker. Work from an agent launched any other way is unsuccessful and must be redone through the dispatcher."
 metadata:
-  tags: [orchard, gardener, launch, settings, hooks, tmux, entry-point]
+  tags: [orchard, dispatch-agent, launch, hooks, courier, question-broker, enforcement, permission-mode]
 visibility:
   user-invocable: true
 ---
 
-# orchard (start the gardener)
+# orchard (how agents must be launched)
 
-`--settings` only takes effect at process start, so a session already running cannot
-wire itself up. `/orchard` starts a NEW `claude` process — `--agent gardener` with
-`--settings .claude/kauk.settings.json` — in its own tmux window, then hands over.
+## Intent
 
-## When
+An agent only becomes part of this fleet if it is wired into it at the moment
+it starts. That wiring cannot be added after the fact — an agent that is
+already running cannot retroactively gain a courier, its session lifecycle
+hooks, or a way to ask a question through the question broker. So there is
+exactly one supported way to start an agent, and this skill states the rule
+that keeps it that way.
 
-- The operator says start the gardener, open the board, or runs `/orchard`.
+## Checklist
 
-## What it does
-
-Requires tmux (`$TMUX` set); refuse with a clear message if not.
-
-```bash
-root="$(git rev-parse --show-toplevel)"
-settings="$root/.claude/kauk.settings.json"
-[ -f "$settings" ] || { echo "orchard: $settings missing, cannot launch gardener" >&2; exit 1; }
-
-cmd=$(printf 'env ORCHID_PARENT_SESSION=%q claude --agent %q --settings %q' \
-  "${CLAUDE_CODE_SESSION_ID:-}" "gardener" "$settings")
-win=$(tmux new-window -P -F '#{window_id}' -n Gardener -c "$root" "$cmd")
-tmux select-window -t "$win"
-```
-
-Tell the operator the gardener is starting in its own window, then step aside — this
-session does not become the gardener, it only starts one.
+- [ ] The agent was started through `.claude/tools/dispatch-agent.sh` — never
+      a bare `claude` invocation, and never any other launcher
+- [ ] If it was not, its work is treated as not done, and is redone by an
+      agent launched through the dispatcher
 
 ## Rules
 
-- Copies `.claude/tools/dispatch-agent.sh`'s conventions — the `%q`-quoted command
-  string, `ORCHID_PARENT_SESSION` set to the launching session's id — but uses
-  `tmux new-window` in place of `split-window -d`: the gardener gets its own window
-  directly, never a hidden pane to promote out of later.
-- `--settings` must point at `.claude/kauk.settings.json` itself, never a copy or an
-  inline reconstruction — that file is the one place the fleet's hook wiring is named.
-- No prompt argument: `claude --agent gardener` uses the agent's own `initialPrompt`.
+- **Every agent MUST be launched through `.claude/tools/dispatch-agent.sh`.**
+  That script is the only supported way to start an agent in this fleet. No
+  other invocation — a hand-typed `claude` command, a copy of the dispatcher's
+  command line, any shortcut that skips the script itself — is a substitute
+  for it.
+- **The dispatcher is what supplies the fleet's settings.** It sets the
+  agent's permission mode and wires in the hooks that give the agent its
+  courier (how it sends and receives messages), its session lifecycle hooks
+  (how its start and end are tracked), and the question broker (how it asks
+  for a decision it cannot make on its own). None of that exists for an agent
+  unless the dispatcher put it there.
+- **An agent started any other way silently runs without any of it.** It will
+  not announce itself, cannot be reached by the agents that need to reach it,
+  and cannot ask a question through the broker — and nothing will report the
+  gap, because there is no error for it.
+- **Work performed by an agent that was NOT launched through the dispatcher
+  is UNSUCCESSFUL and does not count**, even if the agent finished its task
+  and the result looks correct. It must be redone by an agent launched
+  through `.claude/tools/dispatch-agent.sh`. This is a hard rule, not advice:
+  do not accept, merge, or build on work produced outside it.
+
+## Temporary shape
+
+This rule exists because starting an agent and wiring it into the fleet are,
+today, two separate steps held together only by using the dispatcher every
+time. Once agent launching becomes pluggable and these settings are injected
+natively at launch, this instruction will no longer be needed.
