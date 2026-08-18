@@ -37,7 +37,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · · queued · cli-core · gh#4` [Build the real kauk CLI (0.1.0), replacing the bash stopgap](TODO.md.d/cli-mvp.md)
 - `feature · done ·  · complete · cli-core · ` [Interim bash `kauk` CLI that vendors and syncs packages](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
 - `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
-- `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Installing from a local path drags in the source repo's leftover git objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
+- `bug · cancelled · · complete · cmd-install · gh#6` [~~Installing from a local path drags in the source repo's leftover git objects~~](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery ~migrations-at-sync
 - `bug · todo · critical · plan-ready · cli-core · gh#21` [Stale laid links survive layout changes — kauk's own rule files dangle since the kaukea move](TODO.md.d/stale-laid-links.md) ~estate-converge ~migrations-at-sync
 - `bug · todo · critical · plan-ready · cmd-install · gh#90` [NEVER-EVENT: the laid settings.json takes over the user's — retire it behind spawn-time settings](TODO.md.d/settings-lay-clobbers.md) ⊘fleet-settings-wiring ~claude-marketplace
 - `bug · functional · critical · complete · · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md) ~files-kind ~ai-toml-cleanup

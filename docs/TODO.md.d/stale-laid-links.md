@@ -37,6 +37,11 @@
 
 ## Proposal
 
+**Launches as one combined feature carried by [[migrations-at-sync]] (operator,
+2026-08-18, Decision-050 pre-launch round) — one branch, one close; this sidecar keeps
+the link-repair scope below.** The former [[clone-local-object-leak]] rides the same
+feature.
+
 Remaining work, per Decision-054:
 
 1. Restore sync's scan of laid links pointing into the repository store — repoint
@@ -53,7 +58,7 @@ migration scripts) — no agent-performed step in the repair or its verification
 
 ## Testing
 
-Scratch consumer laid under the old layout + old vendor path; apply the rename and
-sync; assert every laid link resolves and no orphan remains. Estate: `find` for
-dangling symlinks into `.ai/repositories/` across consumers returns nothing. Method
-to be confirmed at bloom.
+Confirmed as drafted (operator, 2026-08-18): scratch consumer laid under the old
+layout + old vendor path; apply the rename and sync; assert every laid link resolves
+and no orphan remains. Estate: `find` for dangling symlinks into `.ai/repositories/`
+across consumers returns nothing.

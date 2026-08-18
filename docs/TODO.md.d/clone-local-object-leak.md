@@ -1,20 +1,28 @@
 - created: 2026-07-17
 - created_by: opus-4.8
 - created_during: orchids board work (cross-repo handoff)
+- completed: 2026-08-18
+- completed_during: decision-050-prelaunch
+
+### Why cancelled
+
+Not decided against — FOLDED (operator, 2026-08-18, Decision-050 pre-launch round):
+the fix shares `bin/kaukea`'s sync path with the combined sync feature, so its scope
+ships as steps of [[migrations-at-sync]] (the carrier) rather than a standalone
+feature. Rulings carried over there: `--no-local` (not `file://`), fetch/pull leak
+tested in-feature, existing `.ai/repositories/` clones re-cloned on upgrade. The
+open questions below are all answered by those rulings.
 
 ## Blockers
 - None. One-flag change; no design needed.
 
 ## Questions
-- `--no-local` or rewrite local-path origins to `file://`? Both force the pack path.
-  `--no-local` is the smaller change (one flag at `bin/kauk:237` and `:215`);
-  `file://` also changes what lands in `remote.origin.url`, which `cmd_install` reads
-  back at `:210`.
-- Does `git fetch`/`pull` against a local-path origin leak the same way on `sync`
-  (`bin/kauk:327`, `:340`), or is this clone-only? **Test it** — the same optimisation
-  may apply, and a clean clone that leaks on first sync fixes nothing.
-- Existing clones under `.ai/repositories/` already carry whatever leaked. Re-clone on
-  upgrade, or leave them? They are gitignored and disposable, which argues for re-clone.
+- ~~`--no-local` or rewrite local-path origins to `file://`?~~ Ruled 2026-08-18:
+  `--no-local`, the smaller change.
+- ~~Does `git fetch`/`pull` against a local-path origin leak the same way on `sync`?~~
+  Ruled 2026-08-18: tested inside the combined feature; fixed identically if it leaks.
+- ~~Existing clones under `.ai/repositories/`: re-clone on upgrade, or leave?~~ Ruled
+  2026-08-18: re-clone on upgrade — gitignored and disposable.
 
 ## Findings
 **Verified 2026-07-17 against a canary in a scratch repo — not inferred:**

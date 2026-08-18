@@ -25,10 +25,8 @@
   document laid adjacent, applied to the project-owned `settings.json` by the
   kai sync script. The package stops owning `.claude/settings.json`.
 - ~~Immediate relief (detach the laid link in consumers now)?~~ Operator: no —
-  leave standing until the mechanism ships.
-- Immediate relief wanted in consumers now (un-lay / detach the link in kauk and
-  the estate until the design lands), or leave standing since it has been the
-  laid state since bootstrap?
+  leave standing until the mechanism ships. (Duplicate phrasing of the same
+  question removed 2026-08-18 — overtaken: the mechanism ships in this launch.)
 
 ## Findings
 
@@ -79,8 +77,14 @@ settings at spawn, the shipped migration removes the laid link and
 ([[claude-marketplace]]) remains the eventual self-contained delivery and
 simply inherits the already-clean state.
 
+Sequencing (operator, 2026-08-18, Decision-050 round): launches only after
+[[fleet-settings-wiring]] closes with its live test passed. The `.claude/rules/`
+placement of AGENTS.shared.md / AGENTS.files.md is NOT part of this launch — it
+stays with the existing [[shared-rules-placement]] task (operator ratification,
+same round).
+
 ## Testing
 
-To be agreed at bloom. Candidate: consumer fixture with a project-local
+Confirmed as drafted (operator, 2026-08-18): consumer fixture with a project-local
 `settings.json`; sync; assert the project file survives and fleet settings are
-still in effect through the chosen mechanism.
+still in effect through spawn-time `--settings`.

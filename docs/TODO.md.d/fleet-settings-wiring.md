@@ -17,9 +17,13 @@ spawns the real gardener session with `--settings` into its own window and
 hands over (a session cannot re-settings itself — subprocess is the only way;
 the pattern is the fleet's existing dispatch). The plugin
 ([[claude-marketplace]]) remains the eventual self-contained delivery; this
-wiring is what lets [[settings-lay-clobbers]] retire the laid link NOW. Open
-edge for the plan: where the skill comes from on a fresh machine (installing
-kai vs installing orchard).
+wiring is what lets [[settings-lay-clobbers]] retire the laid link NOW.
+
+- ~~Open edge: where the skill comes from on a fresh machine (installing kai vs
+  installing orchard)?~~ EXPLICIT VOLUNTARY DEFERRAL (operator ratification,
+  2026-08-18, Decision-050 round): settled when a fresh machine is real, not in
+  this launch. Neither install path is built here; the skill ships and works on
+  the machines that exist today.
 
 ## Findings
 
@@ -43,6 +47,19 @@ repository's own settings.json stays project-owned (see
 [[settings-lay-clobbers]] — its JSON Patch shrinks to whatever must affect
 the operator's own interactive session, possibly nothing). Run as the first
 gardener-dispatched task here.
+
+Sequencing (operator, 2026-08-18, Decision-050 round): SEQUENTIAL — this task
+launches now; [[settings-lay-clobbers]] launches only after this one closes
+with its live test passed, so the link-retiring migration ships to the estate
+only once spawn-time settings are proven.
+
+## Decision entries
+
+- 2026-08-18 `#settings` `#launch`: the settings pair is sequential —
+  fleet-settings-wiring first, settings-lay-clobbers dispatched only after its
+  close; the fresh-machine skill-source edge (kai vs orchard install) is an
+  explicit voluntary deferral until a fresh machine exists. (Operator,
+  Decision-050 pre-launch round.)
 
 ## Testing
 
