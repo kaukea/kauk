@@ -27,6 +27,12 @@ does not bound this path — plugins ship their own hooks and settings, and a
 plugin's startup hook can ADD the rule files/context itself. Rules can ride
 the plugin channel via its hooks.
 
+Second stake, same day: this task is the designated solution for FLEET HOOKS
+AND SETTINGS delivery — the plugin ships them self-contained, no laid
+settings.json, no file editing. [[fleet-settings-wiring]] is parked on it
+(its spawn-time `--settings` design recorded there as fallback), and the
+laid-settings retirement ([[settings-lay-clobbers]]) lands when this does.
+
 Operator insight (2026-08-18), raising this task's stakes: the plugin path
 happily solves the UPDATE problem — updating means packaging to the
 filesystem under a new id/version and Claude's native update flow does the

@@ -70,10 +70,12 @@ the package's settings (partial merge, per-invocation). With no session left
 that needs the repository file, there is no reason for a JSON Patch: the laid
 symlink at `.claude/settings.json` is simply RETIRED via a shipped migration
 (link removed; `.claude/settings.json` belongs wholly to the project and the
-operator) — all steps scripted (Decision-055). Depends on the spawn-time
-settings being wired first, or sessions lose their hooks in the gap. Note for
-adjacent tasks: plugin `hooks/hooks.json` is additive across scopes — relevant
-to the marketplace task as a hooks channel.
+operator) — all steps scripted (Decision-055). Final route (operator,
+2026-08-18): the hooks/settings delivery that replaces the link is the PLUGIN
+([[claude-marketplace]] ships them self-contained); the laid link stays
+standing until that lands, then retires via the shipped migration. The
+spawn-time `--settings` design is the recorded fallback on
+[[fleet-settings-wiring]] (parked).
 
 ## Testing
 

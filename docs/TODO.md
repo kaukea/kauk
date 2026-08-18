@@ -39,7 +39,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
 - `bug · todo · urgent · plan-ready · cmd-install · gh#6` [Installing from a local path drags in the source repo's leftover git objects](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery
 - `bug · todo · critical · plan-ready · cli-core · gh#21` [Stale laid links survive layout changes — kauk's own rule files dangle since the kaukea move](TODO.md.d/stale-laid-links.md) ~estate-converge ~migrations-at-sync
-- `bug · todo · critical · plan-ready · cmd-install · gh#90` [The laid settings.json owns consumers' Claude settings — retire the link; settings ride the spawn](TODO.md.d/settings-lay-clobbers.md) ⊘fleet-settings-wiring ~templates-spec
+- `bug · todo · critical · plan-ready · cmd-install · gh#90` [The laid settings.json owns consumers' Claude settings — retires when the plugin carries hooks](TODO.md.d/settings-lay-clobbers.md) ⊘claude-marketplace ~templates-spec
 - `bug · functional · critical · complete · · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md) ~files-kind ~ai-toml-cleanup
   - `feature · functional · critical · complete · cmd-install ·` [The `files/` kind: contents placed verbatim at their path](TODO.md.d/files-kind.md) ⊘manifest-by-convention
   - `housekeeping · functional · critical · complete · cli-core ·` [.ai.toml goes back to being the operator's file](TODO.md.d/ai-toml-cleanup.md)
@@ -53,7 +53,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `bug · todo · critical · plan-ready · cli-core · gh#27` [macOS portability: BSD awk/sed, bash 3.2 — migrations fail on Macs today](TODO.md.d/macos-portability.md)
 - `feature · todo · · queued · ci · gh#28` [macOS suite in CI — visibility route is the open call](TODO.md.d/ci-macos.md) ~macos-portability
 - `housekeeping · todo · critical · queued · · gh#29` [kauk adopts orchard — the plugin discussion is gated on it](TODO.md.d/adopt-orchard-here.md) ~takeover-inflight
-  - `feature · todo · critical · plan-ready · · gh#30` [Wire kauk's own fleet settings — the first task run through orchard here](TODO.md.d/fleet-settings-wiring.md)
+  - `feature · todo · · queued · · gh#30` [Wire kauk's own fleet settings — parked on the plugin path](TODO.md.d/fleet-settings-wiring.md) ~claude-marketplace
 - `housekeeping · functional · · complete · cli-core ·` [The command becomes `kai`; the executable is `kaukea`](TODO.md.d/cli-rename-kai.md) ~org-move
 - `feature · todo · idea · blocked-on-answers · cmd-install · gh#31` [kauk installs itself alongside the first package](TODO.md.d/bootstrap-with-first-package.md) ~claude-marketplace
 - `bug · todo · low · blocked-on-answers · cli-core · gh#7` [kauk installed into its own repo tries to link files onto themselves](TODO.md.d/self-install-link-collision.md)
