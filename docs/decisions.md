@@ -972,3 +972,15 @@ name, matching the process node and the fleet vocabulary. Disk follows
 (~/src/kaukea/), every estate .ai.toml source repoints, and the whole thing
 ships as the org-move task's fleet-wide migration. The GitHub transfers and
 the rename are the operator's own acts; everything after them is the tool's.
+
+## [2026-08-18 18:05 CEST] Decision-053: The stopgap and its migrations stay macOS-portable
+#portability #macos #awk #sed #bash #migrations
+
+Operator ruling: be careful with awk — and by extension the whole shell
+surface — for macOS compatibility. The stopgap and every shipped migration
+must run under BSD awk, BSD sed, and bash 3.2, because consumers live on
+Macs too. Known offenders on record at ruling time: `sed -i` without the
+BSD backup argument in both shipped migrations, `realpath -m` in the
+kaukea-move self-guard, `readlink -f` in init. Boarded as a portability
+pass; from here on, new shell code is written to the POSIX subset and
+flag use is checked against both implementations, never memory.
