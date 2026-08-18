@@ -7,15 +7,16 @@
 
 ## Questions
 
-- How do shared fleet settings compose with per-project Claude settings without the
-  package OWNING `.claude/settings.json`? Claude Code's merge surface is
-  `settings.json` + `settings.local.json` (+ managed): if the package takes
-  `settings.json`, the project keeps only `.local`. Candidate routes: the package
-  lays its settings under another name and a thin project-owned `settings.json`
-  references/merges it at sync (generated, marker-tracked — templates territory);
-  or the laid file becomes a sync-time MERGE into a project-owned file instead of a
-  link; or fleet settings move to the harness level entirely. Needs the operator's
-  design call — relates directly to fleet-settings-wiring (gh#30).
+- ~~How do shared fleet settings compose with per-project Claude settings?~~
+  Operator ruling (2026-08-18): two routes, picked by a documentation fact, not a
+  further decision. (1) If Claude Code supports ADDITIONAL settings files that
+  merge alongside the project's `settings.json`, the package lays its fleet
+  settings as such an added file and the project keeps its own. (2) If it does
+  not, this is exactly what templates-with-prepend were designed for
+  (templates-spec, gh#17): `settings.json` becomes a project-OWNED file carrying
+  an idempotent, marker-tracked fleet block kept up to date at sync — the same
+  mechanism that lets CLAUDE.md include AGENTS.md. Doc verification of route (1)
+  in flight; whichever holds, the package stops owning `.claude/settings.json`.
 - Immediate relief wanted in consumers now (un-lay / detach the link in kauk and
   the estate until the design lands), or leave standing since it has been the
   laid state since bootstrap?
