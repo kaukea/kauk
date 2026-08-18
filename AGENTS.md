@@ -23,7 +23,7 @@ Taxonomy.
   was built by agents, not specified by the operator. If there is no specific operator
   definition, do not reason from it, preserve it, or cite it as precedent — ask.
 
-- **Naming & domains** are DECIDED — `docs/naming.md`. Platform = KAUK; `kauk.ai` (brand),
+- **Naming & domains** are DECIDED — `docs/naming.md`. Platform = KAUK; `kauk.ai` (brand), `kauk.org` (tooling/config paths); PyPI/npm `kauk` reserved defensively; gh org **kaukea** (repos `kaukea/kauk`, `kaukea/orchard`); the CLI is `kai` (Decision-026/052). Do not re-litigate the name.
   `kauk.org` (tooling/config paths); PyPI/npm `kauk` reserved defensively; gh org `kaukai`;
   fallback stem `parstuk`. Do not re-litigate the name.
 - **Namespace reservations** are the two placeholder packages in `namespace-reservation/`

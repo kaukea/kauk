@@ -22,7 +22,7 @@ clusters of `parstuk`/`barstuk` felt aggressive by comparison.
 - **gh org `kaukea`** — ~~`kaukai`~~ **CORRECTED 2026-08-10 (Decision-026)**: GitHub
   refused `kauk` and the username-release ticket for the dormant `github.com/kauk` user
   did not succeed, so the org created and in use is **`kaukea`** —
-  https://github.com/kaukea/. It holds the projection repo and, from the same decision,
+  https://github.com/kaukea/ — home, since 2026-08-18 (Decision-052), of `kaukea/kauk` and `kaukea/orchard` (orchids renamed as it crossed). It holds the projection repo and, from the same decision,
   the `kauk` repository itself. The brand, `kauk.ai`, and the registry reservations are
   unaffected.
 - NOT available: `kauk.com` / `kauk.net`. `github.com/kauk` = a **dormant user** (0 repos,
