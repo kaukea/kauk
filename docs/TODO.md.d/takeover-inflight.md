@@ -32,3 +32,7 @@ archive-tag cancellation so the board stops carrying ghosts.
 
 Every listed branch ends either merged (its own workflow's gates) or
 archive-tagged closed; none left untagged-and-forgotten.
+
+Flag from the migrations-at-sync launch (beekeeper, 2026-08-18): Valve — the
+judging role — exists only on orchard's unmerged f/decision-making branch, so
+feature pipelines run without it wired; part of this takeover's scope.
