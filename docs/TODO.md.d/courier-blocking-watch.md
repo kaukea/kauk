@@ -16,6 +16,13 @@ _None._
   worked around it live (single blocking watch, silent rearm on timeout,
   speak only on a real inbound message) — the workaround is the design.
 
+- Workaround insufficient (gardener, 2026-08-19, live): even after switching
+  the courier to a 300s blocking watch, EVERY rearm stops the subagent and the
+  harness fires a task-notification at the parent regardless — the wake comes
+  from the agent stopping, not from what it says. The fix must keep the
+  courier continuously alive across waits (a persistent monitor primitive),
+  not a loop that stops and rearms.
+
 ## Proposal
 
 Make the courier's watch block long by default in the orchard courier
