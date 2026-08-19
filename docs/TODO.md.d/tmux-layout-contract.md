@@ -13,6 +13,11 @@ vertically stacked._
 
 ## Findings
 
+- Same defect class in `.claude/tools/pane-promote.sh` (recorded at the
+  migrations-at-sync close): it resolves the CLIENT's active pane instead of
+  the caller's — $TMUX_PANE ignored — so self-promotion can grab the wrong
+  pane. Fix alongside the dispatcher (which got the $TMUX_PANE anchoring
+  2026-08-18, orchard 09c76cf).
 - Live mis-render evidence (2026-08-18): `dispatch-agent.sh` uses plain
   `tmux split-window -d` — a full-width split below the current pane — so every
   dispatched pane lands bottom-full-width instead of the right-column stack.
