@@ -111,6 +111,11 @@ Constraint, operator verbatim: "everything to be fixed HERE before any
 repository is subjected to another fuck up" — the estate run stays HELD until
 this repo and its tests prove the whole path. The settings/hooks switch stays
 excluded (gh#30 owns it).
+SEQUENCING UPDATE (operator, at the gate): gh#30 fleet-settings-wiring is
+"sorted first before we touch any repository anymore" — the estate run now
+queues BEHIND #30's completion; the operator intends to restart many sessions
+and wants no half-baked features, only what was specified. This landscaper
+woke the dead-at-startup #30 session on the operator's word.
 
 ## Proposal
 
