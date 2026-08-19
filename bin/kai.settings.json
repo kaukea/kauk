@@ -10,7 +10,8 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; k=$(readlink -f \"$k\" 2>/dev/null || printf '%s' \"$k\"); h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" session.start; exit 0"
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; n=0; while [ -L \"$k\" ] && [ \"$n\" -lt 40 ]; do d=$(cd -P \"$(dirname \"$k\")\" && pwd); t=$(readlink \"$k\"); case \"$t\" in /*) k=\"$t\" ;; *) k=\"$d/$t\" ;; esac; n=$((n+1)); done; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" session.start; exit 0",
+                        "timeout": 10
                     }
                 ]
             }
@@ -21,7 +22,8 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; k=$(readlink -f \"$k\" 2>/dev/null || printf '%s' \"$k\"); h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" session.end; exit 0"
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; n=0; while [ -L \"$k\" ] && [ \"$n\" -lt 40 ]; do d=$(cd -P \"$(dirname \"$k\")\" && pwd); t=$(readlink \"$k\"); case \"$t\" in /*) k=\"$t\" ;; *) k=\"$d/$t\" ;; esac; n=$((n+1)); done; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" session.end; exit 0",
+                        "timeout": 10
                     }
                 ]
             }
@@ -32,7 +34,8 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; k=$(readlink -f \"$k\" 2>/dev/null || printf '%s' \"$k\"); h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" tool.shell.before; exit 0"
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; n=0; while [ -L \"$k\" ] && [ \"$n\" -lt 40 ]; do d=$(cd -P \"$(dirname \"$k\")\" && pwd); t=$(readlink \"$k\"); case \"$t\" in /*) k=\"$t\" ;; *) k=\"$d/$t\" ;; esac; n=$((n+1)); done; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" tool.shell.before; exit 0",
+                        "timeout": 5
                     }
                 ]
             }
@@ -43,7 +46,8 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; k=$(readlink -f \"$k\" 2>/dev/null || printf '%s' \"$k\"); h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" prompt.submit; exit 0"
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; n=0; while [ -L \"$k\" ] && [ \"$n\" -lt 40 ]; do d=$(cd -P \"$(dirname \"$k\")\" && pwd); t=$(readlink \"$k\"); case \"$t\" in /*) k=\"$t\" ;; *) k=\"$d/$t\" ;; esac; n=$((n+1)); done; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" prompt.submit; exit 0",
+                        "timeout": 5
                     }
                 ]
             }
@@ -54,7 +58,8 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; k=$(readlink -f \"$k\" 2>/dev/null || printf '%s' \"$k\"); h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" notification; exit 0"
+                        "command": "k=$(command -v kai 2>/dev/null); [ -n \"$k\" ] || exit 0; n=0; while [ -L \"$k\" ] && [ \"$n\" -lt 40 ]; do d=$(cd -P \"$(dirname \"$k\")\" && pwd); t=$(readlink \"$k\"); case \"$t\" in /*) k=\"$t\" ;; *) k=\"$d/$t\" ;; esac; n=$((n+1)); done; h=\"$(dirname \"$k\")/kai-hooks.sh\"; [ -x \"$h\" ] && \"$h\" notification; exit 0",
+                        "timeout": 5
                     }
                 ]
             }
