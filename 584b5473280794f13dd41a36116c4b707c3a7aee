@@ -1,0 +1,20 @@
+telemetry migrations-at-sync (landscaper exit interview, 2026-08-19)
+Deviations distilled across the stream's four sessions:
+- v1 sower fleet died at launch: dispatch-agent.sh run without reading its
+  usage (bare id passed where a path was required); full redispatch cost.
+- rename-links sower's typed return was lost (holder died between commit and
+  send); its ingest increment was authored by the landscaper from direct
+  verification of the output — violates whoever-holds-the-tokens, unavoidable.
+- All three wake routes for the dead gh#30 session were classifier-blocked
+  (courier spool send, tmux send-keys, harness SendMessage); resolved by the
+  operator typing the wake himself.
+- docs/package-format.md stale closed-set bullet fixed inline by the
+  landscaper (doc staging, not dispatched).
+- pane-promote.sh misfired on reseat: untargeted 'tmux display-message'
+  grabbed the client's active pane, stamping the wrong window; repaired
+  manually, tool defect returned as follow-up.
+- Courier monitor polled ~every minute, waking the parent on every idle stop
+  through a multi-hour hold; operator stopped it; defect returned as follow-up.
+- Close executed on operator order WITHOUT the agreed estate-walk step; the
+  step and the operator's feature-wholeness doubt were returned to the
+  gardener as explicit tasks, not absorbed.
