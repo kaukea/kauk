@@ -79,15 +79,15 @@ run_scripts_action() {
 # run_hook_dir <event-dir> — parse index.toml and execute each [[actions]]
 # entry. The action's key is its first `key = value` line; any further line
 # before the next [[actions]] is that action's own parameter, not a new key.
-# Reads the file via mapfile (not a `while read < file` loop) so fd 0 is
-# never borrowed — the hook's real stdin must stay intact for stdin_file().
+# Reads the file off fd 9 (not a plain `while read < file`, which would
+# rebind fd 0) so the hook's real stdin stays intact for stdin_file(). No
+# `mapfile`/`readarray` — those are bash 4+ only and this runs under stock
+# bash 3.2 on BSD/macOS too.
 run_hook_dir() {
   local dir=$1 toml="$1/index.toml"
   [ -f "$toml" ] || return 0
   local line in_action=0 key val
-  local -a lines
-  mapfile -t lines < "$toml"
-  for line in "${lines[@]}"; do
+  while IFS= read -r line <&9 || [ -n "$line" ]; do
     case "$line" in
       '[[actions]]') in_action=1; key=""; continue ;;
       '['*)          in_action=0; continue ;;
@@ -105,17 +105,15 @@ run_hook_dir() {
         printf 'kai-hooks: %s: unrecognised action "%s" in %s — ignored\n' "$EVENT" "$key" "$toml" >&2
         ;;
     esac
-  done
+  done 9< "$toml"
 }
 
-# Same reasoning: mapfile instead of `while read < <(source_dirs)`, which
-# would otherwise also borrow fd 0 out from under the hook's real stdin.
-mapfile -t SOURCE_DIRS < <(source_dirs)
-for src in "${SOURCE_DIRS[@]}"; do
+# Same reasoning as run_hook_dir: read off fd 9, not fd 0, and no mapfile.
+while IFS= read -r src <&9 || [ -n "$src" ]; do
   [ -n "$src" ] || continue
   event_dir="$src/hooks/$EVENT"
   [ -d "$event_dir" ] || continue
   run_hook_dir "$event_dir"
-done
+done 9< <(source_dirs)
 
 exit 0
