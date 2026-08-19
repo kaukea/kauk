@@ -6,6 +6,47 @@ _base: (root)_
 
 ### ✨ New features
 
+- `kai sync` now applies every package's pending migrations itself, in a fixed
+  order: whatever was already pending runs against the clone's pre-rebase state,
+  local work then rebases on top, and only migrations that arrived with that
+  pull run afterward — so every consumer experiences migrations in the same
+  sequence, and a local edit in flight is respected rather than raced. Each
+  migration's fenced steps are routed by an `applied-by` marker: kai executes a
+  `shell` step itself (inline, or via a relative script shipped next to the
+  migration) and never executes an `agent` step; anything it can't finish
+  itself — an agent step, or a shell step that failed — is recorded durably in
+  the consuming clone under `.git/the-works/asks/` and handed to the next
+  session as a concrete instruction, with no user-facing "migrations pending"
+  language anywhere. This retires the old model where an agent read, merged,
+  and hand-applied a package's pending migrations and advanced the watermark
+  itself (Decision-055). Self-vendored sources now run migrations too.
+- A follow-up migration, `2026-08-18-kaukea-move-links`, repoints links that
+  consumers laid against the retired `serialseb/{kauk,orchids}` clone paths to
+  the `kaukea/{kauk,orchard}` clones, preserving each link's tail path; links
+  whose kaukea clone is not yet present are reported and left for a later sync
+  to heal. Safe to re-run; never descends into `.git` or `.ai`.
+- Laid symlinks now survive a source moving: on sync, `prune_links` scans the
+  whole tree (not just `.claude/` and the root), repoints any dead link whose
+  tail path exists under exactly one currently-cloned source, removes only true
+  orphans with no candidate anywhere, and reports `AMBIGUOUS` — touching
+  nothing — when several sources could claim the link. The matcher reads the
+  link's target string wherever it names `.ai/repositories/` — hand-laid links
+  were found relative, and relative against the wrong base — and repointing
+  rewrites them absolute, healing the base too; the shipped
+  `2026-08-18-kaukea-move-links` migration matches the same way. A tracked
+  dangling link no source can claim is reported as `DEBRIS`, never removed.
+- Sync sweeps orphaned clones: an `.ai/repositories/<owner>/<repo>` that
+  `.ai.toml` no longer declares is removed only when its tree is clean and its
+  head is contained in its origin, and otherwise reported (`ORPHAN`) with the
+  reason it was kept — mechanically retiring invented-identity replicas
+  without any possibility of destroying unpushed work.
+- `tests/migrations-at-sync.sh` ships as the black-box suite for migrations-at-
+  sync and stale-laid-links, in `tests/convention-reader.sh`'s own style,
+  exercising all eight ruled behaviours from interleaved-date migrations across
+  two sources to the stale-link repoint/orphan scan. Two checks are TODO-visible
+  pending (not skipped): the pre-existing-before-rebase half of the migration
+  ordering, and recording the outstanding ask of an `applied-by: agent` step.
+
 - 🚚 **Two repositories cross to kaukea; orchard takes its name** — kaukea/kauk
   and kaukea/orchard are the homes, checkouts at `~/src/kaukea` with
   compatibility symlinks behind them. Migration `2026-08-18-kaukea-move.md`

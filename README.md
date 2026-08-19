@@ -20,7 +20,10 @@ hoard. See `ARCHITECTURE.md`.
 
 - `bin/kaukea` — the bash stopgap that vendors and lays file packages until `0.1.0`, invoked as **`kai`** (`kauk` stays as the backup alias):
   `init` / `install <owner>/<repo> | <path>` / `sync [--pull|--push]` / `resolve`.
-  Sync pulls with rebase and lays; `--push` publishes your local edits, explicitly
+  Sync pulls with rebase, applies each package's pending migrations itself (in
+  order, watermarked — anything it cannot finish is recorded as an ask for the
+  next session, never a nag), heals laid links whose source moved, sweeps clean
+  orphaned clones, and lays; `--push` publishes your local edits, explicitly
   and only then; a source pinned to a `ref` is never touched. `.ai.toml` is
   defaults-only: a source key of `owner/repo` resolves to GitHub, a full path is a
   local working tree, and each source may carry `select = ["<category-path>", …]` —

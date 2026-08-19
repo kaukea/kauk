@@ -38,7 +38,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · done ·  · complete · cli-core · ` [Interim bash `kauk` CLI that vendors and syncs packages](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
 - `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
 - `bug · cancelled · · complete · cmd-install · gh#6` [~~Installing from a local path drags in the source repo's leftover git objects~~](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery ~migrations-at-sync
-- `bug · todo · critical · plan-ready · cli-core · gh#21` [Stale laid links survive layout changes — kauk's own rule files dangle since the kaukea move](TODO.md.d/stale-laid-links.md) ~estate-converge ~migrations-at-sync
+- `bug · functional · critical · complete · cli-core · gh#21` [Stale laid links survive layout changes — heal shipped; estate walk past the SignMc pilot outstanding](TODO.md.d/stale-laid-links.md) ~estate-converge ~migrations-at-sync
 - `bug · todo · critical · plan-ready · cmd-install · gh#90` [NEVER-EVENT: the laid settings.json takes over the user's — retire it behind spawn-time settings](TODO.md.d/settings-lay-clobbers.md) ⊘fleet-settings-wiring ~claude-marketplace
 - `bug · functional · critical · complete · · gh#10` [Remove manifest.conf entirely — the package's tree says what it ships](TODO.md.d/manifest-by-convention.md) ~files-kind ~ai-toml-cleanup
   - `feature · functional · critical · complete · cmd-install ·` [The `files/` kind: contents placed verbatim at their path](TODO.md.d/files-kind.md) ⊘manifest-by-convention
@@ -46,7 +46,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
   - `feature · functional · critical · complete · cmd-install ·` [Detect the runtimes in use, as a set rather than a winner](TODO.md.d/runtime-detection.md)
 - `feature · todo · critical · plan-ready · cmd-install · gh#22` [Publish each package as a plugin into a kauk-maintained local marketplace](TODO.md.d/claude-marketplace.md) ⊘hooks-declarative
 - `feature · functional · critical · complete · cmd-install ·` [A package publishes into its own repository instead of vendoring itself](TODO.md.d/self-publishing.md) ⊘package-toml
-- `feature · todo · critical · plan-ready · cli-core · gh#23` [Migrations run at sync, in order, per repository — kai owns the applying (D-055)](TODO.md.d/migrations-at-sync.md) ~stale-laid-links
+- `feature · done · critical · complete · cli-core · gh#23` [Migrations run at sync, in order, per repository — kai owns the applying (D-055)](TODO.md.d/migrations-at-sync.md) ~stale-laid-links
 - `feature · todo · · plan-ready · cli-core · gh#24` [Provenance: every write outside the clone carries a `:kauk:` nugget](TODO.md.d/provenance-nuggets.md)
 - `feature · todo · · blocked-on-answers · cli-core · gh#25` [A committed lock records each repository and its resolved head — deferred whole (D-051)](TODO.md.d/lockfile.md)
 - `feature · todo · · queued · cli-core · gh#26` [Background update check displays when a source moved](TODO.md.d/update-notify.md)
