@@ -1060,3 +1060,19 @@ would lose the clone's commits. Committed-unpushed clone edits are legitimate de
 work: sync commits them to carry them through the rebase, and push stays the separate 
 explicit act. Features are judged from the external party's gain, never technical purity.
 (Operator, plan round, superseding the absorbed clone-leak steps recorded at launch.)
+
+## [2026-08-19 13:05 CEST] Decision-060: The laid settings.json stands only until the spawn carrier lands, then retires — 027 was always the rule
+#settings-json #never-event #retirement #plugin #interim
+
+Operator rulings of 2026-08-18/19, consolidated onto the board where they
+belonged. Decision-027 (settings.json is never shipped; the Claude target is
+a plugin) has been the standing rule since 2026-08-10 — the laid
+.claude/settings.json link that survived into the kaukea era contradicted it,
+and the 2026-08-18 link heal re-attached it without anyone checking the
+decisions file. The consolidated state: overwriting the user's settings is a
+NEVER-EVENT (055 second part); the link stays standing ONLY until
+fleet-settings-wiring ships the spawn-time carrier (the operator's interim
+word, previously recorded only in the settings-lay-clobbers sidecar); then
+the retirement migration removes every trace estate-wide and orchard stops
+shipping it. The plugin (claude-marketplace) remains the end state, exactly
+as 027 said.
