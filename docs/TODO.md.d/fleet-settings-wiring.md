@@ -53,6 +53,26 @@ launches now; [[settings-lay-clobbers]] launches only after this one closes
 with its live test passed, so the link-retiring migration ships to the estate
 only once spawn-time settings are proven.
 
+### Agreed build (operator, 2026-08-19, MAKE IT SO)
+
+The settings wiring is delivered by kai shipping its OWN settings file
+(`bin/kai.settings.json`, Decision-060) which every fleet dispatch passes with
+`claude --settings`. That much is built. This round closes the defects in that
+delivery and the migration machinery it depends on.
+
+kai becomes a real package: the agent-launch skill plus its migrations, and
+nothing else — everything else is in the bin, already on PATH from the static
+install. Installing the kai package is how a repository subscribes to kai's
+migrations, which is what closes the circle a package with no dependencies
+currently falls out of.
+
+The migration engine reduces: no self-source, no per-package state, one global
+watermark, all packages migrating together.
+
+The estate is carried by migrations, not by hand. The diff between the
+operator's takeover of the redesign (2026-08-10) and today IS the migration.
+
+
 ## Decision entries
 
 - 2026-08-18 `#settings` `#launch`: the settings pair is sequential —
@@ -61,7 +81,104 @@ only once spawn-time settings are proven.
   explicit voluntary deferral until a fresh machine exists. (Operator,
   Decision-050 pre-launch round.)
 
+
+## Decision entries
+
+- 2026-08-19 `#migrations` `#packages`: `is_self_source` is DELETED. A
+  repository declares itself a package with `[general] type = "package"` in
+  `.ai.toml`, and that declaration — not an inferred self-source entry — is
+  what makes kai apply the repository's own migrations, use its own agents and
+  skills, and symlink its own files. `.ai.toml` is the user's file to manage
+  however they like; no behaviour may be inferred from whether they happened to
+  declare their own path as a source. The old inference was also a false
+  premise: kai installs the kai package, so there is never not a package.
+  (Operator, 2026-08-19.)
+
+- 2026-08-19 `#migrations` `#watermark`: ONE global watermark — the
+  `<YYYY-MM-DD>-<NN>` prefix of the last applied migration, one line, committed
+  under `.ai/`. Not per package and not per source. Every source's migrations
+  plus the repository's own merge into a single stream ordered by that prefix;
+  everything above the watermark applies. A same-day set written together for
+  one version is ONE migration run, ordered within the day by `<NN>`; a hotfix
+  after a release takes the next `<NN>` and reaches anyone still sitting at the
+  earlier one. Per-package watermarks made packages apply migrations in strange
+  orders relative to each other. Absent watermark = fresh install: run nothing,
+  stamp the current datetime. (Operator, 2026-08-19.)
+
+- 2026-08-19 `#migrations` `#naming`: migration files are
+  `migrations/<YYYY-MM-DD>-<NN>-<featurename>.md`, one file per feature,
+  applied in ASCII order — the usual convention where scripts must be ordered.
+  Supersedes the `<YYYY-MM-DD>-<slug>.md` form in `docs/package-format.md`.
+  (Operator, 2026-08-19.)
+
+- 2026-08-19 `#migrations` `#errors`: migration errors are REPORTED, not
+  handled. No ask files, no blocking, no hand-off of a step to an agent. Kai
+  says what failed and moves on. Self-testing migrations may be revisited one
+  day. (Operator, 2026-08-19.)
+
+- 2026-08-19 `#migrations` `#tests`: migrations do NOT ship tests to consumers.
+  A migration is tested in the repository that ships it. (Operator,
+  2026-08-19.)
+
+- 2026-08-19 `#agents` `#reload`: an agent is reloaded by RELOADING ITS
+  SESSION, which loads the latest session file — otherwise agents lag behind
+  definitions that have already moved. Supersedes the reload clause carried as
+  a sub-bullet inside Decision-043, which is a ruling about upgrade being the
+  operator's act and does not govern this. (Operator, 2026-08-19.)
+
+- 2026-08-19 `#state` `#durability`: durable state leaves `.git/` and lives in
+  `.ai/`, committed. Nothing writes under `.git/` without the operator's
+  permission. State worth keeping must survive a clone — a workstream log that
+  vanishes when the repository is cloned is the same mistake as any other lost
+  state, and committed agent memory is the existing precedent. The operator
+  validates both the FORMAT and the EXISTENCE of durable files. The estate does
+  not touch `.ai/`, so the move is not disruptive; and any move from `.git/` to
+  `.ai/` is carried BY A MIGRATION. (Operator, 2026-08-19.)
+
+- 2026-08-19 `#packages` `#kai`: the kai package contains the agent-launch
+  skill and its migrations, and nothing else — everything else is in the bin,
+  already present from the static install. Installing the kai package is how a
+  repository subscribes to kai's migrations; that subscription is what closes
+  the circle for a package that declares no dependencies of its own.
+  (Operator, 2026-08-19.)
+
+- 2026-08-19 `#verification` `#close`: a close-gate proof that exercises only
+  the arrangement the developer happened to build in is not verification. Where
+  two components sit at opposite ends of one path-resolution contract, the gate
+  must exercise the DEPLOYED arrangement (a symlinked install, not a repo-local
+  one) and must diff the two ends against each other. Live-fired:
+  `kai.settings.json` resolved `kai-hooks.sh` with `dirname` alone while
+  `dispatch-agent.sh` resolved `kai.settings.json` with `readlink -f`, and the
+  suite stayed 13/13 green throughout. (Operator, 2026-08-19.)
+
 ## Testing
 
 A fleet session in kauk fires its own wiring: courier loads, lifecycle
 hooks run, permission mode holds — observed live by the operator.
+
+## Operator requests
+
+Ledger of items given mid-build, recorded as received.
+
+- 2026-08-19 — "bugs that should not have been allowed at close of the
+  features … a lack of care, a verification that is part of the orchard
+  process specifically". The `--settings` wiring shipped with a green suite
+  while the two ends of its path-resolution contract disagreed. Fix the defect
+  AND audit the delivered surface for others of the same family; do not bring
+  repair work to him as a decision. — IN PROGRESS
+- 2026-08-19 — "after install kai is a shared cli so of course it is used to
+  install packages": kai's presence on PATH is a given of a static install,
+  not an open design question for this feature. — ACCEPTED, no work needed
+  beyond making it true on this machine before the live test.
+- 2026-08-19 — "there is an issue with kai packages like orchard. THey may
+  have no package dependencies, but they have migrations, that they need to
+  apply to themselves, this requires resolving now". A package repository is
+  also a consumer of itself: orchard declares no sources, so nothing drives
+  its own `migrations/` over its own working tree. Recorded as received;
+  under discovery. — OPEN
+- 2026-08-19 — RULING on the above: "if .ai.toml has a general section with
+  type=package section any call to sync applies migrations and reloads agents
+  at the end of migrations (which should happen anyway for any project)".
+  So: a new `[general]` table with `type = "package"`; sync applies the
+  repo's own migrations when it is set; and the agent reload becomes
+  unconditional at the end of every sync, package or not. — RECORDED
