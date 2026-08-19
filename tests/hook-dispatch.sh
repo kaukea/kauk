@@ -84,5 +84,34 @@ OUT6=$( cd "$CON" && "$HOOKS" prompt.submit 2>&1 ); RC6=$?
 check "no output"                      '[ -z "$OUT6" ]'
 check "exits 0"                        '[ "$RC6" -eq 0 ]'
 
+echo "== settings.json hook command resolves kai-hooks.sh through a symlinked kai =="
+# Regression for the resolution defect fixed alongside this test: a real
+# install has kai on PATH as a SYMLINK (e.g. ~/.local/bin/kai) pointing at
+# the repo where kai-hooks.sh actually lives. dirname on the unresolved
+# symlink path lands in the symlink's own directory, not the repo's -- the
+# hook command must readlink -f the symlink before taking dirname, exactly
+# as tools/dispatch-agent.sh already does for kai.settings.json.
+SETTINGS="$(cd "$(dirname "$0")/.." && pwd)/bin/kai.settings.json"
+command -v jq >/dev/null 2>&1 || { echo "  SKIP settings.json symlink case (jq not installed)"; }
+if command -v jq >/dev/null 2>&1; then
+  HOOK_CMD=$(jq -r '.hooks.SessionStart[0].hooks[0].command' "$SETTINGS")
+
+  REAL="$TMP/install"                       # where kai-hooks.sh actually lives
+  mkdir -p "$REAL"
+  cp "$HOOKS" "$REAL/kai-hooks.sh"
+  chmod +x "$REAL/kai-hooks.sh"
+  : > "$REAL/kaukea"; chmod +x "$REAL/kaukea" # stand-in for the real kai binary
+
+  LINKDIR="$TMP/path-bin"                   # a DIFFERENT dir, on PATH
+  mkdir -p "$LINKDIR"
+  ln -s "$REAL/kaukea" "$LINKDIR/kai"       # kai is a symlink here, not the real file
+
+  STUB_OUT7="$TMP/stub7.out"
+  OUT7=$(cd "$CON" && PATH="$LINKDIR:$PATH" STUB_OUT="$STUB_OUT7" sh -c "$HOOK_CMD" 2>&1)
+  RC7=$?
+  check "exits 0"                        '[ "$RC7" -eq 0 ]'
+  check "hooks.sh ran via resolved symlink" '[ -f "$STUB_OUT7" ]'
+fi
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
