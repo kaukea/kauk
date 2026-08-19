@@ -52,6 +52,40 @@ Close determinations (landscaper, 2026-08-18):
   entry above) — its board entry should be closed as cancelled, not merged back
   into the backlog.
 
+Result: done · branch f/migrations-at-sync @ bb15ef0 · tested: 39/39
+tests/migrations-at-sync.sh + 71/71 tests/convention-reader.sh, branch binary
+run clean over the kauk main checkout (no dangling links, no orphan clones, 81
+orchard links verified) and over the SignMc pilot (engine clean, 82 links
+laid/verified). Closed on the operator's order of 2026-08-19 ("close now")
+WITHOUT the estate run — that step is explicitly returned to the gardener, not
+silently dropped.
+
+Follow-ups for the gardener (explicit list, operator-ordered close 2026-08-19):
+
+1. ESTATE RUN (stale-laid-links step 3) as its own task, queued behind gh#30
+   per the standing sequencing order. Includes the ruled SignMc cleanup: the
+   two stale `files/AGENTS.*.md` stopgap links are DEBRIS (operator ruling
+   2026-08-19 — AGENTS.md is the user's file, shared content is laid at repo
+   root); delete them by script during the run.
+2. NEW TASK (operator order, 2026-08-19): handling problematic or failed
+   migrations — the ask-file lifecycle end to end: orchard's
+   migrations-pending.sh rewritten to deliver only outstanding ask files
+   ("run this step from migration X, then rm the ask file") and stay silent
+   otherwise, plus policy for a shell step that keeps failing. Subsumes the
+   cross-repo hook-rewrite follow-up below; the replacement §Migrations text
+   is ready in this repo's docs/package-format.md.
+3. VERIFICATION PASS over this feature: the operator does not trust the
+   feature is whole ("I think there's more to do", 2026-08-19, at close) —
+   queue a review task over the migrations-at-sync + stale-laid-links
+   delivery rather than treating this close as final sign-off on scope.
+4. Clone-local-object-leak board entry: close as CANCELLED (plan-gate ruling),
+   not merged back into the backlog.
+5. Product gap: no gardener slash-command ships in any package estate-wide.
+6. Tool defects: .claude/tools/pane-promote.sh resolves the client's active
+   pane instead of the caller's ($TMUX_PANE ignored); the courier agent's
+   default monitor polls ~every minute instead of blocking, waking its parent
+   on every idle stop.
+
 ## Operator requests
 
 - (2026-08-18, at the done gate) tmux window sprawl is confusing — operator will
@@ -123,6 +157,13 @@ SEQUENCING UPDATE (operator, at the gate): gh#30 fleet-settings-wiring is
 queues BEHIND #30's completion; the operator intends to restart many sessions
 and wants no half-baked features, only what was specified. This landscaper
 woke the dead-at-startup #30 session on the operator's word.
+CLOSE ORDER (operator, 2026-08-19): "close now" — the branch closes without
+waiting for gh#30 or running the estate; the estate run and the remaining
+doubts become gardener tasks (see the follow-up list above the ledger).
+Resolved in the same round: the two SignMc stopgap links ruled DEBRIS; a
+failed-migrations handling task ordered; the repoint-only-inside-
+.ai/repositories/ safety boundary reconfirmed (user files never touched,
+nothing deleted without a ruling).
 
 ## Proposal
 
