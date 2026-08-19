@@ -1070,9 +1070,11 @@ a plugin) has been the standing rule since 2026-08-10 — the laid
 .claude/settings.json link that survived into the kaukea era contradicted it,
 and the 2026-08-18 link heal re-attached it without anyone checking the
 decisions file. The consolidated state: overwriting the user's settings is a
-NEVER-EVENT (055 second part); the link stays standing ONLY until
-fleet-settings-wiring ships the spawn-time carrier (the operator's interim
-word, previously recorded only in the settings-lay-clobbers sidecar); then
-the retirement migration removes every trace estate-wide and orchard stops
-shipping it. The plugin (claude-marketplace) remains the end state, exactly
-as 027 said.
+NEVER-EVENT (055 second part); and the removal is the ESTATE'S OWN UPGRADE
+to execute — settings.json is removed THROUGH the shipped migration, run by
+each repository's own sync, and no agent intervenes by hand (operator, as
+corrected 2026-08-19: hand-removal would both break the scripted-only rule
+and rob the migration of its live test). The link standing today is not a
+keep — it is the untouched input the migration exists to remove. Orchard
+stops shipping it; the plugin (claude-marketplace) remains the end state,
+exactly as 027 said.

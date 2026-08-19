@@ -46,10 +46,10 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
   - `feature · functional · critical · complete · cmd-install ·` [Detect the runtimes in use, as a set rather than a winner](TODO.md.d/runtime-detection.md)
 - `feature · todo · critical · plan-ready · cmd-install · gh#22` [Publish each package as a plugin into a kauk-maintained local marketplace](TODO.md.d/claude-marketplace.md) ⊘hooks-declarative
 - `feature · functional · critical · complete · cmd-install ·` [A package publishes into its own repository instead of vendoring itself](TODO.md.d/self-publishing.md) ⊘package-toml
-- `feature · todo · critical · queued · cli-core ·` [Estate run: sync every consumer once the settings feature lands](TODO.md.d/estate-links-run.md) ⊘fleet-settings-wiring ~stale-laid-links ~estate-converge
-- `feature · todo · critical · queued · cli-core ·` [Failed and agent-owed migrations: the ask-file lifecycle end to end](TODO.md.d/migration-asks-lifecycle.md) ~migrations-at-sync
-- `completion · todo · · queued · cli-core ·` [Verification pass over the migrations delivery — the operator doubts it is whole](TODO.md.d/migrations-verification-pass.md) ~migrations-at-sync
-- `bug · todo · · queued · agent-rules ·` [The courier's watch polls instead of blocking, waking its parent every idle minute](TODO.md.d/courier-blocking-watch.md)
+- `feature · todo · critical · queued · cli-core · gh#98` [Estate run: sync every consumer once the settings feature lands](TODO.md.d/estate-links-run.md) ⊘fleet-settings-wiring ~stale-laid-links ~estate-converge
+- `feature · todo · critical · queued · cli-core · gh#99` [Failed and agent-owed migrations: the ask-file lifecycle end to end](TODO.md.d/migration-asks-lifecycle.md) ~migrations-at-sync
+- `completion · todo · · queued · cli-core · gh#100` [Verification pass over the migrations delivery — the operator doubts it is whole](TODO.md.d/migrations-verification-pass.md) ~migrations-at-sync
+- `bug · todo · · queued · agent-rules · gh#101` [The courier's watch polls instead of blocking, waking its parent every idle minute](TODO.md.d/courier-blocking-watch.md)
 - `feature · done · critical · complete · cli-core · gh#23` [Migrations run at sync, in order, per repository — kai owns the applying (D-055)](TODO.md.d/migrations-at-sync.md) ~stale-laid-links
 - `feature · todo · · plan-ready · cli-core · gh#24` [Provenance: every write outside the clone carries a `:kauk:` nugget](TODO.md.d/provenance-nuggets.md)
 - `feature · todo · · blocked-on-answers · cli-core · gh#25` [A committed lock records each repository and its resolved head — deferred whole (D-051)](TODO.md.d/lockfile.md)
