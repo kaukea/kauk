@@ -1064,6 +1064,8 @@ explicit act. Features are judged from the external party's gain, never technica
 ## [2026-08-19 13:05 CEST] Decision-060: We ship our settings.json so no one else does
 #settings-json #hooks #ownership
 
-Operator, verbatim (2026-08-19, replacing this entry's two earlier
-mis-recordings by the gardener): "We ship our settings.json so no one else
-does, so we call the hooks that are defined by packages."
+Operator, verbatim, three sentences assembled from the same exchange
+(2026-08-19, replacing this entry's two earlier mis-recordings by the
+gardener): "We ship our settings.json so no one else does, so we call the
+hooks that are defined by packages." "It has nothing to do in .claude." "We
+call agents through passing our settings file for this to happen."
