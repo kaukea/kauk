@@ -1061,20 +1061,9 @@ work: sync commits them to carry them through the rebase, and push stays the sep
 explicit act. Features are judged from the external party's gain, never technical purity.
 (Operator, plan round, superseding the absorbed clone-leak steps recorded at launch.)
 
-## [2026-08-19 13:05 CEST] Decision-060: The laid settings.json stands only until the spawn carrier lands, then retires — 027 was always the rule
-#settings-json #never-event #retirement #plugin #interim
+## [2026-08-19 13:05 CEST] Decision-060: We ship our settings.json so no one else does
+#settings-json #hooks #ownership
 
-Operator rulings of 2026-08-18/19, consolidated onto the board where they
-belonged. Decision-027 (settings.json is never shipped; the Claude target is
-a plugin) has been the standing rule since 2026-08-10 — the laid
-.claude/settings.json link that survived into the kaukea era contradicted it,
-and the 2026-08-18 link heal re-attached it without anyone checking the
-decisions file. The consolidated state: overwriting the user's settings is a
-NEVER-EVENT (055 second part); and the removal is the ESTATE'S OWN UPGRADE
-to execute — settings.json is removed THROUGH the shipped migration, run by
-each repository's own sync, and no agent intervenes by hand (operator, as
-corrected 2026-08-19: hand-removal would both break the scripted-only rule
-and rob the migration of its live test). The link standing today is not a
-keep — it is the untouched input the migration exists to remove. Orchard
-stops shipping it; the plugin (claude-marketplace) remains the end state,
-exactly as 027 said.
+Operator, verbatim (2026-08-19, replacing this entry's two earlier
+mis-recordings by the gardener): "We ship our settings.json so no one else
+does, so we call the hooks that are defined by packages."
