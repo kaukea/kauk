@@ -297,26 +297,46 @@ package version *is* the highest filename.
 
 - Content stays **natural language**, wrapped in a structured format. Existing
   migrations are not rewritten.
-- Codified step types — `reload`, `restart`, `rename`, `apply skill` — follow the
-  same closed-set, one-key-per-step pattern as hook actions, and host-specific steps
-  are transpiler territory.
-- Codified steps execute **inside kauk, deterministically**; only the prose residue
-  is handed to an agent. This is what makes execution independent of what any agent
-  chooses to do, and what makes most of a migration testable.
-- **Migrations run at sync time.**
+- There is no closed set of step verbs. A step's flexibility comes from its
+  `applied-by` routing and from relative scripts shipped next to the migration
+  file (operator, 2026-08-18, superseding the earlier `reload`/`restart`/
+  `rename`/`apply skill` closed-set sketch).
+- `shell` steps execute **inside kauk, deterministically**; only `agent` steps
+  are handed over, as structured fenced steps rather than loose prose. This is
+  what makes execution independent of what any agent chooses to do, and what
+  makes most of a migration testable.
+- **Migrations run at sync time — the tool owns the applying.** No agent reads,
+  applies, or advances a watermark by hand (Decision-055).
 - A `reload` step is available on any update, not only inside a migration: on the Claude
   target `/reload-plugins` picks up changed components without a restart.
 - Every step is guarded by observable state, never by assumed position in a sequence.
+- A migration's fenced code blocks are its steps, run in order. Each fence's info
+  string says who runs it: `applied-by: shell` — the default; a bare ```sh``` fence
+  needs no tag, so every migration written before this existed keeps working
+  unrewritten — has kai run the fence itself, inline, or, when the fence's entire
+  body is a single `./relative/path` line, run that script instead. That path
+  resolves relative to the migration file it ships next to; either way the script
+  or the inline fence runs with the consumer root as cwd. `applied-by: agent` is
+  never run by kai: the step is recorded under
+  `.git/the-works/asks/<owner>/<repo>/<migration>-<step>` in the consuming clone —
+  so is a `shell` step that failed — and delivered into the next session as a
+  concrete instruction by the `migrations-pending.sh` hook, which stays silent when
+  there is nothing outstanding. Clearing an ask is deleting its file.
 
-**Order, when pulling a source that has migrations pending:**
+**Order, when a sync pulls from a source with migrations pending:**
 
 ```
-pull  →  apply migrations  →  rebase your changes  →  write your migration
+fetch  →  apply what was already pending  →  rebase your changes  →  apply what
+just arrived  →  watermark
 ```
 
-Upstream commits already contain the migrations their author applied. The consumer
-applies the same ones so both trees are in the same reality *before* rebasing.
-Rebasing first to obtain easier conflicts invents a tree that does not exist.
+The clone applies whatever was already pending against its own pre-rebase content
+first, so it lands in the same reality as everyone else *before* its local edits (if
+any) replay on top. Rebasing first to obtain easier conflicts invents a tree that
+does not exist. Only after the rebase does it apply migrations that arrived with
+this pull — because migrations are append-only and never rewritten, that is exactly
+the set dated after the pre-rebase watermark. The watermark advances once a
+migration's steps have all run, in either pass.
 
 The watermark is **per repository**.
 

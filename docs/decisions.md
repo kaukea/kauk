@@ -1018,3 +1018,45 @@ really bad and is solved before anything leans on migrations again.
 Same ruling, second part: the shared fleet settings.json laid over consumers'
 .claude/settings.json OVERWRITES per-project Claude settings — not acceptable.
 Boarded as settings-lay-clobbers; composition design is the open question.
+
+## [2026-08-18 17:15 CEST] Decision-056: migrations-at-sync and stale-laid-links deliver as one feature
+#launch #sync #migrations #links
+
+Migrations-at-sync and stale-laid-links ship as one feature (carrier: migrations-at-sync) 
+— they interlock in `bin/kaukea`'s sync path. The clone-local-object-leak steps originally 
+absorbed into this task were cancelled at the plan gate (see Decision-059 below).
+(Operator, Decision-050 pre-launch round.)
+
+## [2026-08-18 17:15 CEST] Decision-057: Migration wrapper format — applied-by marker routes execution
+#migrations #format #scripting
+
+A migration's fenced code blocks are its steps, run in order. Each fence's info string 
+carries `applied-by: shell | agent`, deciding who executes it. `shell` (the default — a 
+bare ```sh fence needs no tag, so existing migrations run unrewritten) has kai run the 
+fence itself, inline or, when the fence body is a single `./relative/path` line, as an 
+external script shipped relative to the migration file, cwd at the consumer root. `agent` 
+steps are never run by kai; they are structured fenced steps, not loose prose. There is 
+no closed set of step verbs — flexibility comes from `applied-by` plus relative scripts.
+(Operator, plan round.)
+
+## [2026-08-18 17:15 CEST] Decision-058: Migrations are invisible plumbing — no vocabulary, opt-in, or nag
+#migrations #ux #plumbing
+
+Migrations are invisible plumbing. No user-facing migration vocabulary, no opt-in, no nag. 
+Sync applies pending migrations for every source, self-source included, silently. The 
+only surfaced thing is a step the tool cannot finish itself — an `applied-by: agent` 
+step or a failed `shell` step — recorded under `.git/the-works/asks/<owner>/<repo>/` and 
+delivered as a concrete "do this", never as "migrations pending". (Operator, plan round.)
+
+## [2026-08-18 17:15 CEST] Decision-059: clone-local-object-leak scope cancelled — not in scope
+#scope #sync #clone #cancelled
+
+The clone-local-object-leak scope is cancelled outright — no `--no-local`, no re-clone, 
+no in-place cleanup, no leak tests. kauk is not in the business of controlling git at 
+that level, and judged from an external party's gain there is none: the clones are a 
+gitignored, never-shared cache; hardlinks save disk; reachable history is identical. 
+Re-cloning is never done — manual deletion of clones is unsupported, and a re-clone 
+would lose the clone's commits. Committed-unpushed clone edits are legitimate deliberate 
+work: sync commits them to carry them through the rebase, and push stays the separate 
+explicit act. Features are judged from the external party's gain, never technical purity.
+(Operator, plan round, superseding the absorbed clone-leak steps recorded at launch.)

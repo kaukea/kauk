@@ -79,6 +79,37 @@ _base: (root)_
 - 📦 Namespace reservations: PyPI + npm `kauk` placeholder packages (`0.0.0`) under
   `namespace-reservation/`, ready for the operator to publish (`UPLOAD.md`).
 
+- ⚙️ **`kai sync` now handles migrations itself** — each package declares
+  pending migrations (markdown files carrying scripted and prose steps) with an
+  `applied-by` marker on each fence: `shell` (default) for steps kai runs itself
+  (inline or via a relative script), `agent` for anything it cannot do. Migrations
+  already pending run against the shared state before local work rebases; newly
+  arrived migrations run afterward, so every consumer sees the same sequence.
+  Failed or agent-only steps are recorded under `.git/the-works/asks/` and
+  delivered to the next session as concrete instructions, never as
+  "migrations pending" nags. This retires the agent-reads-and-applies model
+  (Decision-055). The feature ships `2026-08-18-kaukea-move-links.md`, repointing
+  laid links from the retired `serialseb/{kauk,orchids}` clones to `kaukea/{kauk,orchard}`.
+
+- 🔗 **Laid symlinks heal when sources move** — `prune_links` now scans the
+  whole tree (not just `.claude/` + root), repoints any dead link whose target
+  exists under exactly one currently-cloned source, reports `AMBIGUOUS` when
+  several could claim it (touching nothing), and removes only true orphans.
+  Relative-target hand-laid links are discovered and rewritten absolute,
+  healing their base. The `2026-08-18-kaukea-move-links` migration uses the
+  same matching logic, safe to re-run, and never enters `.git` or `.ai`.
+
+- 🧹 **Sync sweeps orphaned clones** — after updating sources, if
+  `.ai/repositories/<owner>/<repo>` no longer appears in `.ai.toml`, it is
+  removed only when its tree is clean and its HEAD is contained in origin;
+  otherwise reported (`ORPHAN`) with the reason, preserving any unpushed work
+  and operator-performed clone edits carried through rebase.
+
+- ✅ **tests/migrations-at-sync.sh** — black-box suite for migrations-at-sync
+  and stale-laid-links, exercising all ruled behaviours from interleaved-date
+  migrations across two sources to link repoint/orphan scan. Eight test cases;
+  two check TODO-pending until missing infrastructure lands.
+
 ---
 
 #### ✨ `f/reader-select` → `archive/reader-select`
