@@ -99,6 +99,13 @@ Close determinations (landscaper, 2026-08-18):
   reading kauk + orchard boards/decisions/changelogs; audit will be presented
   against measured estate state).
 
+- (2026-08-19, during the gh#30 hold) Courier heartbeat was eating tokens — its
+  monitor woke every ~minute and each idle stop re-invoked the parent. Status:
+  implemented — courier ordered to a single blocking watch, silent rearm on
+  timeout, speaking only on a real inbound message. Tool-defect follow-up
+  candidate for the gardener: the courier agent's default monitor cadence
+  should block long, not poll.
+
 Mechanical-closure amendment (operator, at the gate, 2026-08-18 late): the drift
 findings are THIS feature's problem to close. Ratified steps: (1) prune_links +
 the move-links migration normalize relative link targets before matching;
