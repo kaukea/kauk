@@ -1,16 +1,23 @@
 #!/usr/bin/env bash
-# Black-box tests for the two hand-repair migrations
-# (2026-08-19-01-estate-link-repoint, 2026-08-19-02-relative-symlinks). Same
-# style as tests/migrations-at-sync.sh: throwaway git repos, the shipped
-# migration files' own fenced sh blocks extracted and run verbatim (the
-# deployed arrangement), check/ok/no.
+# Black-box tests for estate link/clone hygiene: the two hand-repair
+# migrations (2026-08-19-01-estate-link-repoint, 2026-08-19-02-relative-
+# symlinks and their own fenced sh blocks run verbatim, the deployed
+# arrangement), the shipped 2026-08-18-kaukea-move-links migration, and the
+# live `prune_links`/`sweep_orphan_clones` behaviour kai runs at every
+# `kai sync` (the link-healing/orphan-sweep coverage ported from the retired
+# tests/migrations-at-sync.sh, whose per-source-watermark and
+# applied-by:agent ask-file assertions no longer apply — that mechanism was
+# replaced by the single global watermark). Throwaway git repos, real
+# bin/kai, check/ok/no.
 #
 #   tests/migrations-estate-links.sh          run all cases
 set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
+KAUK="$ROOT/bin/kai"
 MIG01="$ROOT/migrations/2026-08-19-01-estate-link-repoint.md"
 MIG02="$ROOT/migrations/2026-08-19-02-relative-symlinks.md"
+MIG_MOVE="$ROOT/migrations/2026-08-18-kaukea-move-links.md"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -25,6 +32,13 @@ git_init() {
   git -C "$1" config user.name Test
 }
 commit_all() { git -C "$1" add -A && git -C "$1" commit -qm "${2:-fixture}"; }
+pkg_toml() { # pkg_toml <dir> <name>
+  cat > "$1/package.toml" <<EOF
+name = "$2"
+title = "$2"
+description = "fixture"
+EOF
+}
 
 run_migration() { # run_migration <migration-file> <repo-dir> -> stdout captured by caller
   awk '/^```sh$/{f=1;next} /^```$/{f=0} f' "$1" | (cd "$2" && bash)
@@ -118,6 +132,89 @@ check ".git of the fixture repo is untouched (still a valid repo)" \
   'git -C "$CON3" log -1 --format=%s >/dev/null 2>&1'
 check "the clone tree under .ai/repositories is untouched" \
   '[ -f "$CON3/.ai/repositories/kaukea/kauk/skills/foo/SKILL.md" ]'
+
+echo "== live prune_links: a renamed source repoints, a true orphan is removed =="
+PKGG="$TMP/test/pkgg"; git_init "$PKGG"; mkdir -p "$PKGG/skills/gfoo"
+printf -- '---\nname: gfoo\n---\ng\n' > "$PKGG/skills/gfoo/SKILL.md"
+pkg_toml "$PKGG" pkgg
+commit_all "$PKGG"
+PKGH="$TMP/test/pkgh"; git_init "$PKGH"; mkdir -p "$PKGH/skills/horph"
+printf -- '---\nname: horph\n---\nh\n' > "$PKGH/skills/horph/SKILL.md"
+pkg_toml "$PKGH" pkgh
+commit_all "$PKGH"
+CON_STALE="$TMP/consumer-stale"; git_init "$CON_STALE"; mkdir -p "$CON_STALE/.claude"; printf "placeholder\n" > "$CON_STALE/.claude/.keep"; commit_all "$CON_STALE"
+( cd "$CON_STALE" && "$KAUK" install "$PKGG" && "$KAUK" install "$PKGH" ) >/dev/null 2>&1 || true
+check "setup: gfoo laid before the rename"     '[ -L "$CON_STALE/.claude/skills/gfoo" ]'
+check "setup: horph laid before removal"       '[ -L "$CON_STALE/.claude/skills/horph" ]'
+# Rename pkgg's identity: move the source, repoint .ai.toml, drop the old clone.
+mv "$PKGG" "$TMP/test/pkgg-ren"
+sed -i "s|$PKGG|$TMP/test/pkgg-ren|" "$CON_STALE/.ai.toml"
+rm -rf "$CON_STALE/.ai/repositories/test/pkgg"
+# True orphan: pkgh drops out of .ai.toml entirely, and its clone is gone too —
+# no source anywhere still carries a skills/horph tail.
+sed -i '\|\[sources\."'"$PKGH"'"\]|d' "$CON_STALE/.ai.toml"
+rm -rf "$CON_STALE/.ai/repositories/test/pkgh"
+( cd "$CON_STALE" && "$KAUK" sync ) >"$TMP/out-stale" 2>&1 || true
+check "renamed source's link resolves into the new store path" \
+  '[ -e "$CON_STALE/.claude/skills/gfoo" ] && readlink "$CON_STALE/.claude/skills/gfoo" | grep -q "test/pkgg-ren"'
+check "no dangling link into .ai/repositories/ remains" \
+  '[ -z "$(find "$CON_STALE/.claude" -type l ! -exec test -e {} \; -print 2>/dev/null)" ]'
+check "a link whose tail exists in no source is removed as an orphan" \
+  '[ ! -e "$CON_STALE/.claude/skills/horph" ] && [ ! -L "$CON_STALE/.claude/skills/horph" ]'
+
+PKGJ="$TMP/test/pkgj"; git_init "$PKGJ"; mkdir -p "$PKGJ/skills/j1"
+printf -- '---\nname: j1\n---\nj\n' > "$PKGJ/skills/j1/SKILL.md"
+pkg_toml "$PKGJ" pkgj
+commit_all "$PKGJ"
+
+echo "== live prune_links: a RELATIVE dangling link into the store is normalized and repointed =="
+CON_REL="$TMP/consumer-rel"; git_init "$CON_REL"; mkdir -p "$CON_REL/.claude"; printf "placeholder\n" > "$CON_REL/.claude/.keep"; commit_all "$CON_REL"
+( cd "$CON_REL" && "$KAUK" install "$PKGJ" ) >/dev/null 2>&1 || true
+ln -s ".ai/repositories/test/gone/skills/j1/SKILL.md" "$CON_REL/rel-toplevel.md"
+mkdir -p "$CON_REL/sub/dir"
+ln -s "../../.ai/repositories/test/gone/skills/j1/SKILL.md" "$CON_REL/sub/dir/rel-nested.md"
+( cd "$CON_REL" && "$KAUK" sync ) >"$TMP/out-rel" 2>&1 || true
+check "relative dead link repointed to the one source carrying its tail" \
+  '[ -e "$CON_REL/rel-toplevel.md" ] && readlink "$CON_REL/rel-toplevel.md" | grep -q "repositories/test/pkgj/skills/j1/SKILL.md"'
+check "nested ../.. relative dead link normalized and repointed too" \
+  '[ -e "$CON_REL/sub/dir/rel-nested.md" ] && readlink "$CON_REL/sub/dir/rel-nested.md" | grep -q "repositories/test/pkgj/skills/j1/SKILL.md"'
+
+echo "== live prune_links: a TRACKED dangling link with no candidate is reported, never removed =="
+CON_DEBRIS="$TMP/consumer-debris"; git_init "$CON_DEBRIS"; mkdir -p "$CON_DEBRIS/.claude"; printf "placeholder\n" > "$CON_DEBRIS/.claude/.keep"; commit_all "$CON_DEBRIS"
+( cd "$CON_DEBRIS" && "$KAUK" install "$PKGJ" ) >/dev/null 2>&1 || true
+ln -s "$CON_DEBRIS/.ai/repositories/test/gone/nowhere/at-all.md" "$CON_DEBRIS/tracked-debris.md"
+git -C "$CON_DEBRIS" add tracked-debris.md && git -C "$CON_DEBRIS" commit -qm "tracked debris fixture"
+ln -s "$CON_DEBRIS/.ai/repositories/test/gone/nowhere/at-all.md" "$CON_DEBRIS/untracked-orphan.md"
+( cd "$CON_DEBRIS" && "$KAUK" sync ) >"$TMP/out-debris" 2>&1 || true
+check "tracked dangling link still present"   '[ -L "$CON_DEBRIS/tracked-debris.md" ]'
+check "tracked dangling link reported as DEBRIS" 'grep -q "DEBRIS tracked-debris.md" "$TMP/out-debris"'
+check "untracked orphan with no candidate pruned as before" '[ ! -L "$CON_DEBRIS/untracked-orphan.md" ]'
+
+echo "== sweep_orphan_clones: undeclared clean clones removed, diverged or dirty kept =="
+CON_SWEEP="$TMP/consumer-sweep"; git_init "$CON_SWEEP"; mkdir -p "$CON_SWEEP/.claude"; printf "placeholder\n" > "$CON_SWEEP/.claude/.keep"; commit_all "$CON_SWEEP"
+( cd "$CON_SWEEP" && "$KAUK" install "$PKGJ" ) >/dev/null 2>&1 || true
+git clone --quiet "$PKGJ" "$CON_SWEEP/.ai/repositories/orichea/orchids" 2>/dev/null
+git clone --quiet "$PKGJ" "$CON_SWEEP/.ai/repositories/orchea/diverged" 2>/dev/null
+( cd "$CON_SWEEP/.ai/repositories/orchea/diverged" && printf 'drift\n' > drift.md && git add -A && git -c user.email=t@example.com -c user.name=Test commit -qm "local drift" )
+git clone --quiet "$PKGJ" "$CON_SWEEP/.ai/repositories/orchea/dirty" 2>/dev/null
+printf 'uncommitted\n' > "$CON_SWEEP/.ai/repositories/orchea/dirty/mess.md"
+( cd "$CON_SWEEP" && "$KAUK" sync ) >"$TMP/out-sweep" 2>&1 || true
+check "undeclared clean clone swept"          '[ ! -d "$CON_SWEEP/.ai/repositories/orichea" ]'
+check "sweep reported"                        'grep -q "SWEEP orichea/orchids" "$TMP/out-sweep"'
+check "undeclared clone with unpushed commit kept" '[ -d "$CON_SWEEP/.ai/repositories/orchea/diverged/.git" ]'
+check "diverged clone reported as ORPHAN"     'grep -q "ORPHAN orchea/diverged" "$TMP/out-sweep"'
+check "undeclared dirty clone kept"           '[ -d "$CON_SWEEP/.ai/repositories/orchea/dirty/.git" ]'
+check "declared source clone untouched"       '[ -d "$CON_SWEEP/.ai/repositories/test/pkgj/.git" ]'
+
+echo "== migration move-links: heals RELATIVE serialseb targets =="
+CON_MOVE="$TMP/consumer-mig-rel"; git_init "$CON_MOVE"
+mkdir -p "$CON_MOVE/.ai/repositories/kaukea/kauk/skills" "$CON_MOVE/files"
+printf 'the moved file\n' > "$CON_MOVE/.ai/repositories/kaukea/kauk/skills/thing.md"
+ln -s ".ai/repositories/serialseb/kauk/skills/thing.md" "$CON_MOVE/files/rel-stale.md"
+commit_all "$CON_MOVE"
+run_migration "$MIG_MOVE" "$CON_MOVE" >"$TMP/out-move" 2>&1 || true
+check "relative serialseb link repointed by the migration" \
+  '[ -e "$CON_MOVE/files/rel-stale.md" ] && readlink "$CON_MOVE/files/rel-stale.md" | grep -q "repositories/kaukea/kauk/skills/thing.md"'
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
