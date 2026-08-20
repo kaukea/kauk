@@ -72,6 +72,19 @@ watermark, all packages migrating together.
 The estate is carried by migrations, not by hand. The diff between the
 operator's takeover of the redesign (2026-08-10) and today IS the migration.
 
+### This round (operator, 2026-08-20, MAKE IT SO)
+
+Two remaining defects closed: (1) the `/garden` skill shipped hardcoded to launch
+`gardener` specifically, contradicting the standing scope — kauk ships only a
+generic agent-launch skill, no agent name baked in; the gardener-specific launcher
+is orchard's own, built there on orchard's own schedule, not this branch's. (2)
+main independently shipped its own migrations engine (per-source watermark +
+agent-ask escape hatch) via the separate, already-closed migrations-at-sync
+feature, ten hours before this branch's later commit implementing the operator's
+own subsequent ruling above (global watermark, no ask files). The rebase resolves
+in favor of this branch's design; main's non-conflicting additions (`prune_links`
+rewrite, orphan-clone sweep) are kept.
+
 
 ## Decision entries
 
@@ -151,6 +164,28 @@ operator's takeover of the redesign (2026-08-10) and today IS the migration.
   `dispatch-agent.sh` resolved `kai.settings.json` with `readlink -f`, and the
   suite stayed 13/13 green throughout. (Operator, 2026-08-19.)
 
+- 2026-08-20 `#skills` `#launch` `#carriage`: kauk ships only a GENERIC agent-launch
+  skill — no agent name baked in, takes the agent to launch as an argument. The
+  gardener-specific launcher (a skill that launches the gardener by name, using
+  the generic one underneath) is orchard's, not kauk's — deferred entirely to
+  orchard's own choice and schedule, not built or carried on this branch.
+  (Operator, 2026-08-20.)
+
+- 2026-08-20 `#migrations` `#rebase` `#carriage`: main independently shipped its
+  own migrations engine (per-source watermark files, an `applied-by: agent`
+  ask-file escape hatch) via the separate migrations-at-sync feature, landed
+  hours before this branch's later commit implementing the operator's own
+  subsequent ruling recorded above (one global watermark, no ask files). Operator,
+  verbatim, on which survives the rebase: "This branch is the correct approach for
+  now because the ask scale and everything else around it can be designed
+  correctly once it has been scheduled on the board correctly." This branch's
+  design wins the conflict; main's independent, non-conflicting additions
+  (`prune_links` rewrite, orphan-clone sweep) are kept. Consequence for whoever
+  ingests this at close: main's Decision-057/058 (the `applied-by: agent` ask-file
+  format) describe a mechanism this resolution retires — likely stale once this
+  branch lands, not struck here since that call belongs to whoever reconciles
+  decisions.md at ingest.
+
 ## Testing
 
 A fleet session in kauk fires its own wiring: courier loads, lifecycle
@@ -175,7 +210,10 @@ Ledger of items given mid-build, recorded as received.
   apply to themselves, this requires resolving now". A package repository is
   also a consumer of itself: orchard declares no sources, so nothing drives
   its own `migrations/` over its own working tree. Recorded as received;
-  under discovery. — OPEN
+  under discovery. — IMPLEMENTED on this branch (`is_package_repo`/
+  `[general] type = "package"`, built pre-this-session); verification pending
+  the rebase and a full suite re-run this session, not yet independently
+  confirmed end to end against orchard's own working tree.
 - 2026-08-19 — RULING on the above: "if .ai.toml has a general section with
   type=package section any call to sync applies migrations and reloads agents
   at the end of migrations (which should happen anyway for any project)".
