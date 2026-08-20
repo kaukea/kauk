@@ -302,7 +302,13 @@ printf 'placeholder\n' > "$CON3/.keep"; commit_all "$CON3" "empty" >/dev/null
 check "nothing laid without a runtime" '[ ! -e "$CON3/.claude/skills/alpha" ]'
 check "detection explained"            'grep -qi "no agent runtime detected" "$TMP/outF"'
 
-echo "== a package that is its own source is not vendored =="
+echo "== [general] type = \"package\" lays the repo into itself, by copy =="
+# is_self_source is retired: self-application is never inferred from a source
+# declaration pointing at the repo's own path. It is declared exclusively via
+# [general] type = "package" in the repo's own .ai.toml (see is_package_repo /
+# lay_self in bin/kaukea). This fixture deliberately carries NO [sources."…"]
+# entry for itself, to also prove a self-referencing source is no longer
+# special-cased — it simply isn't present here at all.
 SELF="$TMP/test/selfpkg"
 git_init "$SELF"
 mkdir -p "$SELF/skills/own" "$SELF/.claude"
@@ -312,14 +318,15 @@ name = "selfpkg"
 title = "Self"
 description = "Publishes into itself."
 EOF
-cat > "$SELF/.ai.toml" <<EOF
-[sources."$SELF"]
+cat > "$SELF/.ai.toml" <<'EOF'
+[general]
+type = "package"
 EOF
 commit_all "$SELF"
 ( cd "$SELF" && "$KAUK" sync ) >"$TMP/outG" 2>&1 || true
-check "self-source not cloned"         '[ ! -d "$SELF/.ai/repositories/test/selfpkg" ]'
-check "self-source published by copy"  '[ -f "$SELF/.claude/skills/own/SKILL.md" ] && [ ! -L "$SELF/.claude/skills/own" ]'
-check "self-publish is idempotent"     '( cd "$SELF" && "$KAUK" sync >/dev/null 2>&1 ); [ -f "$SELF/.claude/skills/own/SKILL.md" ]'
+check "package repo is not cloned into itself" '[ ! -d "$SELF/.ai/repositories/test/selfpkg" ]'
+check "package repo lays its own skill by copy, not symlink" '[ -f "$SELF/.claude/skills/own/SKILL.md" ] && [ ! -L "$SELF/.claude/skills/own" ]'
+check "package repo self-sync is idempotent" '( cd "$SELF" && "$KAUK" sync >/dev/null 2>&1 ); [ -f "$SELF/.claude/skills/own/SKILL.md" ]'
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
