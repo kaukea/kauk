@@ -8,8 +8,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 
 - `feature · todo · urgent · queued · artifact-model · gh#14` [Write agents/skills/hooks once, lay them per runtime (Claude now, opencode next) — includes redoing hooks](TODO.md.d/runtime-topology.md) ~manifest-by-convention ~extension-point-survey
 - `feature · todo · · queued · artifact-model · gh#15` [Survey each runtime's extension points (prompt + code injection) and pick kauk's integration model — likely a Claude plugin](TODO.md.d/extension-point-survey.md) ~runtime-topology
-- `feature · functional · critical · complete · artifact-model ·` [package.toml: a repository declares what it is](TODO.md.d/package-toml.md) ~self-publishing ~ai-toml-single-file
-- `feature · todo · critical · queued · cli-core ·` [package.toml folds into .ai.toml — one project-configuration file (D-061)](TODO.md.d/ai-toml-single-file.md) ~package-toml
+- `feature · functional · critical · complete · artifact-model ·` [package.toml: a repository declares what it is](TODO.md.d/package-toml.md) ~self-publishing
 - `feature · todo · low · plan-ready · artifact-model · gh#16` [Hooks become declarative artifacts with a per-runtime transpiler](TODO.md.d/hooks-declarative.md) ⊘runtime-detection ~claude-marketplace
 - `feature · todo · critical · plan-ready · · gh#17` [Templates: beginning, end, inline, with a tracked marker](TODO.md.d/templates-spec.md)
   - `feature · todo · · blocked-on-answers · artifact-model · gh#18` [Generated config headers ship as templates, not hardcoded strings](TODO.md.d/config-headers-as-templates.md) ⊘templates-spec
