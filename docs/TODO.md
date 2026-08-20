@@ -51,7 +51,8 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `completion · todo · · queued · cli-core · gh#100` [Verification pass over the migrations delivery — the operator doubts it is whole](TODO.md.d/migrations-verification-pass.md) ~migrations-at-sync
 - `bug · todo · · queued · agent-rules · gh#101` [The courier's watch polls instead of blocking, waking its parent every idle minute](TODO.md.d/courier-blocking-watch.md)
 - `feature · done · critical · complete · cli-core · gh#23` [Migrations run at sync, in order, per repository — kai owns the applying (D-055)](TODO.md.d/migrations-at-sync.md) ~stale-laid-links
-- `feature · todo · · plan-ready · cli-core · gh#24` [Provenance: every write outside the clone carries a `:kauk:` nugget](TODO.md.d/provenance-nuggets.md)
+- `feature · cancelled · · complete · cli-core · gh#24` [~~Provenance: every write outside the clone carries a `:kauk:` nugget~~](TODO.md.d/provenance-nuggets.md)
+- `feature · todo · critical · plan-ready · cli-core ·` [Configuration matches the operator's spec — one .ai.toml, dependencies, no invented files](TODO.md.d/config-spec-implementation.md) ⊘fleet-settings-wiring ~migrations-at-sync
 - `feature · todo · · blocked-on-answers · cli-core · gh#25` [A committed lock records each repository and its resolved head — deferred whole (D-051)](TODO.md.d/lockfile.md)
 - `feature · todo · · queued · cli-core · gh#26` [Background update check displays when a source moved](TODO.md.d/update-notify.md)
 - `bug · todo · critical · plan-ready · cli-core · gh#27` [macOS portability: BSD awk/sed, bash 3.2 — migrations fail on Macs today](TODO.md.d/macos-portability.md)

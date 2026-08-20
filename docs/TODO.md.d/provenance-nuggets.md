@@ -21,3 +21,9 @@ Every write outside the clone carries `:kauk:` with origin and sha. Binaries get
 ## Testing
 
 Delete the placement index; a scan rebuilds every entry. An orphaned sidecar is detected as stale.
+
+### Why cancelled
+
+Operator ruling (2026-08-21): the tool writing its own name on anything
+provides no benefit to anyone. No nuggets, no generated-by headers.
+- completed: 2026-08-21
