@@ -1069,3 +1069,14 @@ Operator, verbatim, three sentences assembled from the same exchange
 gardener): "We ship our settings.json so no one else does, so we call the
 hooks that are defined by packages." "It has nothing to do in .claude." "We
 call agents through passing our settings file for this to happen."
+
+## [2026-08-20 09:35 CEST] Decision-061: .ai.toml is the ONE project-configuration file — package.toml retires
+#ai-toml #package-toml #configuration #supersedes-036
+
+Operator ruling, near verbatim (2026-08-20): ".ai.toml is where everything
+about the project configuration exists." One file, at the repository root,
+the user's. This supersedes Decision-036's two-file split: package.toml is
+retired and whatever it declared (package identity: name, title,
+description) folds into .ai.toml. The mechanics — how consumers read a
+package's identity once it lives in .ai.toml, and the migration that removes
+existing package.toml files — belong to the folding task, not this entry.
