@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# garden — launch a gardener session carrying kai's fleet settings.
+# agent — launch a named agent session carrying kai's fleet settings.
 #
 # A running Claude session cannot re-apply its own --settings, so the only way
 # to pick up bin/kai.settings.json is a fresh `claude` process started with it.
@@ -30,23 +30,29 @@ resolve_settings() {
 }
 
 settings=$(resolve_settings) || {
-  echo "garden: could not resolve kai.settings.json — is kai installed and on PATH?" >&2
+  echo "agent: could not resolve kai.settings.json — is kai installed and on PATH?" >&2
   exit 1
 }
 
 # --print-settings: resolution only, no tmux side effect. What the self-check
-# and the deployed-arrangement test below exercise.
+# and the deployed-arrangement test below exercise. No agent name needed.
 if [ "${1:-}" = "--print-settings" ]; then
   printf '%s\n' "$settings"
   exit 0
 fi
 
+agent_name="${1:-}"
+if [ -z "$agent_name" ]; then
+  echo "agent: usage: launch-agent.sh <agent-name> | --print-settings" >&2
+  exit 1
+fi
+
 command -v tmux >/dev/null 2>&1 || {
-  echo "garden: tmux not found — cannot open the gardener's own window" >&2
+  echo "agent: tmux not found — cannot open the agent's own window" >&2
   exit 1
 }
 
-cmd=$(printf 'claude --agent gardener --settings %q' "$settings")
-win=$(tmux new-window -d -P -F '#{window_id}' -n gardener "$cmd")
+cmd=$(printf 'claude --agent %q --settings %q' "$agent_name" "$settings")
+win=$(tmux new-window -d -P -F '#{window_id}' -n "$agent_name" "$cmd")
 tmux select-window -t "$win"
 echo "$win"
