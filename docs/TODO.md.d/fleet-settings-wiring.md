@@ -232,6 +232,54 @@ defect in the branch.
 Test pane (%19) was my own throwaway dispatch — killed cleanly after observation, not
 an orphaned predecessor pane.
 
+## Changelog entry
+
+### ✨ New features
+
+- Every fleet agent dispatch now carries `--settings` pointing at `kai`'s own
+  static settings file (`bin/kai.settings.json`, resolved beside wherever `kai`
+  is installed on PATH), replacing the machine-wide settings file as the source
+  of fleet governance — courier-only tool transport, courier lifecycle hooks,
+  and permission mode. The settings file itself calls one static dispatcher,
+  `bin/kai-hooks.sh`, which runs whatever `hooks/<neutral-event>/index.toml`
+  each installed package exposes. A package therefore never ships, lays, or
+  writes a `settings.json` of its own — the shared-fleet-settings-clobbers-a-
+  consumer's-own-settings defect this feature exists to remove is gone by
+  construction, not by exception. `dispatch-agent.sh`'s existence guard means a
+  machine without `kai` installed dispatches exactly as it always did.
+- The migration engine backing `kai sync` was simplified to one global watermark
+  (`.ai/lock.toml`, the `<YYYY-MM-DD>-<NN>` prefix of the last-applied
+  migration, committed) instead of per-source watermark files: every installed
+  package's migrations plus the repository's own (when it declares
+  `[general] type = "package"` in `.ai.toml`) merge into one ordered stream.
+  Migration errors are reported and skipped, not routed to an agent ask file —
+  self-testing migrations may return later. A package repository (kai itself
+  included) is now a consumer of its own migrations exactly like any installed
+  package, closing a gap where a dependency-free package's own migrations were
+  never applied to itself.
+- kauk ships a generic agent-launch skill (`skills/agent`) — the agent to
+  launch is an argument, nothing hardcoded — as the enforced entry point for
+  every fleet dispatch; work done by an agent started any other way does not
+  count. An agent-specific launcher (e.g. one that always launches the
+  gardener) is a consuming package's own choice, not kauk's.
+
+## Readme delta
+
+No end-user-facing README change: the fleet governance / hook-dispatch
+mechanism operates on kai's own static install and package authoring
+conventions (`docs/package-format.md`), not on anything a README-level user
+of `kauk`/`kai` invokes directly. Package authors exposing `hooks/` already
+have that documented in `docs/package-format.md`, which this feature updated
+directly on-branch (not staged — that file is kauk's own, not the README's
+territory).
+
+## Architecture
+
+Edited `ARCHITECTURE.md` `## cli` directly on this branch: added kai's static
+settings/hook-dispatch pair and the global-watermark migration model, since
+both are structural additions to the `cli-core` component that the seed
+skeleton did not yet describe.
+
 ## Operator requests
 
 Ledger of items given mid-build, recorded as received.

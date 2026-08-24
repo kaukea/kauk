@@ -73,6 +73,18 @@ A repository that is itself a package is not vendored into itself: its working t
 the source and it publishes by copy, so its own edits are visible without a push
 (Decision-037).
 
+**kai's static install** (`bin/kai.settings.json` + `bin/kai-hooks.sh`, beside the `kai`
+executable, never laid or vendored into a consumer) is the one settings file: it maps
+Claude's events to neutral names and passes them to `kai-hooks.sh`, which runs whatever
+`hooks/<event>/index.toml` each installed package exposes (`docs/package-format.md`
+`## hooks/`). Every fleet dispatch (`tools/dispatch-agent.sh` et al., in the `orchard`
+package) resolves `kai` on PATH and threads `--settings <resolved kai.settings.json>`
+into the launch, guarded on the file's existence. A package therefore never ships or
+writes a `settings.json` of its own (Decisions 019/060). Migrations ride the same
+static install: one global watermark (`.ai/lock.toml`), every installed package's
+`migrations/` plus the repository's own (when `[general] type = "package"` is set)
+merged into one ordered stream, applied by `kai sync`.
+
 ## projection
 
 Generates the `kauk.ai/<pkg>` pages from one repo at publish time (the projection rule),
