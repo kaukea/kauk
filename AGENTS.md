@@ -43,6 +43,14 @@ Taxonomy.
 - **Version-grammar translation is a first-class concern** — SemVer (npm) ↔ PEP 440 (PyPI):
   build metadata (`+x`) is ignored for ordering; PyPI rejects local (`+`) versions on the
   public index. KAUK is the translator; never assume one grammar across backends.
+- **Exactly one settings JSON exists, and it is passed, never laid.**
+  `bin/kai.settings.json` is handed to every agent via `claude --settings` at spawn.
+  NOTHING configures agents from a JSON file anywhere else — no `.claude/settings.json`,
+  no `.claude/settings.local.json`, in the repo root or in any feature worktree.
+  Per-agent permissions belong in the agent's own YAML frontmatter (`tools:`), where
+  they travel with the agent — see `courier.md`. If you are about to write a settings
+  JSON to restrict an agent: don't. Put it in that agent's frontmatter. (Operator,
+  2026-08-24, Decision-061; extends Decision-060.)
 
 ## Conventions
 

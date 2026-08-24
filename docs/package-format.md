@@ -39,9 +39,28 @@ Any repository may declare itself a package, including one that also consumes pa
 > their union. Not built; whether a package dependency names a package or a location is
 > undecided and waits on the native index.
 
-## Publishing into your own repository
+## Declaring a package, and publishing into your own repository
 
-A repository that is itself a package is **not vendored**. There is no clone of its own
+A repository declares itself a package by carrying a `[general]` table in its own
+`.ai.toml`, the consumer-side file, with `type = "package"`:
+
+```toml
+[general]
+type = "package"
+```
+
+That declaration — and nothing inferred from how the operator happens to have set up
+their sources — is what makes kai apply the repository's own `migrations/` (merged
+into the single migration stream, see *migrations/* below), lay its own `agents/` and
+`skills/`, and publish its own `files/` by copy instead of by link. `.ai.toml` is the
+user's file; kai infers no behaviour from it beyond what it explicitly says, so a
+repository that happens to list its own path as a source carries no special meaning
+from that alone. (This replaces an earlier inference that compared a declared source's
+resolved path against the repository root — dropped because it read meaning into an
+incidental fact, and because it rested on a false premise: kai always installs the kai
+package, so a repository consuming anything is never without a package to begin with.)
+
+A repository that is a package this way is **not vendored**. There is no clone of its own
 HEAD under `.ai/repositories/`, because that is what forces you to push in order to see
 your own edits — you would be editing the source and the vendored copy at the same time.
 
@@ -68,7 +87,7 @@ Nothing else differs. A self-published package is a package.
 | `tools/<name>/` | tool | yes — per runtime |
 | `files/<path>` | file | no — verbatim |
 | `templates/<name>` | template | applied into a file the consumer owns |
-| `migrations/<date>-<slug>.md` | migration | executed, not placed |
+| `migrations/<YYYY-MM-DD>-<NN>-<featurename>.md` | migration | executed, not placed |
 
 Everything else in the repository — `docs/`, `tests/`, `README.md`, `CHANGELOG.md`,
 build files, source — is **ignored**. A package repository is a normal repository
@@ -292,36 +311,36 @@ and linted, not implemented.
 
 ## migrations/
 
-`migrations/<YYYY-MM-DD>-<slug>.md`, one dated file per structural change. The
-package version *is* the highest filename.
+`migrations/<YYYY-MM-DD>-<NN>-<featurename>.md`, one file per feature. The whole
+filename is applied in **ASCII order** — the usual convention for anything that has to
+run in sequence — so `<NN>` orders same-day files against each other. A same-day set
+authored together for one version is one run, ordered within the day by `<NN>`; a
+hotfix shipped after a release takes the next `<NN>` and reaches anyone still sitting
+at the version before it. This supersedes the earlier `<YYYY-MM-DD>-<slug>.md` form and
+the sentence that derived the package version from the highest filename — version
+derivation is not specified here any further; see the watermark below for what the
+filename now drives instead.
 
 - Content stays **natural language**, wrapped in a structured format. Existing
   migrations are not rewritten.
-- There is no closed set of step verbs. A step's flexibility comes from its
-  `applied-by` routing and from relative scripts shipped next to the migration
-  file (operator, 2026-08-18, superseding the earlier `reload`/`restart`/
-  `rename`/`apply skill` closed-set sketch).
-- `shell` steps execute **inside kauk, deterministically**; only `agent` steps
-  are handed over, as structured fenced steps rather than loose prose. This is
-  what makes execution independent of what any agent chooses to do, and what
-  makes most of a migration testable.
+- There is no closed set of step verbs (operator, 2026-08-18, superseding the
+  earlier `reload`/`restart`/`rename`/`apply skill` closed-set sketch). A
+  migration's fenced ```sh``` code blocks are its steps, run in order, executed
+  **inside kauk, deterministically** — with the consumer root as cwd — rather
+  than handed to an agent. This is what makes execution independent of what any
+  agent chooses to do, and what makes most of a migration testable.
 - **Migrations run at sync time — the tool owns the applying.** No agent reads,
   applies, or advances a watermark by hand (Decision-055).
 - A `reload` step is available on any update, not only inside a migration: on the Claude
   target `/reload-plugins` picks up changed components without a restart.
 - Every step is guarded by observable state, never by assumed position in a sequence.
-- A migration's fenced code blocks are its steps, run in order. Each fence's info
-  string says who runs it: `applied-by: shell` — the default; a bare ```sh``` fence
-  needs no tag, so every migration written before this existed keeps working
-  unrewritten — has kai run the fence itself, inline, or, when the fence's entire
-  body is a single `./relative/path` line, run that script instead. That path
-  resolves relative to the migration file it ships next to; either way the script
-  or the inline fence runs with the consumer root as cwd. `applied-by: agent` is
-  never run by kai: the step is recorded under
-  `.git/the-works/asks/<owner>/<repo>/<migration>-<step>` in the consuming clone —
-  so is a `shell` step that failed — and delivered into the next session as a
-  concrete instruction by the `migrations-pending.sh` hook, which stays silent when
-  there is nothing outstanding. Clearing an ask is deleting its file.
+- **Errors are reported, not handled.** Kai runs a migration's shell steps and reports
+  whichever ones failed, then moves on. There is no hand-off of a failed step to an
+  agent, no file that parks a failure for a later session to pick up, and no routing
+  that clears a failure by deleting anything. Self-testing a migration — verifying
+  that its own effect actually took — is not built and may be revisited later.
+- **Migrations do not ship tests.** A migration is tested in the repository that ships
+  it, before it is published. Nothing test-shaped is delivered to a consumer.
 
 **Order, when a sync pulls from a source with migrations pending:**
 
@@ -338,7 +357,33 @@ this pull — because migrations are append-only and never rewritten, that is ex
 the set dated after the pre-rebase watermark. The watermark advances once a
 migration's steps have all run, in either pass.
 
-The watermark is **per repository**.
+### The watermark
+
+**One watermark, global to the consuming repository** — not per package, not per
+source. It is the `<YYYY-MM-DD>-<NN>` prefix of the last applied migration, written as
+a single line in a **committed** file, `.ai/lock.toml`, under a `[migrations]` table.
+Nothing about migration state lives under `.git/`: durable state must survive a clone,
+and `.git/` does not travel with one.
+
+Every declared source's `migrations/` directory, plus the repository's own
+`migrations/` when the repository declares itself a package (see *Declaring a
+package*, above), merge into a **single stream**, ordered by the `<YYYY-MM-DD>-<NN>`
+prefix regardless of which package a given file came from. Everything above the
+watermark applies, in that order, in one run. Packages migrate together — a
+per-package watermark let packages apply in strange orders relative to each other,
+which is the failure this replaces.
+
+No watermark present means a fresh install: nothing is pending, and the watermark is
+stamped at the current date and time rather than replayed from the start.
+
+## The kai package
+
+kai itself ships as a package: `skills/kai/` — the agent-launch skill — plus
+`migrations/`, and nothing else. Everything else kai needs is already in `bin/`,
+present on `PATH` from the static install; it is not delivered as package content.
+Installing the kai package is how a repository subscribes to kai's own migrations —
+which is what closes the circle for a package that, by design, declares no
+dependencies of its own.
 
 ---
 
@@ -451,28 +496,45 @@ Three files, three different jobs:
 | Artifact | Owner | Committed | Purpose |
 |---|---|---|---|
 | `.ai.toml` | the user | yes | what was asked for — sources and selection |
-| lock | kauk | yes | what was got — each repository and its resolved head |
+| lock (`.ai/lock.toml`) | kauk | yes | what was got — each repository, its resolved head, and the migration watermark |
 | placement index | kauk | no | where things went — a cache, for speed |
 
 ```toml
 # .ai.toml — yours to edit
+[general]
+type = "package"          # optional; see Declaring a package, above
+
 [sources."kaukea/kauk"]
-origin = "https://github.com/kaukea/kauk"
+select = ["process/orchard"]
+
+[sources."/home/sudoku/src/some-local-checkout"]
 ```
 
+Only two table forms are read: `[sources."<owner>/<repo>"]`, which resolves to
+`https://github.com/<owner>/<repo>`, and `[sources."/absolute/path"]`, a local working
+tree. The only key permitted inside either is `select`. An `origin` key is a hard
+error — retired once the `<owner>/<repo>` table key itself became the origin, so
+setting one no longer means anything and kai refuses to guess which one wins. Parsing
+is **line-oriented**: a `select = [...]` array has to sit on one line, and a multi-line
+array is not read.
+
 ```toml
-# lock — machine-written, do not edit by hand
+# lock (.ai/lock.toml) — machine-written, do not edit by hand
 [[repositories]]
 id = "kaukea/kauk"
 origin = "https://github.com/kaukea/kauk"
 head = "<sha>"
+
+[migrations]
+watermark = "2026-08-19-02"
 ```
 
 The **index is for speed, not for accuracy**. It is never the source of truth: every
 placement can be rebuilt by scanning for nuggets, and selection is explained by
 `.ai.toml`. The **lock** is the one genuinely non-derivable artifact —
 `.ai/repositories/` is gitignored, so a fresh clone has nothing to scan, and a source
-that placed no files leaves no nugget anywhere.
+that placed no files leaves no nugget anywhere. Its `[migrations]` table carries the
+one global watermark described under *migrations/*, above.
 
 ---
 

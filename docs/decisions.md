@@ -1069,3 +1069,80 @@ Operator, verbatim, three sentences assembled from the same exchange
 gardener): "We ship our settings.json so no one else does, so we call the
 hooks that are defined by packages." "It has nothing to do in .claude." "We
 call agents through passing our settings file for this to happen."
+
+## [2026-08-24 21:30 CEST] Decision-061: One settings JSON, passed not laid; per-agent permissions live in YAML
+#settings-json #permissions #ownership #agents
+
+Extends Decision-060. There is exactly ONE settings JSON — `bin/kai.settings.json`,
+passed via `claude --settings` at spawn. No JSON configures agents from anywhere
+else, in any repository or worktree.
+
+Per-agent permission belongs in the agent definition's YAML frontmatter
+(`tools:`), not in a settings file: it travels with the agent, and the passed
+settings file is shared by every agent so it cannot express per-agent rules
+(a board deny there would break the gardener, whose job is the board).
+
+Occasion: the beekeeper brief instructed writing `.claude/settings.local.json`
+into each feature worktree to deny the landscaper the board. Operator: that file
+should not exist. Fixes: strike the instruction from the beekeeper brief; express
+the landscaper's board denial as `tools:` in `landscaper.md` (both in orchard).
+
+## [2026-08-18 00:00 CEST] Decision-062: settings pair is sequential
+#settings #launch
+
+The settings pair is sequential — fleet-settings-wiring first, settings-lay-clobbers dispatched only after its close; the fresh-machine skill-source edge (kai vs orchard install) is an explicit voluntary deferral until a fresh machine exists. (Operator, Decision-050 pre-launch round.)
+
+## [2026-08-19 00:00 CEST] Decision-063: is_self_source is DELETED
+#migrations #packages
+
+`is_self_source` is DELETED. A repository declares itself a package with `[general] type = "package"` in `.ai.toml`, and that declaration — not an inferred self-source entry — is what makes kai apply the repository's own migrations, use its own agents and skills, and symlink its own files. `.ai.toml` is the user's file to manage however they like; no behaviour may be inferred from whether they happened to declare their own path as a source. The old inference was also a false premise: kai installs the kai package, so there is never not a package. (Operator, 2026-08-19.)
+
+## [2026-08-19 00:00 CEST] Decision-064: ONE global watermark
+#migrations #watermark
+
+ONE global watermark — the `<YYYY-MM-DD>-<NN>` prefix of the last applied migration, one line, committed under `.ai/`. Not per package and not per source. Every source's migrations plus the repository's own merge into a single stream ordered by that prefix; everything above the watermark applies. A same-day set written together for one version is ONE migration run, ordered within the day by `<NN>`; a hotfix after a release takes the next `<NN>` and reaches anyone still sitting at the earlier one. Per-package watermarks made packages apply migrations in strange orders relative to each other. Absent watermark = fresh install: run nothing, stamp the current datetime. (Operator, 2026-08-19.)
+
+## [2026-08-19 00:00 CEST] Decision-065: migration file naming
+#migrations #naming
+
+Migration files are `migrations/<YYYY-MM-DD>-<NN>-<featurename>.md`, one file per feature, applied in ASCII order — the usual convention where scripts must be ordered. Supersedes the `<YYYY-MM-DD>-<slug>.md` form in `docs/package-format.md`. (Operator, 2026-08-19.)
+
+## [2026-08-19 00:00 CEST] Decision-066: migration errors are REPORTED, not handled
+#migrations #errors
+
+Migration errors are REPORTED, not handled. No ask files, no blocking, no hand-off of a step to an agent. Kai says what failed and moves on. Self-testing migrations may be revisited one day. (Operator, 2026-08-19.)
+
+## [2026-08-19 00:00 CEST] Decision-067: migrations do NOT ship tests
+#migrations #tests
+
+Migrations do NOT ship tests to consumers. A migration is tested in the repository that ships it. (Operator, 2026-08-19.)
+
+## [2026-08-19 00:00 CEST] Decision-068: agent is reloaded by RELOADING ITS SESSION
+#agents #reload
+
+An agent is reloaded by RELOADING ITS SESSION, which loads the latest session file — otherwise agents lag behind definitions that have already moved. Supersedes the reload clause carried as a sub-bullet inside Decision-043, which is a ruling about upgrade being the operator's act and does not govern this. (Operator, 2026-08-19.)
+
+## [2026-08-19 00:00 CEST] Decision-069: durable state lives in .ai/, committed
+#state #durability
+
+Durable state leaves `.git/` and lives in `.ai/`, committed. Nothing writes under `.git/` without the operator's permission. State worth keeping must survive a clone — a workstream log that vanishes when the repository is cloned is the same mistake as any other lost state, and committed agent memory is the existing precedent. The operator validates both the FORMAT and the EXISTENCE of durable files. The estate does not touch `.ai/`, so the move is not disruptive; and any move from `.git/` to `.ai/` is carried BY A MIGRATION. (Operator, 2026-08-19.)
+
+## [2026-08-19 00:00 CEST] Decision-070: the kai package contains agent-launch skill and migrations
+#packages #kai
+
+The kai package contains the agent-launch skill and its migrations, and nothing else — everything else is in the bin, already present from the static install. Installing the kai package is how a repository subscribes to kai's migrations; that subscription is what closes the circle for a package that declares no dependencies of its own. (Operator, 2026-08-19.)
+
+## [2026-08-19 00:00 CEST] Decision-071: close-gate proof must exercise DEPLOYED arrangement
+#verification #close
+
+A close-gate proof that exercises only the arrangement the developer happened to build in is not verification. Where two components sit at opposite ends of one path-resolution contract, the gate must exercise the DEPLOYED arrangement (a symlinked install, not a repo-local one) and must diff the two ends against each other. Live-fired: `kai.settings.json` resolved `kai-hooks.sh` with `dirname` alone while `dispatch-agent.sh` resolved `kai.settings.json` with `readlink -f`, and the suite stayed 13/13 green throughout. (Operator, 2026-08-19.)
+
+## [2026-08-20 00:00 CEST] Decision-072: kauk ships only GENERIC agent-launch skill
+#skills #launch #carriage
+
+Kauk ships only a GENERIC agent-launch skill — no agent name baked in, takes the agent to launch as an argument. The gardener-specific launcher (a skill that launches the gardener by name, using the generic one underneath) is orchard's, not kauk's — deferred entirely to orchard's own choice and schedule, not built or carried on this branch. (Operator, 2026-08-20.)
+
+## [2026-08-20 00:00 CEST] Decision-073: this branch's migration design wins the rebase conflict
+#migrations #rebase #carriage
+
+Main independently shipped its own migrations engine (per-source watermark files, an `applied-by: agent` ask-file escape hatch) via the separate migrations-at-sync feature, landed hours before this branch's later commit implementing the operator's own subsequent ruling recorded above (one global watermark, no ask files). Operator, verbatim, on which survives the rebase: "This branch is the correct approach for now because the ask scale and everything else around it can be designed correctly once it has been scheduled on the board correctly." This branch's design wins the conflict; main's independent, non-conflicting additions (`prune_links` rewrite, orphan-clone sweep) are kept. Consequence for whoever ingests this at close: main's Decision-057/058 (the `applied-by: agent` ask-file format) describe a mechanism this resolution retires — likely stale once this branch lands, not struck here since that call belongs to whoever reconciles decisions.md at ingest. (Operator, 2026-08-20.)
