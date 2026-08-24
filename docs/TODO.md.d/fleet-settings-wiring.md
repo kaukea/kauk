@@ -191,6 +191,47 @@ rewrite, orphan-clone sweep) are kept.
 A fleet session in kauk fires its own wiring: courier loads, lifecycle
 hooks run, permission mode holds — observed live by the operator.
 
+### Live test run (2026-08-24, HEAD 099155d, operator watching)
+
+Operator ruling going in: do NOT repoint `~/.local/bin/kai` / `~/.local/bin/kauk`
+to this worktree. Run as-is, wherever `kai` naturally resolves; a path/directory
+resolution oddity is a wanted finding, not a blocker.
+
+Dispatched a real agent through `.claude/tools/dispatch-agent.sh` exactly as any
+fleet agent is launched (agent `claude`, name `live-test-fsw`, this worktree's cwd).
+Verified by reading the actual running process, not by trusting output:
+
+- `cat /proc/<pid>/cmdline` on the spawned `claude` process:
+  `claude --agent claude --name live-test-fsw <prompt>` — **no `--settings` flag
+  present.**
+- Reason, confirmed by hand-running dispatch-agent.sh's own resolution: `command -v
+  kai` → `~/.local/bin/kai` → `readlink -f` → `/home/sudoku/src/kaukea/kauk/bin/kaukea`
+  (MAIN's checkout) → candidate `/home/sudoku/src/kaukea/kauk/bin/kai.settings.json`.
+  That candidate does not exist on disk — `bin/kai.settings.json` and
+  `bin/kai-hooks.sh` exist only on this branch's worktree, unmerged into main. The
+  existence guard behaved exactly as designed: no file, no flag, no crash, no bogus
+  path passed.
+- Consequence, confirmed by asking the spawned session directly and by reading
+  `~/.claude/settings.json`: it ran under the machine-wide settings file only (hooks:
+  `claudetui`, `voice-dictate-ensure`, `claude-queue`, pane-title — all pre-existing,
+  none of them this feature's). This worktree carries NO repo-level
+  `.claude/settings.json` (removed by this feature's own design, confirmed
+  `ls .claude/settings.json` → not found). No courier-only-transport guard, no
+  courier-init hook, no permission-mode pin from `kai.settings.json` were in force
+  for that session — none of kai's fleet wiring engaged.
+
+**Read plainly**: the code is correct and safe (the guard does exactly what it was
+built to do), but the live test as run **could not positively demonstrate** "courier
+loads, lifecycle hooks run, permission mode holds" via the NEW wiring, because that
+wiring only activates once `kai` (as resolved on PATH) actually has
+`bin/kai.settings.json` + `bin/kai-hooks.sh` beside it — i.e. once this branch reaches
+wherever `kai` resolves from (main, today). That is inherent to testing an unmerged
+branch against a statically-installed PATH tool, per the operator's own framing, not a
+defect in the branch.
+
+Test pane (%19) was my own throwaway dispatch — killed cleanly after observation, not
+an orphaned predecessor pane.
+
 ## Operator requests
 
 Ledger of items given mid-build, recorded as received.
@@ -200,11 +241,21 @@ Ledger of items given mid-build, recorded as received.
   process specifically". The `--settings` wiring shipped with a green suite
   while the two ends of its path-resolution contract disagreed. Fix the defect
   AND audit the delivered surface for others of the same family; do not bring
-  repair work to him as a decision. — IN PROGRESS
+  repair work to him as a decision. — IMPLEMENTED AND VERIFIED: the
+  resolution-mismatch fix (e72c6c8), the self-source fixture fix (8ad30bc/
+  3a1051c) and the watermark fixture fix (099155d) are three successive finds
+  of the same defect family across three sessions, each fixed and each
+  re-verified by a fresh landscaper independently running the suites rather
+  than trusting the fixing session's word. All five suites green, 229/229,
+  as of 099155d.
 - 2026-08-19 — "after install kai is a shared cli so of course it is used to
   install packages": kai's presence on PATH is a given of a static install,
-  not an open design question for this feature. — ACCEPTED, no work needed
-  beyond making it true on this machine before the live test.
+  not an open design question for this feature. — ACCEPTED. SUPERSEDED
+  2026-08-24: the operator has since ruled the live test runs with `kai`
+  resolving wherever it naturally resolves on this machine (main's checkout,
+  which lacks this branch's files) — explicitly NOT "making it true on this
+  machine before the live test" as this line originally anticipated. See
+  ## Testing → Live test run.
 - 2026-08-19 — "there is an issue with kai packages like orchard. THey may
   have no package dependencies, but they have migrations, that they need to
   apply to themselves, this requires resolving now". A package repository is
