@@ -1069,3 +1069,20 @@ Operator, verbatim, three sentences assembled from the same exchange
 gardener): "We ship our settings.json so no one else does, so we call the
 hooks that are defined by packages." "It has nothing to do in .claude." "We
 call agents through passing our settings file for this to happen."
+
+## [2026-08-24 21:30 CEST] Decision-061: One settings JSON, passed not laid; per-agent permissions live in YAML
+#settings-json #permissions #ownership #agents
+
+Extends Decision-060. There is exactly ONE settings JSON — `bin/kai.settings.json`,
+passed via `claude --settings` at spawn. No JSON configures agents from anywhere
+else, in any repository or worktree.
+
+Per-agent permission belongs in the agent definition's YAML frontmatter
+(`tools:`), not in a settings file: it travels with the agent, and the passed
+settings file is shared by every agent so it cannot express per-agent rules
+(a board deny there would break the gardener, whose job is the board).
+
+Occasion: the beekeeper brief instructed writing `.claude/settings.local.json`
+into each feature worktree to deny the landscaper the board. Operator: that file
+should not exist. Fixes: strike the instruction from the beekeeper brief; express
+the landscaper's board denial as `tools:` in `landscaper.md` (both in orchard).
