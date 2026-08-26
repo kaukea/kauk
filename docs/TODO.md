@@ -47,6 +47,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · critical · plan-ready · cmd-install · gh#22` [Publish each package as a plugin into a kauk-maintained local marketplace](TODO.md.d/claude-marketplace.md) ⊘hooks-declarative
 - `feature · functional · critical · complete · cmd-install ·` [A package publishes into its own repository instead of vendoring itself](TODO.md.d/self-publishing.md) ⊘package-toml
 - `feature · done · critical · complete · cli-core ·` [The migration engine reaches a repository that has never run it](TODO.md.d/migration-engine-rules.md) ~estate-links-run ~migrations-at-sync
+- `bug · done · critical · complete · cli-core ·` [A migration that moves the store stranded every migration after it](TODO.md.d/migrations-resolve-late.md) ~estate-links-run ~migration-engine-rules
 - `feature · todo · critical · queued · cli-core · gh#98` [Estate run: sync every consumer once the settings feature lands](TODO.md.d/estate-links-run.md) ⊘fleet-settings-wiring ~stale-laid-links ~estate-converge
 - `feature · todo · critical · queued · cli-core · gh#99` [Failed and agent-owed migrations: the ask-file lifecycle end to end](TODO.md.d/migration-asks-lifecycle.md) ~migrations-at-sync
 - `completion · todo · · queued · cli-core · gh#100` [Verification pass over the migrations delivery — the operator doubts it is whole](TODO.md.d/migrations-verification-pass.md) ~migrations-at-sync
