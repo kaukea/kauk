@@ -812,26 +812,37 @@ watermark = "$val"
 EOF
 }
 
-next_migration() { # next_migration <root> <watermark> -> the one line of the
-                    # stream that comes straight after the watermark, or nothing
-  local root=$1 wm=$2 wm_date wm_nn
+next_migration() { # next_migration <root> <watermark> <already-applied-file>
+                    # -> the one line of the stream that comes straight after
+                    # the watermark and has not already run in this pass
+  local root=$1 wm=$2 done_file=$3 wm_date wm_nn
   if [ -z "$wm" ]; then
     wm_date=""; wm_nn=0
   else
     wm_date=${wm%-*}; wm_nn=${wm##*-}
     case "$wm_nn" in ''|*[!0-9]*) wm_date=$wm; wm_nn=0 ;; esac
   fi
-  collect_migrations "$root" | awk -v wd="$wm_date" -v wn="$wm_nn" '
+  # The older <date>-<slug> filenames all carry NN 0, so several migrations can
+  # share one watermark prefix and the prefix alone cannot say which of them has
+  # run. The watermark therefore does NOT move during a pass: it is what the
+  # repository had on entry, and the basenames already applied in this pass are
+  # remembered separately. Both are needed — the prefix to know where the
+  # repository stood, the list to sequence within the pass.
+  collect_migrations "$root" | awk -v wd="$wm_date" -v wn="$wm_nn" -v df="$done_file" '
+    BEGIN { while ((getline l < df) > 0) ran[l] = 1 }
     {
-      if (wd == "")            { print; exit }
-      if ($1 == wd)            { if ($2 + 0 > wn + 0) { print; exit } ; next }
-      if ($1 > wd)             { print; exit }
+      b = $4; sub(/.*\//, "", b); sub(/\.md$/, "", b)
+      if (b in ran) next
+      if (wd == "")  { print; exit }
+      if ($1 == wd)  { if ($2 + 0 > wn + 0) { print; exit } ; next }
+      if ($1 > wd)   { print; exit }
     }
   '
 }
 
 apply_pending_migrations() { # apply_pending_migrations <root> — the merged engine
-  local root=$1 wm line d nn id path base
+  local root=$1 wm line d nn id path base done_file highest=""
+  done_file=$(mktemp); trap 'rm -f "$done_file"' RETURN
   # NO WATERMARK MEANS EVERY MIGRATION IS PENDING (operator, 2026-08-26).
   # Absence is the marker; nothing is written to stand in for it and no date is
   # invented. Each migration then detects for itself whether it still applies —
@@ -847,7 +858,7 @@ apply_pending_migrations() { # apply_pending_migrations <root> — the merged en
   # each one, failure included (errors are reported, not handled), so an
   # interrupted run resumes where it stopped rather than starting over.
   while :; do
-    line=$(next_migration "$root" "$wm")
+    line=$(next_migration "$root" "$wm" "$done_file")
     [ -n "$line" ] || break
     d=${line%% *}; line=${line#* }
     nn=${line%% *}; line=${line#* }
@@ -863,9 +874,10 @@ apply_pending_migrations() { # apply_pending_migrations <root> — the merged en
         say "  migration $base: FAILED — reported; kai moves on"
       fi
     fi
-    wm="$d-$nn"
-    write_watermark "$root" "$wm"
+    printf '%s\n' "$base" >> "$done_file"
+    highest="$d-$nn"
   done
+  [ -n "$highest" ] && write_watermark "$root" "$highest"
   return 0
 }
 
