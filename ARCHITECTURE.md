@@ -82,7 +82,10 @@ Claude's events to neutral names and passes them to `kai-hooks.sh`, which runs w
 `## hooks/`). Every fleet dispatch (`tools/dispatch-agent.sh` et al., in the `orchard`
 package) resolves `kai` on PATH and threads `--settings <resolved kai.settings.json>`
 into the launch, guarded on the file's existence. A package therefore never ships or
-writes a `settings.json` of its own (Decisions 019/060). Migrations ride the same
+writes a `settings.json` of its own (Decisions 019/060/061), and kai enforces that at
+delivery rather than trusting each package to have stopped: `.claude/settings.json` and
+`.claude/settings.local.json` are refused out of any package's `files/` tree, and a
+shipped migration takes back the ones placed before the rule existed. Migrations ride the same
 static install: one global watermark (`.ai/migrations.toml`), every installed
 package's `migrations/` plus the repository's own (when the root table of its
 `.ai.toml` says `type = "package"`) merged into one ordered stream, applied by
