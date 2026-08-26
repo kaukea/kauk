@@ -3,7 +3,9 @@
 
 ## Blockers
 
-(none)
+Parked by the operator (2026-08-26): he has not decided where this belongs or
+who owns it. Nothing starts until he does. The task stays in this repository
+in the meantime.
 
 ## Questions
 
@@ -13,6 +15,12 @@ vertically stacked._
 
 ## Findings
 
+- Direction from the operator (2026-08-26): the layout will most likely be its
+  own package rather than part of kai. The core would emit only three plain
+  names for what it is running — `feature`, `task`, `worker` — and a separate
+  tmux package would read those names and decide the window and pane placement
+  itself. The core would carry no tmux knowledge at all. Not decided, not to be
+  built on.
 - Same defect class in `.claude/tools/pane-promote.sh` (recorded at the
   migrations-at-sync close): it resolves the CLIENT's active pane instead of
   the caller's — $TMUX_PANE ignored — so self-promotion can grab the wrong
