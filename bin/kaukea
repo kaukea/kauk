@@ -533,11 +533,26 @@ lay_claude() { # lay_claude <root> <src> <mode> <pkgns>
   lay_kind "$mode" "$src/tools"  "$root/.claude/tools"  ""    "$ns"
 }
 
+# EXACTLY ONE SETTINGS JSON EXISTS, AND IT IS PASSED, NEVER LAID (Decision-061).
+# It rides `claude --settings` at spawn, from beside the kai binary. A package
+# may still carry one in its files/ tree — an old one does — and kai refuses it
+# whatever arrives, rather than trusting every package to have stopped.
+never_laid() {
+  case "$1" in
+    .claude/settings.json|.claude/settings.local.json) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
 lay_files() { # files/<path> -> <root>/<path>, verbatim (Decision-015)
   local root=$1 src=$2 mode=$3 rel
   [ -d "$src/files" ] || return 0
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
+    if never_laid "$rel"; then
+      say "  REFUSED $rel (a settings JSON is passed at spawn, never laid — Decision-061)"
+      continue
+    fi
     mkdir -p "$root/$(dirname "$rel")"
     place_one "$mode" "$src/files/$rel" "$root/$rel" && LAID=$((LAID+1))
   done < <(cd "$src/files" && find . -type f 2>/dev/null | sed 's|^\./||')
