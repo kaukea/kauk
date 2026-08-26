@@ -138,6 +138,7 @@ if [ "$needs_rewrite" = 1 ]; then
         if (dinc[i] != "") print dinc[i]
         if (extra[i] != "") printf "%s", extra[i]
       }
+      if (no > 0 && wrote) print ""
       for (i = 1; i <= no; i++) print other[i]
     }
   ' .ai.toml > .ai.toml.kai-new

@@ -2,8 +2,8 @@
 # Black-box suite for the reduced migration engine: one global watermark
 # committed at .ai/migrations.toml, every dependency's migrations/ (plus this
 # repository's own when the root table says type = "package") merged into a single
-# stream ordered by the <YYYY-MM-DD>-<NN> filename prefix, fresh installs
-# stamping without replay, and errors reported rather than blocking. Builds
+# stream ordered by the <YYYY-MM-DD>-<NN> filename prefix, an absent watermark
+# meaning everything is pending, and errors reported rather than blocking. Builds
 # throwaway git repositories under a temp dir and runs the real bin/kai
 # against them, then diffs what actually happened on disk.
 #
@@ -37,7 +37,7 @@ failing_mig() { # failing_mig <dir> <filename> — a scripted step that fails
 
 seed_watermark() { mkdir -p "$1/.ai"; printf '[migrations]\nwatermark = "%s"\n' "$2" > "$1/.ai/migrations.toml"; }
 
-echo "== fresh install: nothing pending, nothing runs, watermark stamped =="
+echo "== no watermark: every migration is pending, each detects for itself =="
 PKG="$TMP/test/pkg"
 git_init "$PKG"; mkdir -p "$PKG/skills/alpha" "$PKG/migrations"
 printf -- '---\nname: alpha\n---\nbody\n' > "$PKG/skills/alpha/SKILL.md"
@@ -52,11 +52,11 @@ commit_all "$CON"
 ( cd "$CON" && "$KAUK" sync ) >"$TMP/out1" 2>&1 || true
 sed 's/^/     /' "$TMP/out1" | head -10
 
-check "fresh install runs nothing"        '[ ! -e "$CON/order.log" ]'
-check "fresh install is announced"        'grep -q "fresh install" "$TMP/out1"'
+check "absent watermark replays all"      '[ -f "$CON/order.log" ] && grep -qx "old" "$CON/order.log"'
+check "the absence is announced"          'grep -q "no watermark here" "$TMP/out1"'
 check "migrations.toml exists after fresh sync" '[ -f "$CON/.ai/migrations.toml" ]'
-check "watermark stamped, not empty"      'grep -q "watermark = \"20" "$CON/.ai/migrations.toml"'
-check "package still laid on fresh sync"  '[ -L "$CON/.claude/skills/alpha" ]'
+check "watermark advanced to what ran"    'grep -q "watermark = \"2026-01-01-1\"" "$CON/.ai/migrations.toml"'
+check "package still laid"                '[ -L "$CON/.claude/skills/alpha" ]'
 check "nothing written under .git"        '! find "$CON/.git" -iname "*migrat*" 2>/dev/null | grep -q .'
 check "session reload announced"          'grep -q "^reload:" "$TMP/out1"'
 
@@ -77,8 +77,9 @@ commit_all "$PKG2"
 printf '\n[[dependency]]\nsource = "%s"\n' "$PKG2" >> "$CON/.ai.toml"
 commit_all "$CON" "add pkg2"
 
-# force a real (non-fresh) run: seed a watermark well before today
-seed_watermark "$CON" "2026-01-01-0"
+# seed the watermark at what the first case already applied, so only the new
+# same-day migrations below are pending
+seed_watermark "$CON" "2026-01-01-1"
 mig "$PKG"  "2026-08-19-01-a1.md" a1
 mig "$PKG2" "2026-08-19-02-b1.md" b1
 mig "$PKG"  "2026-08-19-03-a2.md" a2
@@ -145,6 +146,17 @@ commit_all "$NOTSELF"; commit_all "$CONSUMER2"
 
 check "no root-table type=package -> nothing self-applies" '[ ! -e "$NOTSELF/order.log" ]'
 check "consumer still lays the source normally" '[ -L "$CONSUMER2/.claude/skills/own" ]'
+
+echo "== install stamps the watermark with the install date =="
+CONI="$TMP/consumer-install"
+git_init "$CONI"; mkdir -p "$CONI/.claude"
+commit_all "$CONI" "empty"
+( cd "$CONI" && "$KAUK" install "$PKG" ) >"$TMP/out7" 2>&1 || true
+check "install wrote a watermark"        '[ -f "$CONI/.ai/migrations.toml" ]'
+check "it carries today's date"          'grep -q "watermark = \"$(date +%F)-0\"" "$CONI/.ai/migrations.toml"'
+check "install is announced"             'grep -q "watermark set to the install date" "$TMP/out7"'
+check "history was not replayed"         '[ ! -e "$CONI/order.log" ]'
+check "the package was still laid"       '[ -L "$CONI/.claude/skills/alpha" ]'
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

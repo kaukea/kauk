@@ -106,5 +106,55 @@ OUT3=$(run_migration "$N" 2>&1)
 check "nothing to do is reported"      'printf "%s" "$OUT3" | grep -q "already on one configuration file"'
 check "the file is byte-identical"     '[ "$(cat "$N/.ai.toml")" = "$BEFORE_N" ]'
 
+echo "== the superseded lock file is dropped once the new one exists =="
+MIG2="$HERE/migrations/2026-08-26-02-drop-the-old-lock-file.md"
+run_migration2() { awk '/^```sh$/{f=1;next} /^```$/{f=0} f' "$MIG2" | (cd "$1" && bash); }
+B="$TMP/both"
+git_init "$B"
+mkdir -p "$B/.ai"
+printf '[migrations]\nwatermark = "2026-08-19-04"\n' > "$B/.ai/lock.toml"
+printf '[migrations]\nwatermark = "2026-08-26-1"\n' > "$B/.ai/migrations.toml"
+git -C "$B" add -A >/dev/null 2>&1; git -C "$B" commit -qm fixture
+OUT4=$(run_migration2 "$B" 2>&1)
+check "the old file is removed"        '[ ! -e "$B/.ai/lock.toml" ]'
+check "the new file is untouched"      'grep -qx "watermark = \"2026-08-26-1\"" "$B/.ai/migrations.toml"'
+check "the removal is announced"       'printf "%s" "$OUT4" | grep -q "removed the superseded"'
+check "a second run is a no-op"        'run_migration2 "$B" 2>&1 | grep -q "nothing to do"'
+
+O="$TMP/onlyold"
+git_init "$O"; mkdir -p "$O/.ai"
+printf '[migrations]\nwatermark = "2026-08-19-04"\n' > "$O/.ai/lock.toml"
+OUT5=$(run_migration2 "$O" 2>&1)
+check "only the old file: left alone"  '[ -f "$O/.ai/lock.toml" ] && printf "%s" "$OUT5" | grep -q "left alone"'
+
+echo "== the tool-written header comes out, the operator's comments stay =="
+MIG3="$HERE/migrations/2026-08-26-03-drop-the-tool-written-header.md"
+run_migration3() { awk '/^```sh$/{f=1;next} /^```$/{f=0} f' "$MIG3" | (cd "$1" && bash); }
+H="$TMP/header"
+git_init "$H"
+cat > "$H/.ai.toml" <<'EOF'
+# managed by kauk — CLI and AGENTS.md driven; do not edit by hand
+# Sources live in [sources."<owner>/<repo>"] tables.
+
+[[dependency]]
+source = "kaukea/orchard"
+# mine, and it stays
+EOF
+git -C "$H" add -A >/dev/null 2>&1; git -C "$H" commit -qm fixture
+OUT6=$(run_migration3 "$H" 2>&1)
+check "the header is gone"             '! grep -q "managed by kauk" "$H/.ai.toml"'
+check "the file now opens on the work" '[ "$(head -1 "$H/.ai.toml")" = "[[dependency]]" ]'
+check "the operator's comment stays"   'grep -q "mine, and it stays" "$H/.ai.toml"'
+check "the removal is announced"       'printf "%s" "$OUT6" | grep -q "removed the tool-written header"'
+check "a second run is a no-op"        'run_migration3 "$H" 2>&1 | grep -q "no tool-written header"'
+
+M="$TMP/mine"
+git_init "$M"
+printf '# my own note\nname = "thing"\n' > "$M/.ai.toml"
+git -C "$M" add -A >/dev/null 2>&1; git -C "$M" commit -qm fixture
+BEFORE_M=$(cat "$M/.ai.toml")
+OUT7=$(run_migration3 "$M" 2>&1)
+check "a comment of his own is left"   '[ "$(cat "$M/.ai.toml")" = "$BEFORE_M" ]' 
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

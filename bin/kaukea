@@ -196,6 +196,33 @@ validate_config() { # the config errors worth stopping for, reported before any 
   done < <(dep_rows "$root")
 }
 
+store_ids() { # every package this repository actually HAS, from the store itself
+  local root=$1 d id
+  for d in "$root"/.ai/repositories/*/*/; do
+    [ -d "${d}.git" ] || continue
+    id=${d#"$root/.ai/repositories/"}; id=${id%/}
+    printf '%s\n' "$id"
+  done
+  return 0
+}
+
+sync_list() { # what sync works on: what .ai.toml declares, plus what the store
+               # already holds. A package a repository has been given is a fact
+               # of the store, and it has to keep receiving its migrations even
+               # while the file that declares it is mid-conversion. Undeclared
+               # clones are still swept at the end of the run, as before.
+  local root=$1 declared id origin
+  declared=$(deps_list "$root")
+  printf '%s\n' "$declared" | grep . || true
+  while IFS= read -r id; do
+    [ -n "$id" ] || continue
+    printf '%s\n' "$declared" | awk -v i="$id" '$1==i{f=1} END{exit !f}' && continue
+    origin=$(git -C "$root/.ai/repositories/$id" remote get-url origin 2>/dev/null) || continue
+    [ -n "$origin" ] || continue
+    printf '%s %s (store)\n' "$id" "$origin"
+  done < <(store_ids "$root")
+}
+
 dep_origin() { deps_list "$1" | awk -v id="$2" '$1==id{v=$2} END{if(v!="")print v}'; }
 dep_source() { deps_list "$1" | awk -v id="$2" '$1==id{v=$3} END{if(v!="")print v}'; }
 
@@ -740,17 +767,21 @@ mig_nn() { # mig_nn <path> -> the NN token as an integer; 0 for the older
 }
 
 collect_migrations() { # collect_migrations <root> -> "<date> <nn> <id> <path>"
-                        # per line, one global stream sorted by date then NN
-  local root=$1 id origin raw src f
-  { while read -r id origin raw; do
-      [ -n "$id" ] || continue
-      src=$(source_tree "$root" "$id")
-      [ -d "$src/migrations" ] || continue
-      for f in "$src"/migrations/*.md; do
+                        # per line, one global stream sorted by date then NN.
+                        # Every package ON DISK contributes, read from the store
+                        # itself rather than from .ai.toml: what a repository has
+                        # already been given is a fact of the store, and a
+                        # migration must still reach it while the file that
+                        # declares it is mid-conversion.
+  local root=$1 d id f
+  { for d in "$root"/.ai/repositories/*/*/; do
+      [ -d "${d}migrations" ] || continue
+      id=${d#"$root/.ai/repositories/"}; id=${id%/}
+      for f in "${d}migrations"/*.md; do
         [ -e "$f" ] || continue
         printf '%s %s %s %s\n' "$(mig_date "$f")" "$(mig_nn "$f")" "$id" "$f"
       done
-    done < <(deps_list "$root")
+    done
     if is_package_repo "$root" && [ -d "$root/migrations" ]; then
       for f in "$root"/migrations/*.md; do
         [ -e "$f" ] || continue
@@ -782,28 +813,27 @@ EOF
 }
 
 apply_pending_migrations() { # apply_pending_migrations <root> — the merged engine
-  local root=$1 wm wm_date wm_nn d nn id path base highest="" ran=0 top
+  local root=$1 wm wm_date wm_nn d nn id path base highest="" ran=0
+  # NO WATERMARK MEANS EVERY MIGRATION IS PENDING (operator, 2026-08-26).
+  # Absence is the marker; nothing is written to stand in for it and no date is
+  # invented. Each migration then detects for itself whether it still applies —
+  # that is what the detect step of the format is for. The marker gets its real
+  # value at install (see stamp_install_watermark) and advances from there.
   wm=$(lock_watermark "$root")
-  if [ -z "$wm" ]; then
-    # Fresh install: no watermark yet means no history to replay. Nothing runs;
-    # the watermark is stamped to the highest prefix already on disk (or to
-    # today if none exists yet), so nothing currently known is left pending.
-    top=$(collect_migrations "$root" | tail -1)
-    if [ -n "$top" ]; then
-      write_watermark "$root" "$(printf '%s' "$top" | awk '{print $1"-"$2}')"
-    else
-      write_watermark "$root" "$(date +%F)-0"
-    fi
-    say "migrations: fresh install — nothing replayed, watermark stamped to now"
-    return 0
-  fi
 
-  wm_date=${wm%-*}; wm_nn=${wm##*-}
-  case "$wm_nn" in ''|*[!0-9]*) wm_date=$wm; wm_nn=0 ;; esac
+  if [ -z "$wm" ]; then
+    wm_date=""; wm_nn=0                       # nothing on disk is older than absence
+    say "migrations: no watermark here — every migration is pending, each detects for itself"
+  else
+    wm_date=${wm%-*}; wm_nn=${wm##*-}
+    case "$wm_nn" in ''|*[!0-9]*) wm_date=$wm; wm_nn=0 ;; esac
+  fi
 
   while IFS=' ' read -r d nn id path; do
     [ -n "$d" ] || continue
-    if [ "$d" = "$wm_date" ]; then
+    if [ -z "$wm_date" ]; then
+      :                                       # legacy: every migration is pending
+    elif [ "$d" = "$wm_date" ]; then
       [ "$nn" -gt "$wm_nn" ] || continue
     else
       [ "$d" \> "$wm_date" ] || continue
@@ -820,6 +850,16 @@ apply_pending_migrations() { # apply_pending_migrations <root> — the merged en
   done < <(collect_migrations "$root")
 
   [ "$ran" = 1 ] && [ -n "$highest" ] && write_watermark "$root" "$highest"
+  return 0
+}
+
+stamp_install_watermark() { # a repository installed TODAY does not replay history:
+                             # the marker is the install date. Only ever written
+                             # when there is none — never over a real one.
+  local root=$1
+  [ -n "$(lock_watermark "$root")" ] && return 0
+  write_watermark "$root" "$(date +%F)-0"
+  say "migrations: watermark set to the install date"
 }
 
 announce_reload() { # unconditional at the end of every sync, package or not
@@ -872,6 +912,7 @@ cmd_install() {
   ensure_aitoml "$root"
   validate_config "$root"
   ensure_gitignore "$root"
+  stamp_install_watermark "$root"
   install_source "$root" "$ref" || die "install: $ref failed"
   resolve_xdeps "$root"
   prune_links "$root"
@@ -933,6 +974,7 @@ cmd_init() {
   local script_repo
   ensure_aitoml "$root"
   ensure_gitignore "$root"
+  stamp_install_watermark "$root"
   script_repo=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
   if same_path "$script_repo" "$root"; then
     lay_self "$root"
@@ -969,6 +1011,7 @@ sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
   clone=$(clone_of "$root" "$id")
   if [ ! -d "$clone/.git" ]; then
     origin=$(dep_origin "$root" "$id")
+    [ -n "$origin" ] || { say "$id: no origin for this package — skipped"; return 0; }
     mkdir -p "$(dirname "$clone")"
     git clone --quiet "$origin" "$clone" 2>/dev/null || { say "$id: clone failed from $origin (offline?)"; return 0; }
     say "clone: $clone"
@@ -1068,10 +1111,17 @@ cmd_sync() {
     esac
   done
   [ "$pull" = 1 ] && [ "$push" = 1 ] && die "one of --pull or --push — taking and giving are separate acts"
-  local list; list=$(deps_list "$root")
+  # Apply what was already pending BEFORE anything is read or fetched
+  # (docs/package-format.md: apply what was already pending -> rebase -> apply
+  # what arrived). A migration that rewrites .ai.toml has therefore already run
+  # by the time .ai.toml is read.
+  [ $status_only = 1 ] || apply_pending_migrations "$root"
+
+  local list; list=$(sync_list "$root")
   local self=0; is_package_repo "$root" && self=1
+
   # A package repository is also a consumer of ITS OWN migrations (Decision,
-  # 2026-08-19) — declaring no sources of its own is no longer a dead end.
+  # 2026-08-19) — declaring no dependencies of its own is no longer a dead end.
   [ -n "$list" ] || [ "$self" = 1 ] || die "no dependencies in .ai.toml — run 'kai init' first"
   local id origin raw
   while read -r id origin raw; do
