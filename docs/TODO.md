@@ -49,6 +49,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · done · critical · complete · cli-core ·` [The migration engine reaches a repository that has never run it](TODO.md.d/migration-engine-rules.md) ~estate-links-run ~migrations-at-sync
 - `bug · done · critical · complete · cli-core ·` [A migration that moves the store stranded every migration after it](TODO.md.d/migrations-resolve-late.md) ~estate-links-run ~migration-engine-rules
 - `bug · done · critical · complete · cli-core ·` [The orphan sweep deleted whole stores when it could not read the declarations](TODO.md.d/sweep-needs-declarations.md) ~estate-links-run
+- `bug · done · critical · complete · cli-core ·` [Migrations sharing one watermark prefix were skipped after the first](TODO.md.d/same-prefix-siblings.md) ⊘migrations-resolve-late ~estate-links-run
 - `feature · todo · critical · queued · cli-core · gh#98` [Estate run: sync every consumer once the settings feature lands](TODO.md.d/estate-links-run.md) ⊘fleet-settings-wiring ~stale-laid-links ~estate-converge
 - `feature · todo · critical · queued · cli-core · gh#99` [Failed and agent-owed migrations: the ask-file lifecycle end to end](TODO.md.d/migration-asks-lifecycle.md) ~migrations-at-sync
 - `completion · todo · · queued · cli-core · gh#100` [Verification pass over the migrations delivery — the operator doubts it is whole](TODO.md.d/migrations-verification-pass.md) ~migrations-at-sync

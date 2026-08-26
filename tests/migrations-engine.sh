@@ -183,5 +183,26 @@ check "nothing failed on a moved path"    '! grep -q "FAILED" "$TMP/out8"'
 check "no stale path was reached for"     '! grep -q "cannot open file" "$TMP/out8"'
 check "watermark reached the last one"    'grep -q "watermark = \"2026-02-01-3\"" "$CONM/.ai/migrations.toml"'
 
+echo "== migrations sharing one prefix all run, none is skipped =="
+# The older <date>-<slug> filenames carry no NN, so several land on the same
+# watermark prefix. The prefix alone cannot say which of them has already run.
+SPKG="$TMP/test/samedate"
+git_init "$SPKG"; mkdir -p "$SPKG/skills/s1" "$SPKG/migrations"
+printf -- '---\nname: s1\n---\ns\n' > "$SPKG/skills/s1/SKILL.md"
+printf 'name = "samedate"\ntype = "package"\n' > "$SPKG/.ai.toml"
+mig "$SPKG" "2026-03-01-alpha.md" alpha
+mig "$SPKG" "2026-03-01-beta.md"  beta
+mig "$SPKG" "2026-03-01-gamma.md" gamma
+mig "$SPKG" "2026-03-02-01-later.md" later
+commit_all "$SPKG"
+CONS="$TMP/consumer-samedate"
+git_init "$CONS"; mkdir -p "$CONS/.claude"
+printf '[[dependency]]\nsource = "%s"\n' "$SPKG" > "$CONS/.ai.toml"
+commit_all "$CONS"
+( cd "$CONS" && "$KAUK" sync ) >"$TMP/out9" 2>&1 || true
+check "all three same-date ones ran"   '[ "$(grep -c . "$CONS/order.log")" = 4 ]'
+check "in filename order"              '[ "$(tr "\n" , < "$CONS/order.log")" = "alpha,beta,gamma,later," ]'
+check "and none re-ran on a resync"    '( cd "$CONS" && "$KAUK" sync >/dev/null 2>&1 ); [ "$(grep -c . "$CONS/order.log")" = 4 ]'
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
