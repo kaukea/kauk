@@ -19,28 +19,32 @@ hoard. See `ARCHITECTURE.md`.
 ## Layout
 
 - `bin/kaukea` — the bash stopgap that vendors and lays file packages until `0.1.0`, invoked as **`kai`** (`kauk` stays as the backup alias):
-  `init` / `install <owner>/<repo> | <path>` / `sync [--pull|--push]` / `resolve`.
+  `init` / `install <owner>/<repo> | <uri> | <path>` / `sync [--pull|--push]` / `resolve`.
   Sync pulls with rebase, applies each package's pending migrations itself (in
   order, watermarked — anything it cannot finish is recorded as an ask for the
   next session, never a nag), heals laid links whose source moved, sweeps clean
   orphaned clones, and lays; `--push` publishes your local edits, explicitly
-  and only then; a source pinned to a `ref` is never touched. `.ai.toml` is
-  defaults-only: a source key of `owner/repo` resolves to GitHub, a full path is a
-  local working tree, and each source may carry `select = ["<category-path>", …]` —
-  without it, everything installs. Sync converges and lays; it never publishes your
-  local edits to a source.
+  and only then; a source naming anything but `@HEAD` is left where it is until
+  the versioning work exists. `.ai.toml` is the one configuration file: its root
+  table says what the repository is (`name`, `type`), and each `[[dependency]]`
+  block says what it consumes — `source` of `owner/repo` (resolved to GitHub), a
+  git URI, or a local path, with an optional `include = ["<category-path>", …]`
+  on git sources. Without an include, everything installs. Sync converges and
+  lays; it never publishes your local edits to a source.
 - `docs/package-format.md` — **what a package is.** A package is a repository of files
   that knows nothing about kauk: its contents are the convention directories
   `skills/ agents/ hooks/ tools/ files/`, and anything outside them is ignored. There is
   no manifest to write.
-- `package.toml` — declares that a repository *is* a package (name, title, description).
+- `.ai.toml` — the one configuration file: identity in the root table, `[[dependency]]`
+  blocks for what it consumes. Yours to edit; `kai install` only ever appends a block.
 - `namespace-reservation/` — the PyPI + npm placeholder packages that reserve the `kauk`
   name. Publish steps in `namespace-reservation/UPLOAD.md`.
 - `site/` — the `kauk.ai` projection (GitHub Pages / static host); one repo serves all
   `kauk.ai/<pkg>` pages.
 - `docs/` — the board (`TODO.md` + sidecars), `decisions.md`, and `naming.md`.
 - `tests/` — fixture-driven checks; `tests/convention-reader.sh` covers distribution,
-  idempotence, pruning, collisions and self-publishing.
+  idempotence, pruning, collisions and self-publishing, and
+  `tests/config-migration.sh` covers the move onto one configuration file.
 
 ## Install
 

@@ -14,30 +14,32 @@ repository that does not is simply a repository.
 
 ---
 
-## `package.toml` — declaring that this repository is a package
+## The root table of `.ai.toml` — declaring that this repository is a package
 
-A repository becomes a package by carrying `package.toml` at its root:
+A repository becomes a package by saying so in the root table of its own `.ai.toml`,
+the one configuration file it has (`docs/configuration-files.md`):
 
 ```toml
-[package]
 name = "orchids"
-title = "Orchids"
-description = "The fleet's canonical skills, agents and rule files."
-type = "…"
+type = "package"
 ```
 
-`package.toml` is **published** — it travels with the repository and every consumer
-reads it. This is deliberately not `.ai.toml`, which is **local**: what this particular
-checkout consumes, and nobody else's business. Merging them would ship a consumer's
-private selections inside a published artifact.
+Both keys are optional: `name` defaults to the repository's own directory name, and
+`type` defaults to `project`. That is the whole of a package's identity —
+`package.toml`, which used to carry a name, title, description and a pull-only flag,
+is gone (`migrations/2026-08-26-01-one-configuration-file.md`).
+
+One repository is one package. A package's `.ai.toml` travels with it, and a consumer
+reads its `name` to namespace what it lays; the consumer's own dependency blocks in the
+same file are read only in the repository that owns them, never out of a clone.
 
 Any repository may declare itself a package, including one that also consumes packages.
 
-> **Future:** packages depending on packages, which is what makes cross-package
-> dependencies possible — an agent in one package depending on a skill in another. The
-> package graph resolves first (which sources to fetch), then the artifact graph across
-> their union. Not built; whether a package dependency names a package or a location is
-> undecided and waits on the native index.
+> **Parked:** a package depending on another package. Where that declaration lives is
+> undecided (operator, 2026-08-26) and waits on the versioning work, so nothing is
+> installed on a package's behalf today — a consumer declares every package it wants
+> in its own `.ai.toml`. Cross-package artifact dependencies still resolve across the
+> packages a consumer has installed.
 
 ## Declaring a package, and publishing into your own repository
 
@@ -361,7 +363,7 @@ migration's steps have all run, in either pass.
 
 **One watermark, global to the consuming repository** — not per package, not per
 source. It is the `<YYYY-MM-DD>-<NN>` prefix of the last applied migration, written as
-a single line in a **committed** file, `.ai/lock.toml`, under a `[migrations]` table.
+a single line in a **committed** file, `.ai/migrations.toml`, under a `[migrations]` table.
 Nothing about migration state lives under `.git/`: durable state must survive a clone,
 and `.git/` does not travel with one.
 
@@ -456,7 +458,7 @@ The plugin earns its place twice over:
 <kauk marketplace>/
 ├── .claude-plugin/marketplace.json     regenerated: one entry per package
 └── plugins/<package>/
-    ├── .claude-plugin/plugin.json      generated from package.toml
+    ├── .claude-plugin/plugin.json      generated from .ai.toml's root table
     ├── skills/<name>/SKILL.md          ← skills/   (with their own scripts/)
     ├── agents/<name>.md                ← agents/
     ├── hooks/hooks.json                ← hooks/    (transpiled)
@@ -495,36 +497,38 @@ Three files, three different jobs:
 
 | Artifact | Owner | Committed | Purpose |
 |---|---|---|---|
-| `.ai.toml` | the user | yes | what was asked for — sources and selection |
-| lock (`.ai/lock.toml`) | kauk | yes | what was got — each repository, its resolved head, and the migration watermark |
+| `.ai.toml` | the user | yes | what this repository IS, and what it consumes |
+| `.ai/migrations.toml` | kauk | yes | the last migration applied here |
 | placement index | kauk | no | where things went — a cache, for speed |
 
 ```toml
 # .ai.toml — yours to edit
-[general]
-type = "package"          # optional; see Declaring a package, above
+name = "my-thing"         # optional; defaults to the directory name
+type = "package"          # optional; project when absent
 
-[sources."kaukea/kauk"]
-select = ["process/orchard"]
+[[dependency]]
+source = "kaukea/kauk"
+include = ["process/orchard"]
 
-[sources."/home/sudoku/src/some-local-checkout"]
+[[dependency]]
+source = "/home/sudoku/src/some-local-checkout"
 ```
 
-Only two table forms are read: `[sources."<owner>/<repo>"]`, which resolves to
-`https://github.com/<owner>/<repo>`, and `[sources."/absolute/path"]`, a local working
-tree. The only key permitted inside either is `select`. An `origin` key is a hard
-error — retired once the `<owner>/<repo>` table key itself became the origin, so
-setting one no longer means anything and kai refuses to guess which one wins. Parsing
-is **line-oriented**: a `select = [...]` array has to sit on one line, and a multi-line
-array is not read.
+A `source` is one of four things: `<owner>/<repo>`, which resolves to
+`https://github.com/<owner>/<repo>`; a full git URI; an absolute path; or a `./`
+relative path, taken against this repository's root. It may end in `@HEAD`. Any other
+ref — a branch, a tag, a commit — is parked with the versioning work: kai leaves that
+clone where it is and lays what is already there.
+
+`include` is accepted on git sources only. A local path is a development convenience
+that has to be replaced by its git source before publishing, and a selection that does
+not survive that swap is a trap (operator, 2026-08-26). A dependency's `type` is
+optional and only `package` is acted on.
+
+Parsing is **line-oriented**, with one exception: an `include` array may span lines.
 
 ```toml
-# lock (.ai/lock.toml) — machine-written, do not edit by hand
-[[repositories]]
-id = "kaukea/kauk"
-origin = "https://github.com/kaukea/kauk"
-head = "<sha>"
-
+# .ai/migrations.toml — machine-written, do not edit by hand
 [migrations]
 watermark = "2026-08-19-02"
 ```
