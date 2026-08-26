@@ -1,8 +1,8 @@
-# Yours to edit — this file says what this repository consumes.
-# [sources."<owner>/<repo>"] resolves to github.com; [sources."/full/path"] is
-# local. Each table may carry select = ["<category-path>", ...]; no select
-# means everything. Clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
+name = "kauk"
+type = "package"
 
-[sources."kaukea/orchard"]
+[[dependency]]
+source = "kaukea/orchard"
 
-[sources."/home/sudoku/src/kaukea/kauk"]
+[[dependency]]
+source = "/home/sudoku/src/kaukea/kauk"
