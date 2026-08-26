@@ -61,3 +61,12 @@ Taxonomy.
   `kauk sync` (the `kauk` skill) to converge with the sources. `.ai.toml` is the
   **operator's** file — edit it freely; kauk writes the lock file, not this one
   (Decision-023).
+
+## Communication
+
+- **Plain English, always.** Full sentences, ordinary words. Do not use vocabulary an
+  agent coined in an earlier session — if a term is not the operator's own, not in these
+  rule files, and not a file or command name, say the thing instead of naming it.
+  (Operator, 2026-08-26.)
+- **Never refer to a GitHub issue by its number alone.** Every mention carries what the
+  issue is about, in words, alongside the number. (Operator, 2026-08-26.)
