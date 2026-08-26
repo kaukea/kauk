@@ -50,8 +50,10 @@ The `kauk` command — one grammar over the registry and federation. `publish`, 
 
 Until 0.1.0, `bin/kauk` is the shipped **bash stopgap** (component `cli-core`,
 Decision-007): the file-package half of the grammar — `init` / `install <owner>/<repo>`
-/ `sync` / `resolve` — over git-vendored sources (`.ai/repositories/`, `.ai.toml`). The
-real CLI inherits the grammar and replaces it.
+/ `sync` / `resolve` — over git-vendored packages (`.ai/repositories/`), declared as
+`[[dependency]]` blocks in the repository's one configuration file, `.ai.toml`, whose
+root table also carries the repository's own identity (`docs/configuration-files.md`).
+The real CLI inherits the grammar and replaces it.
 
 **A package declares nothing.** Its contents are determined by convention — the
 directories `skills/ agents/ hooks/ tools/ files/` — and anything outside them is
@@ -81,9 +83,10 @@ Claude's events to neutral names and passes them to `kai-hooks.sh`, which runs w
 package) resolves `kai` on PATH and threads `--settings <resolved kai.settings.json>`
 into the launch, guarded on the file's existence. A package therefore never ships or
 writes a `settings.json` of its own (Decisions 019/060). Migrations ride the same
-static install: one global watermark (`.ai/lock.toml`), every installed package's
-`migrations/` plus the repository's own (when `[general] type = "package"` is set)
-merged into one ordered stream, applied by `kai sync`.
+static install: one global watermark (`.ai/migrations.toml`), every installed
+package's `migrations/` plus the repository's own (when the root table of its
+`.ai.toml` says `type = "package"`) merged into one ordered stream, applied by
+`kai sync`.
 
 ## projection
 

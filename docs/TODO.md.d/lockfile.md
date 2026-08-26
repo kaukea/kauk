@@ -14,6 +14,13 @@ None.
 ## Findings
 
 `.ai/repositories/` is gitignored, so a fresh clone has nothing to scan and a source that placed no files leaves no trace anywhere.
+- Parked here by the operator (2026-08-26, during config-spec-implementation):
+  a dependency source may end in `@HEAD`, `@branch` or `@tag`, but only `@HEAD`
+  is acted on. Anything else leaves the clone exactly where it is and lays what
+  is already there, announcing that it waits for this work. Implemented that
+  way in `bin/kaukea` (`dep_ref`, `sync_source`) and covered by
+  `tests/convention-reader.sh`; making a branch or tag actually resolve is this
+  task's to do.
 
 ## Proposal
 

@@ -13,6 +13,15 @@ _None open — the spec is ruled._
 ## Findings
 
 Cross-artifact needs are undeclared everywhere today.
+- Parked here by the operator (2026-08-26, during config-spec-implementation):
+  a package declaring a dependency on ANOTHER package has no home any more.
+  `package.toml` carried `dependencies = ["<owner>/<repo>"]` and that file is
+  deleted, so `kai` no longer installs anything on a package's behalf — a
+  consumer must declare every package it wants in its own `.ai.toml`. Whether
+  the declaration returns as an ordinary `[[dependency]]` block in the
+  package's own file, or as something else, waits for this work. The
+  cross-package ARTIFACT closure is unaffected and still resolves across the
+  packages a consumer has installed.
 
 ## Proposal
 
