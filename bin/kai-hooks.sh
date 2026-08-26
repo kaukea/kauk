@@ -58,20 +58,37 @@ capture_file() {
   printf '%s\n' "$CAPTURE_FILE" >> "$OUT_DIR/.manifest"
 }
 
-# source_dirs -> one source directory per line, from .ai.toml's [sources."…"]
-# table headers (bin/kaukea's src_tables convention). A key that is neither
-# an absolute path nor <owner>/<repo> is invalid — bin/kaukea's sources_list
-# warns and ignores it; mirrored here. On stderr, not stdout: unlike kaukea,
-# this process's stdout IS the hook-output channel the harness parses, never
-# a place for free text.
+# source_dirs -> one package directory per line, from .ai.toml's [[dependency]]
+# blocks (bin/kaukea's dep_rows convention). A source that is neither a path,
+# a git URI, nor <owner>/<repo> is invalid — bin/kaukea's deps_list warns and
+# ignores it; mirrored here. On stderr, not stdout: unlike kaukea, this
+# process's stdout IS the hook-output channel the harness parses, never a
+# place for free text.
 source_dirs() {
-  awk '/^\[sources\."/ { s=$0; sub(/^\[sources\."/,"",s); sub(/"\].*$/,"",s); print s }' "$AITOML" |
-  while IFS= read -r key; do
-    [ -n "$key" ] || continue
-    case "$key" in
-      /*)   printf '%s\n' "$key" ;;
-      */*)  printf '%s\n' "$ROOT/.ai/repositories/$key" ;;
-      *)    printf 'kai-hooks: .ai.toml: source "%s" is neither <owner>/<repo> nor a full path — ignored\n' "$key" >&2 ;;
+  awk '
+    /^[ \t]*\[\[dependency\]\][ \t]*$/ { indep = 1; next }
+    /^[ \t]*\[/                          { indep = 0; next }
+    indep && /^[ \t]*source[ \t]*=/ {
+      v = $0
+      sub(/^[ \t]*source[ \t]*=[ \t]*/, "", v)
+      if (substr(v, 1, 1) == "\"") { sub(/^"/, "", v); sub(/".*$/, "", v) }
+      else { sub(/[ \t]*#.*$/, "", v); sub(/[ \t]+$/, "", v) }
+      if (v != "") print v
+    }
+  ' "$AITOML" |
+  while IFS= read -r src; do
+    [ -n "$src" ] || continue
+    tail=${src##*/}
+    case "$tail" in *@*) src=${src%@*} ;; esac
+    case "$src" in
+      *://*|git@*)
+        bare=${src%.git}; bare=${bare%/}; tail=${bare##*:}
+        case "$tail" in */*) ;; *) tail=$bare ;; esac
+        printf '%s\n' "$ROOT/.ai/repositories/$(basename "$(dirname "$tail")")/$(basename "$tail")" ;;
+      /*)   printf '%s\n' "$src" ;;
+      ./*|../*) printf '%s\n' "$ROOT/${src#./}" ;;
+      */*)  printf '%s\n' "$ROOT/.ai/repositories/$src" ;;
+      *)    printf 'kai-hooks: .ai.toml: source "%s" is not <owner>/<repo>, a git URI, or a path — ignored\n' "$src" >&2 ;;
     esac
   done
 }
