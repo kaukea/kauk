@@ -6,38 +6,41 @@
 # and the symlinks, nothing else breaks.
 #
 #   kai init                              bootstrap THIS repo (no data source)
-#   kai install <owner>/<repo> | <path>   add + lay a package source
+#   kai install <owner>/<repo> | <uri> | <path>   add + lay a dependency
 #   kai sync [--status|--pull|--push]     the manual synchronisation: pull with
 #                                          rebase and lay (the default); --pull
 #                                          narrows to taking, --push to giving
 #   kai resolve [--assist]                list destinations kai refused to touch;
 #                                          --assist asks Claude to attempt a merge
 #
-# HEAD-TRACKING ONLY (Decision-051): versions, tags, locks and pins are one
-# deferred piece of work. Sync is what sync always was — run when the operator
-# wants it, pulling with rebase and laying. Push stays a separate, explicit act
-# (--push, Decision-049); pending migrations run after a successful pull
-# (Decision-022) and removals are warned about. A source carrying ref = "…" —
-# a version, tag, or specific commit — is NOT touched: kauk lays what is there
-# and leaves the clone alone until the versioning work exists. A rebase that
-# conflicts stops and reports; merge handling beyond that is deferred. The
-# "updates available" notice is a background check, not this command.
+# ONE configuration file per repository: .ai.toml, at its root
+# (docs/configuration-files.md, the operator's own). Its root table says what
+# THIS repository is; its [[dependency]] entries say what it consumes.
 #
-# .ai.toml is DEFAULTS-ONLY (Decision-047/049). A source table's key says it all:
+#   name = "my-thing"          # optional; defaults to the directory name
+#   type = "package"           # optional; "project" when absent
 #
-#   [sources."<owner>/<repo>"]     resolves to https://github.com/<owner>/<repo>
-#   [sources."/full/path"]         a local working tree; its <owner>/<repo>
-#                                  identity derives from its origin remote, else
-#                                  from the last two path components
+#   [[dependency]]
+#   type = "package"           # optional; the only value acted on today
+#   source = "kaukea/orchard"  # owner/repo, a git URI, or a local path
+#   include = ["process/orchard", "development"]
 #
-# An `origin =` key on an <owner>/<repo> source is an ERROR — nothing else lives
-# in a source table except the operator's selection:
+# A source is one of: <owner>/<repo> (resolved to github.com), a full git URI,
+# an absolute path, or a ./relative path (against this repository's root). It
+# may end in @HEAD. Any other ref — a branch, a tag, a commit — is NOT acted on
+# until the versioning work exists (operator, 2026-08-26): the clone is left
+# where it is and what is there is laid.
 #
-#   select = ["process/orchard", "development", "misc/helper"]
+# include is the operator's selection, package-relative category paths: a node
+# takes its subtree, its ancestors' own artifacts, and the dependency closure;
+# a "<category>/<artifact>" entry picks one artifact. No include key = every
+# artifact. It is accepted on git sources only — a local path is a development
+# convenience that has to be replaced before publishing, and a selection that
+# does not survive that swap is a trap (operator, 2026-08-26).
 #
-# Package-relative category paths: a node takes its subtree, its ancestors' own
-# artifacts, and the dependency closure; a "<category>/<artifact>" entry picks
-# one artifact. No select key = everything, exactly as before selection existed.
+# The file is the operator's. kai only ever APPENDS one [[dependency]] block to
+# it, at install, after the last dependency already there. It writes nothing
+# else into it, and stamps its own name on nothing it writes anywhere.
 #
 # A package declares nothing centrally (Decision-046). Contents are determined
 # BY CONVENTION — skills/ agents/ hooks/ tools/ files/ — and artifacts
@@ -47,108 +50,204 @@
 # `dependencies:` map is accepted too), bare names within the package,
 # `<package>/<category>/…/<artifact>` across packages.
 #
+# HEAD-TRACKING ONLY (Decision-051): versions, tags, locks and pins are one
+# deferred piece of work. Sync is what sync always was — run when the operator
+# wants it, pulling with rebase and laying. Push stays a separate, explicit act
+# (--push, Decision-049); pending migrations run after a successful pull
+# (Decision-022) and removals are warned about.
+#
 # Everything laid is a symlink into the clone (absolute, so git worktrees
 # resolve); a destination the user owns is reported and skipped, never replaced.
 # Laying happens only AFTER selection.
 set -euo pipefail
 
 die() { printf 'kai: %s\n' "$1" >&2; exit 1; }
-say() { printf '%s\n' "$1"; }
+say()  { printf '%s\n' "$1"; }
+warn() { printf '%s\n' "$1" >&2; }   # never into a list a caller is reading
 
 repo_root() { git rev-parse --show-toplevel 2>/dev/null || die "not inside a git repository"; }
 clone_of() { echo "$1/.ai/repositories/$2"; }
 
 # ---------- .ai.toml ----------
-# The OPERATOR's file: what this checkout consumes, and nothing else.
-src_tables() { # src_tables <root> -> one table key per line
-  [ -f "$1/.ai.toml" ] || return 0
-  awk '/^\[sources\."/ { s=$0; sub(/^\[sources\."/,"",s); sub(/"\].*$/,"",s); print s }' "$1/.ai.toml"
+# The OPERATOR's file, and the only configuration file there is. Root table:
+# this repository's own identity. [[dependency]] blocks: what it consumes.
+# Read line by line, in the same awk style as the rest of this stopgap; an
+# include list may span lines, nothing else may.
+
+ai_file() { echo "$1/.ai.toml"; }
+
+AWK_UNQ='
+  function unq(s,   q) {
+    sub(/^[ \t]*[A-Za-z_][A-Za-z_0-9-]*[ \t]*=[ \t]*/, "", s)
+    if (substr(s, 1, 1) == "\"") { q = substr(s, 2); sub(/".*$/, "", q); return q }
+    sub(/[ \t]*#.*$/, "", s); sub(/[ \t]+$/, "", s); sub(/^[ \t]+/, "", s)
+    return s
+  }
+  function arr(s,   n, a, i, out) {
+    sub(/^[^[]*\[/, "", s); sub(/\].*$/, "", s)
+    n = split(s, a, ",")
+    for (i = 1; i <= n; i++) {
+      gsub(/^[ \t"'"'"']+|[ \t"'"'"']+$/, "", a[i])
+      if (a[i] != "") out = out (out ? "," : "") a[i]
+    }
+    return out
+  }
+'
+
+root_field() { # root_field <repo-or-clone> <field> -> value from the root table
+  local f; f=$(ai_file "$1")
+  [ -f "$f" ] || return 0
+  awk -v key="$2" "$AWK_UNQ"'
+    /^[ \t]*\[/ { exit }
+    $0 ~ "^[ \t]*" key "[ \t]*=" { print unq($0); exit }
+  ' "$f"
 }
 
-key_field() { # key_field <root> <tablekey> <field> -> quoted strings of that field
-  [ -f "$1/.ai.toml" ] || return 0
-  awk -v id="$2" -v key="$3" '
-    /^\[sources\."/ { s=$0; sub(/^\[sources\."/,"",s); sub(/"\].*$/,"",s); cur=s; next }
-    /^\[/           { cur="" }
-    cur==id && $0 ~ "^"key"[ \t]*=" { n=split($0,a,"\""); for(i=2;i<=n;i+=2) if(a[i]!="") print a[i] }
-  ' "$1/.ai.toml"
+dep_rows() { # dep_rows <root> -> "<source>\t<type>\t<include-csv>" per dependency
+  local f; f=$(ai_file "$1")
+  [ -f "$f" ] || return 0
+  awk "$AWK_UNQ"'
+    function flush() {
+      if (indep && src != "") printf "%s|%s|%s\n", src, typ, inc
+      src = ""; typ = ""; inc = ""
+    }
+    /^[ \t]*\[\[dependency\]\][ \t]*$/ { flush(); indep = 1; next }
+    /^[ \t]*\[/                        { flush(); indep = 0; next }
+    inarr {
+      buf = buf " " $0
+      if ($0 ~ /\]/) { inc = arr(buf); inarr = 0; buf = "" }
+      next
+    }
+    indep && /^[ \t]*source[ \t]*=/  { src = unq($0); next }
+    indep && /^[ \t]*type[ \t]*=/    { typ = unq($0); next }
+    indep && /^[ \t]*include[ \t]*=/ {
+      buf = $0
+      if (buf ~ /\]/) { inc = arr(buf) } else { inarr = 1 }
+      next
+    }
+    END { flush() }
+  ' "$f"
 }
+
+dep_sources() { dep_rows "$1" | cut -d'|' -f1; }
 
 path_id() { # path_id <path> -> <owner>/<repo>: the last two path components
-  local p=${1%/}          # Decision-143's vendoring rule; the origin remote is
-  echo "$(basename "$(dirname "$p")")/$(basename "$p")"   # NOT consulted, so a
-}                         # renamed remote never silently relocates a clone
+  local p=${1%/}          # the origin remote is NOT consulted, so a renamed
+  echo "$(basename "$(dirname "$p")")/$(basename "$p")"   # remote never
+}                                                          # relocates a clone
 
-sources_list() { # sources_list <root> -> "<id> <origin> <tablekey>" per line
-  local root=$1 k o
-  while IFS= read -r k; do
-    [ -n "$k" ] || continue
-    case "$k" in
-      /*)
-        echo "$(path_id "$k") $k $k" ;;
+split_ref() { # split_ref <source> -> the @ref after the last /, or nothing
+  local tail=${1##*/}
+  case "$tail" in *@*) echo "${tail##*@}" ;; esac
+}
+
+strip_ref() { # strip_ref <source> -> the source with its @ref removed
+  local r; r=$(split_ref "$1")
+  [ -z "$r" ] && { echo "$1"; return 0; }
+  echo "${1%@$r}"
+}
+
+abs_path() { # abs_path <root> <path> -> ./relative resolved against the repository
+  case "$2" in
+    /*) echo "${2%/}" ;;
+    *)  echo "${1%/}/${2#./}" | sed 's|/*$||' ;;
+  esac
+}
+
+uri_id() { # uri_id <git-uri> -> <owner>/<repo>
+  local u=${1%.git} tail
+  u=${u%/}
+  tail=${u##*:}                 # git@host:owner/repo -> owner/repo
+  case "$tail" in
+    */*) echo "$(basename "$(dirname "$tail")")/$(basename "$tail")" ;;
+    *)   echo "$(basename "$(dirname "$u")")/$(basename "$u")" ;;
+  esac
+}
+
+deps_list() { # deps_list <root> -> "<id> <origin> <source-as-written>" per line
+  local root=$1 raw typ inc bare
+  while IFS='|' read -r raw typ inc; do
+    [ -n "$raw" ] || continue
+    case "$typ" in ''|package) ;; *) warn "WARN .ai.toml: dependency \"$raw\" has type \"$typ\" — only packages are acted on; ignored"; continue ;; esac
+    bare=$(strip_ref "$raw")
+    case "$bare" in
+      *://*|git@*)
+        echo "$(uri_id "$bare") $bare $raw" ;;
+      /*|./*|../*)
+        bare=$(abs_path "$root" "$bare")
+        echo "$(path_id "$bare") $bare $raw" ;;
       */*)
-        o=$(key_field "$root" "$k" origin | head -1)
-        [ -z "$o" ] || die "source \"$k\": origin is retired — an <owner>/<repo> source resolves to github.com/$k; a local source is keyed by its full path. Edit .ai.toml."
-        echo "$k https://github.com/$k $k" ;;
+        echo "$bare https://github.com/$bare $raw" ;;
       *)
-        say "WARN .ai.toml: source \"$k\" is neither <owner>/<repo> nor a full path — ignored" ;;
+        warn "WARN .ai.toml: source \"$raw\" is not <owner>/<repo>, a git URI, or a path — ignored" ;;
     esac
-  done < <(src_tables "$root")
+  done < <(dep_rows "$root")
 }
 
-source_origin() { sources_list "$1" | awk -v id="$2" '$1==id{v=$2} END{if(v!="")print v}'; }
-source_key()    { sources_list "$1" | awk -v id="$2" '$1==id{v=$3} END{if(v!="")print v}'; }
-source_select() { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" select; return 0; }
-source_ref()    { local k; k=$(source_key "$1" "$2"); [ -n "$k" ] && key_field "$1" "$k" ref | head -1; return 0; }
-
-# [general] is not a source table: one flat key = value block, same line-oriented
-# awk style as the rest of this reader. Multi-line arrays are not supported here
-# either — general's only field today is a bare/quoted scalar, `type`.
-general_field() { # general_field <root> <field> -> its value, or ""
-  [ -f "$1/.ai.toml" ] || return 0
-  awk -v key="$2" '
-    /^\[general\]/ { cur=1; next }
-    /^\[/           { cur=0 }
-    cur && $0 ~ "^"key"[ \t]*=" { n=split($0,a,"\""); if (n>=2) print a[2] }
-  ' "$1/.ai.toml"
+validate_config() { # the config errors worth stopping for, reported before any work
+  local root=$1 raw typ inc
+  while IFS='|' read -r raw typ inc; do
+    [ -n "$raw" ] || continue
+    [ -n "$inc" ] || continue
+    case "$(strip_ref "$raw")" in
+      /*|./*|../*)
+        die "dependency \"$raw\" carries an include list. include is accepted on git sources only: a local path is a development convenience that has to be replaced by its git source before publishing, and a selection that does not survive that swap is a trap. Remove the include, or point the dependency at the git source." ;;
+    esac
+  done < <(dep_rows "$root")
 }
 
-# A repository declares itself a package with [general] type = "package" in its
-# OWN .ai.toml — never inferred from a source declaration (Decision, 2026-08-19:
-# .ai.toml is the operator's file to manage however they like; is_self_source is
-# retired for exactly this reason). When set, the repository applies its own
-# migrations/ to itself, lays its own agents/skills, and publishes its own files
-# by copy (see lay_self). When absent, it is an ordinary consumer.
-is_package_repo() { [ "$(general_field "$1" type)" = package ]; }
+dep_origin() { deps_list "$1" | awk -v id="$2" '$1==id{v=$2} END{if(v!="")print v}'; }
+dep_source() { deps_list "$1" | awk -v id="$2" '$1==id{v=$3} END{if(v!="")print v}'; }
 
-ensure_aitoml() {
-  local root=$1 f="$root/.ai.toml"
+dep_include() { # dep_include <root> <id> -> one category path per line
+  local raw; raw=$(dep_source "$1" "$2")
+  [ -n "$raw" ] || return 0
+  dep_rows "$1" | awk -F'|' -v s="$raw" '$1==s{print $3; exit}' | tr ',' '\n' | grep . || true
+}
+
+dep_ref() { # dep_ref <root> <id> -> HEAD, a branch/tag/commit, or nothing
+  local raw; raw=$(dep_source "$1" "$2")
+  [ -n "$raw" ] && split_ref "$raw"
+  return 0
+}
+
+# A repository declares itself a package with type = "package" in the ROOT
+# TABLE of its own .ai.toml (docs/configuration-files.md). When set, it applies
+# its own migrations/ to itself, lays its own agents/skills, and publishes its
+# own files by copy (see lay_self). When absent, it is an ordinary project.
+is_package_repo() { [ "$(root_field "$1" type)" = package ]; }
+
+ensure_aitoml() { # created empty: its contents are the operator's, not kai's
+  local root=$1 f; f=$(ai_file "$root")
   [ -f "$f" ] && return 0
-  cat > "$f" <<'EOF'
-# Yours to edit — this file says what this repository consumes.
-# [sources."<owner>/<repo>"] resolves to github.com; [sources."/full/path"] is
-# local. Each table may carry select = ["<category-path>", ...]; no select
-# means everything. Clones sit at .ai/repositories/<owner>/<repo>/ (gitignored).
-EOF
+  : > "$f"
   say ".ai.toml: created"
 }
 
-register_source() { # register_source <root> <tablekey> — idempotent
-  local root=$1 k=$2 f="$root/.ai.toml"
-  grep -q "^\[sources\.\"$k\"\]" "$f" 2>/dev/null && return 0
-  printf '\n[sources."%s"]\n' "$k" >> "$f"
-  say ".ai.toml: registered source $k"
+register_dependency() { # append one [[dependency]] after the last one — idempotent
+  local root=$1 raw=$2 f last end
+  f=$(ai_file "$root")
+  dep_sources "$root" | grep -qxF "$raw" && return 0
+  last=$(grep -n '^[ \t]*\[\[dependency\]\][ \t]*$' "$f" 2>/dev/null | tail -1 | cut -d: -f1)
+  if [ -z "$last" ]; then
+    [ -s "$f" ] && printf '\n' >> "$f"
+    printf '[[dependency]]\nsource = "%s"\n' "$raw" >> "$f"
+  else
+    end=$(awk -v s="$last" 'NR>s && /^[ \t]*\[/ { print NR-1; exit }' "$f")
+    [ -n "$end" ] || end=$(wc -l < "$f")
+    { [ "$end" -gt 0 ] && head -n "$end" "$f"
+      printf '\n[[dependency]]\nsource = "%s"\n' "$raw"
+      tail -n +$((end + 1)) "$f"
+    } > "$f.kai-tmp" && mv "$f.kai-tmp" "$f"
+  fi
+  say ".ai.toml: registered dependency $raw"
 }
 
 # ---------- package identity & convention ----------
 KINDS="skills agents hooks tools files templates"
 
-pkg_field() { sed -n "s/^$2[[:space:]]*=[[:space:]]*\"\(.*\)\"/\1/p" "$1/package.toml" 2>/dev/null | head -1; }
-pkg_flag()  { grep -Eq "^$2[[:space:]]*=[[:space:]]*true[[:space:]]*$" "$1/package.toml" 2>/dev/null; }
-
-is_package() {
+is_package() { # does this tree CARRY package contents — by convention, nothing else
   local src=$1 d
-  [ -f "$src/package.toml" ] && return 0
   for d in $KINDS; do [ -d "$src/$d" ] && return 0; done
   return 1
 }
@@ -158,13 +257,13 @@ same_path() { [ -d "$1" ] && [ -d "$2" ] && [ "$(cd "$1" && pwd -P)" = "$(cd "$2
 # A declared source is always vendored, never inferred to be "this repository"
 # by comparing its path against root (is_self_source is retired, 2026-08-19):
 # .ai.toml is the operator's file and no behaviour hangs off what they wrote
-# in it. Self-application is exclusively [general] type = "package" — see
+# in it. Self-application is exclusively the root table's type = "package" — see
 # is_package_repo and lay_self.
 source_tree()  { clone_of "$1" "$2"; }
 publish_mode() { echo link; }
 
 pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
-  local src=$1 id=$2 n; n=$(pkg_field "$src" name)
+  local src=$1 id=$2 n; n=$(root_field "$src" name)
   echo "${n:-${id##*/}}"
 }
 
@@ -231,7 +330,7 @@ each_artifact() { # each_artifact <src> -> "<kind-letter> <name>" per line
 }
 
 # ---------- selection & closure ----------
-# Selection is the operator's per-source select list; the installed set is its
+# Selection is the operator's per-dependency include list; the installed set is its
 # dependency closure (Decision-025/047). A declared path D matches an entry E
 # when D==E, D lies under E, or E lies under D (a node brings its ancestors'
 # own artifacts). "<category>/<artifact>" picks one artifact. Undeclared
@@ -304,7 +403,7 @@ close_selection() { # fixpoint over declared dependencies, in-package; cross-pac
 build_selection() { # build_selection <root> <src> <id>
   local root=$1 src=$2 id=$3 entries e k n f decl
   SEL_ACTIVE=0; : > "$SEL_FILE"
-  entries=$(source_select "$root" "$id")
+  entries=$(dep_include "$root" "$id")
   [ -n "$entries" ] || return 0
   SEL_ACTIVE=1
   while read -r k n; do
@@ -326,18 +425,18 @@ build_selection() { # build_selection <root> <src> <id>
 }
 
 resolve_xdeps() { # cross-package closure by the name-rooted grammar (one level)
-  local root=$1 l n needer pkg id origin key src found
+  local root=$1 l n needer pkg id origin raw src found
   [ -s "$XDEPS" ] || return 0
   sort -u -o "$XDEPS" "$XDEPS"
   while read -r l n needer pkg; do
     [ -n "$l" ] || continue
     found=""
-    while read -r id origin key; do
+    while read -r id origin raw; do
       [ -n "$id" ] || continue
       src=$(source_tree "$root" "$id")
       [ "$(pkg_namespace "$src" "$id")" = "$pkg" ] || continue
       [ -e "$(artifact_file "$src" "$l" "$n")" ] || [ -e "$src/tools/$n" ] && { found=$id; break; }
-    done < <(sources_list "$root")
+    done < <(deps_list "$root")
     if [ -n "$found" ]; then
       lay_one_artifact "$root" "$found" "$l" "$n"
       say "  closure: +$pkg/$l/$n (needed by $needer)"
@@ -374,14 +473,14 @@ render_tree() { # render_tree <root> <id> — the derived tree, for the add-time
   } | sort | awk '{ if($1!=p){ printf "%s%s:", (NR>1?"\n":""), $1; p=$1 } printf " %s", $2 } END { print "" }'
 }
 
-offer_tree() { # after an unselected install: show the tree, invite a select
-  local root=$1 id=$2 key
-  [ -z "$(source_select "$root" "$id")" ] || return 0
-  key=$(source_key "$root" "$id")
+offer_tree() { # after an install with no include list: show the tree, invite one
+  local root=$1 id=$2 raw
+  [ -z "$(dep_include "$root" "$id")" ] || return 0
+  raw=$(dep_source "$root" "$id")
   say ""
   say "$id declares this tree; nothing is selected, so everything installed."
   render_tree "$root" "$id" | sed 's/^/  /'
-  say "To trim, add under [sources.\"$key\"] in .ai.toml:  select = [\"<category-path>\", …]"
+  say "To trim, add to the [[dependency]] with source = \"$raw\" in .ai.toml:  include = [\"<category-path>\", …]"
 }
 
 # ---------- runtime detection ----------
@@ -472,10 +571,10 @@ lay_source() { # lay_source <root> <id>  (idempotent; never destroys real files)
   say "$mode: $LAID laid/verified ($id) [$(echo "$runtimes" | tr '\n' ' ')]"
 }
 
-lay_self() { # lay_self <root> — [general] type = "package": this repository is
+lay_self() { # lay_self <root> — root-table type = "package": this repository is
              # also a consumer of ITS OWN migrations/agents/skills/files, laid
              # by copy rather than link (there is no clone to link through).
-             # Unfiltered: self has no [sources."…"] select list to key off.
+             # Unfiltered: self has no [[dependency]] include list to key off.
   local root=$1 ns rt runtimes
   is_package "$root" || { say "self: no package contents at root — nothing to lay"; return 0; }
   ns=$(pkg_namespace "$root" "$(path_id "$root")")
@@ -606,14 +705,14 @@ pkg_artifact_names() { # pkg_artifact_names <src> -> kind/name per line, sorted
 }
 
 # ONE global watermark (Decision, 2026-08-19): the <YYYY-MM-DD>-<NN> prefix of
-# the last applied migration, one committed line at .ai/lock.toml under
+# the last applied migration, one committed line at .ai/migrations.toml under
 # [migrations] — never per source, never under .git (nothing survives a clone
 # there). Every declared source's migrations/, plus this repository's own when
-# [general] type = "package", merge into ONE stream ordered by that prefix;
+# root-table type = "package", merge into ONE stream ordered by that prefix;
 # packages no longer migrate independently of each other. Errors are reported,
 # not handled: a failing scripted step is reported and kai moves on to the
 # next migration — no ask files, no blocking, no hand-off to an agent.
-LOCK_FILE=".ai/lock.toml"
+WATERMARK_FILE=".ai/migrations.toml"
 
 mig_date() { local b; b=$(basename "$1" .md); printf '%s\n' "${b:0:10}"; }
 
@@ -627,8 +726,8 @@ mig_nn() { # mig_nn <path> -> the NN token as an integer; 0 for the older
 
 collect_migrations() { # collect_migrations <root> -> "<date> <nn> <id> <path>"
                         # per line, one global stream sorted by date then NN
-  local root=$1 id origin key src f
-  { while read -r id origin key; do
+  local root=$1 id origin raw src f
+  { while read -r id origin raw; do
       [ -n "$id" ] || continue
       src=$(source_tree "$root" "$id")
       [ -d "$src/migrations" ] || continue
@@ -636,7 +735,7 @@ collect_migrations() { # collect_migrations <root> -> "<date> <nn> <id> <path>"
         [ -e "$f" ] || continue
         printf '%s %s %s %s\n' "$(mig_date "$f")" "$(mig_nn "$f")" "$id" "$f"
       done
-    done < <(sources_list "$root")
+    done < <(deps_list "$root")
     if is_package_repo "$root" && [ -d "$root/migrations" ]; then
       for f in "$root"/migrations/*.md; do
         [ -e "$f" ] || continue
@@ -647,7 +746,7 @@ collect_migrations() { # collect_migrations <root> -> "<date> <nn> <id> <path>"
 }
 
 lock_watermark() { # lock_watermark <root> -> the stored prefix, or "" (absent = fresh install)
-  local f="$1/$LOCK_FILE"
+  local f="$1/$WATERMARK_FILE"
   [ -f "$f" ] || return 0
   awk '
     /^\[migrations\]/ { cur=1; next }
@@ -656,14 +755,12 @@ lock_watermark() { # lock_watermark <root> -> the stored prefix, or "" (absent =
   ' "$f"
 }
 
-write_watermark() { # write_watermark <root> <prefix> — .ai/lock.toml is kai's
-                     # own generated state, not the operator's to hand-edit;
-                     # regenerated whole, same as ensure_aitoml's stance on
-                     # never partially rewriting a file by hand-rolled sed.
-  local root=$1 val=$2 f="$root/$LOCK_FILE"
+write_watermark() { # write_watermark <root> <prefix> — .ai/migrations.toml is
+                     # generated state, not the operator's to hand-edit;
+                     # regenerated whole, and carrying no name but the value's.
+  local root=$1 val=$2 f="$root/$WATERMARK_FILE"
   mkdir -p "$(dirname "$f")"
   cat > "$f" <<EOF
-# kai's own state — regenerated by kai, committed so it survives a clone.
 [migrations]
 watermark = "$val"
 EOF
@@ -720,35 +817,22 @@ announce_reload() { # unconditional at the end of every sync, package or not
 }
 
 # ---------- package dependencies ----------
-# package.toml may declare `dependencies = ["<owner>/<repo>", …]` — the package
-# graph resolves first, the artifact closure then runs across the union
-# (Decision-038, build authorised 2026-08-13).
-pkg_dep_sources() {
-  [ -f "$1/package.toml" ] || return 0
-  awk '/^dependencies[ \t]*=/ { n=split($0,a,"\""); for(i=2;i<=n;i+=2) if(a[i]!="") print a[i] }' "$1/package.toml"
-}
-
-ensure_dep_sources() { # ensure_dep_sources <root> <id> — install missing package deps
-  local root=$1 id=$2 src dep key
-  src=$(source_tree "$root" "$id")
-  for dep in $(pkg_dep_sources "$src"); do
-    case "$dep" in */*) ;; *) say "  WARN $id: package dependency '$dep' is not <owner>/<repo> — ignored"; continue ;; esac
-    key=$(source_key "$root" "$dep")     # an existing registration (path or repo form) wins
-    [ -n "$key" ] && [ -d "$(clone_of "$root" "$dep")/.git" ] && continue
-    say "  dependency: $dep (required by $id)"
-    install_source "$root" "${key:-$dep}" || say "  WARN $id: could not install dependency $dep"
-  done
-}
+# A package that needs ANOTHER package used to say so in package.toml. That file
+# is gone and where the declaration goes instead is PARKED with the versioning
+# work (operator, 2026-08-26), so nothing is installed on a package's behalf
+# today: a consumer declares every package it wants in its own .ai.toml.
 
 # ---------- install ----------
 install_source() { # install_source <root> <tablekey-or-id> — register, clone, lay
-  local root=$1 ref=$2 id origin clone src
-  case "$ref" in
-    /*) register_source "$root" "$ref"; id=$(path_id "$ref") ;;
-    */*) register_source "$root" "$ref"; id=$ref ;;
-    *) say "  WARN install: '$ref' is neither <owner>/<repo> nor a full path"; return 1 ;;
+  local root=$1 ref=$2 id origin clone src bare
+  bare=$(strip_ref "$ref")
+  case "$bare" in
+    *://*|git@*) register_dependency "$root" "$ref"; id=$(uri_id "$bare") ;;
+    /*|./*|../*) register_dependency "$root" "$ref"; id=$(path_id "$(abs_path "$root" "$bare")") ;;
+    */*)         register_dependency "$root" "$ref"; id=$bare ;;
+    *) say "  WARN install: '$ref' is not <owner>/<repo>, a git URI, or a path"; return 1 ;;
   esac
-  origin=$(source_origin "$root" "$id")
+  origin=$(dep_origin "$root" "$id")
   clone=$(clone_of "$root" "$id")
   if [ ! -d "$clone/.git" ]; then
     mkdir -p "$(dirname "$clone")"
@@ -758,25 +842,30 @@ install_source() { # install_source <root> <tablekey-or-id> — register, clone,
     say "clone: already present"
   fi
   src="$clone"
-  [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
+  [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead || true
   is_package "$src" || { say "  WARN $id has no package contents — not a kai package (expects any of: $KINDS)"; return 1; }
 
   # A destination the user owns is REPORTED AND SKIPPED (Decision-016); a name
   # collision is namespaced (Decision-042); nothing is dispatched (Decision-041).
   lay_source "$root" "$id"
-  ensure_dep_sources "$root" "$id"
 }
 
 cmd_install() {
   local ref=${1:-}
-  [ -n "$ref" ] || die "usage: kai install <owner>/<repo> | <path>"
+  [ -n "$ref" ] || die "usage: kai install <owner>/<repo> | <uri> | <path>"
   local root; root=$(repo_root)
   ensure_aitoml "$root"
+  validate_config "$root"
   ensure_gitignore "$root"
   install_source "$root" "$ref" || die "install: $ref failed"
   resolve_xdeps "$root"
   prune_links "$root"
-  local id; case "$ref" in /*) id=$(path_id "$ref") ;; *) id=$ref ;; esac
+  local id bare; bare=$(strip_ref "$ref")
+  case "$bare" in
+    *://*|git@*) id=$(uri_id "$bare") ;;
+    /*|./*|../*) id=$(path_id "$(abs_path "$root" "$bare")") ;;
+    *)           id=$bare ;;
+  esac
   say "install: $id done"
   offer_tree "$root" "$id"
   report_conflicts
@@ -784,16 +873,17 @@ cmd_install() {
 
 # ---------- resolve ----------
 collect_conflicts() {
-  local root=$1 id origin key
+  local root=$1 id origin raw
   CONFLICTS=""
-  while read -r id origin key; do
+  while read -r id origin raw; do
     [ -n "$id" ] || continue
     lay_source "$root" "$id" >/dev/null
-  done < <(sources_list "$root")
+  done < <(deps_list "$root")
 }
 
 cmd_resolve() {
   local root; root=$(repo_root)
+  validate_config "$root"
   local assist=0
   [ "${1:-}" = "--assist" ] && assist=1
   collect_conflicts "$root"
@@ -832,7 +922,7 @@ cmd_init() {
   if same_path "$script_repo" "$root"; then
     lay_self "$root"
     prune_links "$root"
-    say "init: done — this repository is itself the kai package (self-published; add [general] type = \"package\" to .ai.toml to also apply its own migrations on sync)"
+    say "init: done — this repository is itself the kai package (self-published; put type = \"package\" in the root table of .ai.toml to also apply its own migrations on sync)"
     return 0
   fi
   install_source "$root" "${KAUK_ORIGIN:-$script_repo}" || true
@@ -860,19 +950,22 @@ rebase_onto() { # rebase_onto <id> <clone> <target> -> 0 ok; 1 conflict (aborted
 }
 
 sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
-  local root=$1 id=$2 pull=$3 push=$4 clone origin target before after gone
+  local root=$1 id=$2 pull=$3 push=$4 clone origin target before after gone ref
   clone=$(clone_of "$root" "$id")
   if [ ! -d "$clone/.git" ]; then
-    origin=$(source_origin "$root" "$id")
+    origin=$(dep_origin "$root" "$id")
     mkdir -p "$(dirname "$clone")"
     git clone --quiet "$origin" "$clone" 2>/dev/null || { say "$id: clone failed from $origin (offline?)"; return 0; }
     say "clone: $clone"
-    [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead
+    [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead || true
   fi
 
-  # a ref'd source — version, tag, or commit — is not kauk's to move (Decision-051)
-  if [ -n "$(source_ref "$root" "$id")" ]; then
-    say "$id: ref'd — left untouched until the versioning work; laying what is there"
+  # @HEAD is the only ref acted on: a branch, tag or commit waits for the
+  # versioning work (operator, 2026-08-26), and until then its clone is left
+  # exactly where it is and what is there is laid.
+  ref=$(dep_ref "$root" "$id")
+  if [ -n "$ref" ] && [ "$ref" != HEAD ]; then
+    say "$id: source names @$ref — anything other than @HEAD waits for the versioning work; laying what is there, moving nothing"
     lay_source "$root" "$id"
     return 0
   fi
@@ -895,9 +988,7 @@ sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
   fi
 
   if [ "$push" = 1 ]; then
-    if pkg_flag "$clone" pull-only; then
-      say "$id: pull-only package — consumers never push back; your edits stay local"
-    elif git -C "$clone" push --quiet origin "HEAD:main" 2>/dev/null; then
+    if git -C "$clone" push --quiet origin "HEAD:main" 2>/dev/null; then
       say "push: $id → $(git -C "$clone" rev-parse --short HEAD) published"
     else
       say "$id: push failed (offline, or no write access) — your edits stay committed in the clone"
@@ -905,14 +996,13 @@ sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
   fi
 
   lay_source "$root" "$id"
-  ensure_dep_sources "$root" "$id"
   say "sync: $id ($(git -C "$clone" rev-parse --short HEAD))"
 }
 
 sweep_orphan_clones() { # clones under .ai/repositories/ that .ai.toml no longer declares: removed only when provably disposable, else reported
   local root=$1 d id keep head
   [ -d "$root/.ai/repositories" ] || return 0
-  keep=$(sources_list "$root" | awk '{print $1}')
+  keep=$(deps_list "$root" | awk '{print $1}')
   for d in "$root"/.ai/repositories/*/*/; do
     [ -d "$d" ] || continue
     d=${d%/}
@@ -952,6 +1042,7 @@ status_source() { # status_source <root> <id>
 
 cmd_sync() {
   local root; root=$(repo_root)
+  validate_config "$root"
   local status_only=0 pull=0 push=0 a
   for a in "$@"; do
     case "$a" in
@@ -962,13 +1053,13 @@ cmd_sync() {
     esac
   done
   [ "$pull" = 1 ] && [ "$push" = 1 ] && die "one of --pull or --push — taking and giving are separate acts"
-  local list; list=$(sources_list "$root")
+  local list; list=$(deps_list "$root")
   local self=0; is_package_repo "$root" && self=1
   # A package repository is also a consumer of ITS OWN migrations (Decision,
   # 2026-08-19) — declaring no sources of its own is no longer a dead end.
-  [ -n "$list" ] || [ "$self" = 1 ] || die "no sources in .ai.toml — run 'kai init' first"
-  local id origin key
-  while read -r id origin key; do
+  [ -n "$list" ] || [ "$self" = 1 ] || die "no dependencies in .ai.toml — run 'kai init' first"
+  local id origin raw
+  while read -r id origin raw; do
     [ -n "$id" ] || continue
     if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id" "$pull" "$push"; fi
   done < <(printf '%s\n' "$list")
