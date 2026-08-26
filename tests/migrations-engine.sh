@@ -158,5 +158,30 @@ check "install is announced"             'grep -q "watermark set to the install 
 check "history was not replayed"         '[ ! -e "$CONI/order.log" ]'
 check "the package was still laid"       '[ -L "$CONI/.claude/skills/alpha" ]'
 
+echo "== a migration that moves the store does not strand the ones after it =="
+# The kaukea rename does exactly this in the real estate: it moves
+# .ai/repositories/<old-owner>/<repo> to a new owner mid-stream. Every path
+# collected before it ran points at where the clone used to be.
+MPKG="$TMP/oldowner/mover"
+git_init "$MPKG"; mkdir -p "$MPKG/skills/m1" "$MPKG/migrations"
+printf -- '---\nname: m1\n---\nm\n' > "$MPKG/skills/m1/SKILL.md"
+printf 'name = "mover"\ntype = "package"\n' > "$MPKG/.ai.toml"
+mig "$MPKG" "2026-02-01-01-before.md" before
+printf '# fixture migration\n\n```sh\nmkdir -p .ai/repositories/newowner\nmv .ai/repositories/oldowner/mover .ai/repositories/newowner/mover\nrmdir .ai/repositories/oldowner 2>/dev/null || true\necho moved >> order.log\n```\n' > "$MPKG/migrations/2026-02-01-02-move.md"
+mig "$MPKG" "2026-02-01-03-after.md" after
+commit_all "$MPKG"
+
+CONM="$TMP/consumer-move"
+git_init "$CONM"; mkdir -p "$CONM/.claude"
+printf '[[dependency]]\nsource = "%s"\n' "$MPKG" > "$CONM/.ai.toml"
+commit_all "$CONM"
+( cd "$CONM" && "$KAUK" sync ) >"$TMP/out8" 2>&1 || true
+check "the migration before the move ran" 'grep -qx "before" "$CONM/order.log"'
+check "the move itself ran"               'grep -qx "moved" "$CONM/order.log"'
+check "the one after the move ran too"    'grep -qx "after" "$CONM/order.log"'
+check "nothing failed on a moved path"    '! grep -q "FAILED" "$TMP/out8"'
+check "no stale path was reached for"     '! grep -q "cannot open file" "$TMP/out8"'
+check "watermark reached the last one"    'grep -q "watermark = \"2026-02-01-3\"" "$CONM/.ai/migrations.toml"'
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

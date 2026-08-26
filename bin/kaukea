@@ -812,44 +812,60 @@ watermark = "$val"
 EOF
 }
 
+next_migration() { # next_migration <root> <watermark> -> the one line of the
+                    # stream that comes straight after the watermark, or nothing
+  local root=$1 wm=$2 wm_date wm_nn
+  if [ -z "$wm" ]; then
+    wm_date=""; wm_nn=0
+  else
+    wm_date=${wm%-*}; wm_nn=${wm##*-}
+    case "$wm_nn" in ''|*[!0-9]*) wm_date=$wm; wm_nn=0 ;; esac
+  fi
+  collect_migrations "$root" | awk -v wd="$wm_date" -v wn="$wm_nn" '
+    {
+      if (wd == "")            { print; exit }
+      if ($1 == wd)            { if ($2 + 0 > wn + 0) { print; exit } ; next }
+      if ($1 > wd)             { print; exit }
+    }
+  '
+}
+
 apply_pending_migrations() { # apply_pending_migrations <root> — the merged engine
-  local root=$1 wm wm_date wm_nn d nn id path base highest="" ran=0
+  local root=$1 wm line d nn id path base
   # NO WATERMARK MEANS EVERY MIGRATION IS PENDING (operator, 2026-08-26).
   # Absence is the marker; nothing is written to stand in for it and no date is
   # invented. Each migration then detects for itself whether it still applies —
   # that is what the detect step of the format is for. The marker gets its real
   # value at install (see stamp_install_watermark) and advances from there.
   wm=$(lock_watermark "$root")
+  [ -n "$wm" ] || say "migrations: no watermark here — every migration is pending, each detects for itself"
 
-  if [ -z "$wm" ]; then
-    wm_date=""; wm_nn=0                       # nothing on disk is older than absence
-    say "migrations: no watermark here — every migration is pending, each detects for itself"
-  else
-    wm_date=${wm%-*}; wm_nn=${wm##*-}
-    case "$wm_nn" in ''|*[!0-9]*) wm_date=$wm; wm_nn=0 ;; esac
-  fi
-
-  while IFS=' ' read -r d nn id path; do
-    [ -n "$d" ] || continue
-    if [ -z "$wm_date" ]; then
-      :                                       # legacy: every migration is pending
-    elif [ "$d" = "$wm_date" ]; then
-      [ "$nn" -gt "$wm_nn" ] || continue
-    else
-      [ "$d" \> "$wm_date" ] || continue
-    fi
+  # ONE AT A TIME, RE-READING THE STREAM EACH TIME. A migration is free to move
+  # the store — the kaukea rename does exactly that — and every path collected
+  # before it ran points at where the clone used to be. So the next migration is
+  # located when its turn comes, never up front. The watermark advances after
+  # each one, failure included (errors are reported, not handled), so an
+  # interrupted run resumes where it stopped rather than starting over.
+  while :; do
+    line=$(next_migration "$root" "$wm")
+    [ -n "$line" ] || break
+    d=${line%% *}; line=${line#* }
+    nn=${line%% *}; line=${line#* }
+    id=${line%% *}; path=${line#* }
     base=$(basename "$path" .md)
-    say "  migration $base ($id): running scripted steps"
-    if awk '/^```sh$/{b=1;next} /^```/{b=0} b' "$path" | (cd "$root" && bash); then
-      say "  migration $base: applied"
+    if [ ! -f "$path" ]; then
+      say "  migration $base ($id): its file is gone from the store — skipped"
     else
-      say "  migration $base: FAILED — reported; kai moves on"
+      say "  migration $base ($id): running scripted steps"
+      if awk '/^```sh$/{b=1;next} /^```/{b=0} b' "$path" | (cd "$root" && bash); then
+        say "  migration $base: applied"
+      else
+        say "  migration $base: FAILED — reported; kai moves on"
+      fi
     fi
-    highest="$d-$nn"
-    ran=1
-  done < <(collect_migrations "$root")
-
-  [ "$ran" = 1 ] && [ -n "$highest" ] && write_watermark "$root" "$highest"
+    wm="$d-$nn"
+    write_watermark "$root" "$wm"
+  done
   return 0
 }
 
