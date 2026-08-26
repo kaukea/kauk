@@ -1077,6 +1077,14 @@ sweep_orphan_clones() { # clones under .ai/repositories/ that .ai.toml no longer
   local root=$1 d id keep head
   [ -d "$root/.ai/repositories" ] || return 0
   keep=$(deps_list "$root" | awk '{print $1}')
+  # A clone is not undeclared when the declarations could not be READ. An
+  # .ai.toml still in a form kai does not parse yields nothing, and sweeping on
+  # that would delete the whole store — including the very package carrying the
+  # migration that converts the file. Absent information is not evidence.
+  if [ -z "$keep" ]; then
+    say "  sweep skipped: .ai.toml declares nothing readable, so nothing here can be called undeclared"
+    return 0
+  fi
   for d in "$root"/.ai/repositories/*/*/; do
     [ -d "$d" ] || continue
     d=${d%/}

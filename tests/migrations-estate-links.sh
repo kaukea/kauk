@@ -212,5 +212,15 @@ run_migration "$MIG_MOVE" "$CON_MOVE" >"$TMP/out-move" 2>&1 || true
 check "relative serialseb link repointed by the migration" \
   '[ -e "$CON_MOVE/files/rel-stale.md" ] && readlink "$CON_MOVE/files/rel-stale.md" | grep -q "repositories/kaukea/kauk/skills/thing.md"'
 
+echo "== nothing readable in .ai.toml means nothing can be swept =="
+CON_UNREAD="$TMP/consumer-unreadable"; git_init "$CON_UNREAD"; mkdir -p "$CON_UNREAD/.claude"
+printf "placeholder\n" > "$CON_UNREAD/.claude/.keep"; commit_all "$CON_UNREAD"
+( cd "$CON_UNREAD" && "$KAUK" install "$PKGJ" ) >/dev/null 2>&1 || true
+check "setup: the clone is there"      '[ -d "$CON_UNREAD/.ai/repositories/test/pkgj/.git" ]'
+printf '[sources."test/pkgj"]\n' > "$CON_UNREAD/.ai.toml"
+( cd "$CON_UNREAD" && "$KAUK" sync ) >"$TMP/out-unread" 2>&1 || true
+check "the store survives an unreadable file" '[ -d "$CON_UNREAD/.ai/repositories/test/pkgj/.git" ]'
+check "the skipped sweep is announced"        'grep -q "sweep skipped" "$TMP/out-unread"'
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]
