@@ -123,7 +123,8 @@ EOF
 CON="$TMP/consumer"
 git_init "$CON"
 cat > "$CON/.ai.toml" <<EOF
-[sources."$SRC"]
+[[dependency]]
+source = "$SRC"
 EOF
 
 echo "== a scripts action runs the matching script, stdin passed through =="
@@ -186,28 +187,30 @@ check "notify named as documented, not an error" \
 check "neither is reported via the invalid-action (ERROR) wording" \
   '! printf "%s" "$OUT9" | grep -q "ERROR:"'
 
-echo "== defect 5: a malformed .ai.toml source key is named and ignored, not silently dropped =="
+echo "== defect 5: a malformed .ai.toml source is named and ignored, not silently dropped =="
 CON3="$TMP/consumer-badsrc"; git_init "$CON3"
 cat > "$CON3/.ai.toml" <<EOF
-[sources."$SRC"]
+[[dependency]]
+source = "$SRC"
 
-[sources."bogus"]
+[[dependency]]
+source = "bogus"
 EOF
 STUB_OUT10="$TMP/stub10.out"
 OUT10=$( cd "$CON3" && STUB_OUT="$STUB_OUT10" "$HOOKS" session.start 2>&1 >/dev/null ); RC10=$?
 check "exits 0"                            '[ "$RC10" -eq 0 ]'
-check "bad key named on stderr"            'printf "%s" "$OUT10" | grep -q '"'"'source "bogus"'"'"''
-check "bad key flagged neither shape"      'printf "%s" "$OUT10" | grep -q "neither <owner>/<repo> nor a full path"'
+check "bad source named on stderr"         'printf "%s" "$OUT10" | grep -q '"'"'source "bogus"'"'"''
+check "bad source flagged as no form"      'printf "%s" "$OUT10" | grep -q "is not <owner>/<repo>, a git URI, or a path"'
 check "the valid sibling source still ran" '[ -f "$STUB_OUT10" ]'
-# bin/kaukea's own sources_list (the other end of this contract) must trigger
-# on exactly the same two shapes it accepts — read-only comparison, this
+# bin/kaukea's own deps_list (the other end of this contract) must trigger
+# on exactly the same shapes it accepts — read-only comparison, this
 # suite does not invoke bin/kaukea's CLI (it may be mid-edit by a sibling
 # task and is out of this file's ownership).
-KSRC_FN=$(sed -n '/^sources_list() {/,/^}/p' "$KAUKEA")
+KSRC_FN=$(sed -n '/^deps_list() {/,/^}/p' "$KAUKEA")
 check "bin/kaukea accepts an absolute path the same way"   'printf "%s" "$KSRC_FN" | grep -q '"'"'/\*)'"'"''
 check "bin/kaukea accepts owner/repo the same way"         'printf "%s" "$KSRC_FN" | grep -q '"'"'\*/\*)'"'"''
 check "bin/kaukea warns on anything else, same as kai-hooks.sh" \
-  'printf "%s" "$KSRC_FN" | grep -q "neither <owner>/<repo> nor a full path"'
+  'printf "%s" "$KSRC_FN" | grep -q "is not <owner>/<repo>, a git URI, or a path"'
 
 echo "== settings.json: all five hook entries carry a timeout (courier-init.sh was unbounded) =="
 expect_timeout() {  # expect_timeout <event> -> the timeout it must carry (matches the

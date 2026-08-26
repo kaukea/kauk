@@ -32,12 +32,8 @@ git_init() {
   git -C "$1" config user.name Test
 }
 commit_all() { git -C "$1" add -A && git -C "$1" commit -qm "${2:-fixture}"; }
-pkg_toml() { # pkg_toml <dir> <name>
-  cat > "$1/package.toml" <<EOF
-name = "$2"
-title = "$2"
-description = "fixture"
-EOF
+pkg_toml() { # pkg_toml <dir> <name> — the package's own identity, root table
+  printf 'name = "%s"\ntype = "package"\n' "$2" > "$1/.ai.toml"
 }
 
 run_migration() { # run_migration <migration-file> <repo-dir> -> stdout captured by caller
@@ -147,12 +143,12 @@ CON_STALE="$TMP/consumer-stale"; git_init "$CON_STALE"; mkdir -p "$CON_STALE/.cl
 check "setup: gfoo laid before the rename"     '[ -L "$CON_STALE/.claude/skills/gfoo" ]'
 check "setup: horph laid before removal"       '[ -L "$CON_STALE/.claude/skills/horph" ]'
 # Rename pkgg's identity: move the source, repoint .ai.toml, drop the old clone.
+# pkgh drops out of .ai.toml entirely at the same time, and its clone goes with
+# it — no source anywhere still carries a skills/horph tail, so its laid link is
+# a true orphan.
 mv "$PKGG" "$TMP/test/pkgg-ren"
-sed -i "s|$PKGG|$TMP/test/pkgg-ren|" "$CON_STALE/.ai.toml"
+printf '[[dependency]]\nsource = "%s"\n' "$TMP/test/pkgg-ren" > "$CON_STALE/.ai.toml"
 rm -rf "$CON_STALE/.ai/repositories/test/pkgg"
-# True orphan: pkgh drops out of .ai.toml entirely, and its clone is gone too —
-# no source anywhere still carries a skills/horph tail.
-sed -i '\|\[sources\."'"$PKGH"'"\]|d' "$CON_STALE/.ai.toml"
 rm -rf "$CON_STALE/.ai/repositories/test/pkgh"
 ( cd "$CON_STALE" && "$KAUK" sync ) >"$TMP/out-stale" 2>&1 || true
 check "renamed source's link resolves into the new store path" \
