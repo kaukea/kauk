@@ -3,14 +3,27 @@
 
 ## Blockers
 
-Queued behind [[fleet-settings-wiring]] (operator sequencing order, 2026-08-18:
-"sorted first before we touch any repository anymore").
+~~Queued behind [[fleet-settings-wiring]]~~ — merged 2026-08-24.
+
+Two prerequisites found by trying the run on 2026-08-26, both now on main:
+[[migration-engine-rules]] (a repository that has never run a migration could
+not receive one) and [[settings-lay-clobbers]] (the stream would have planted a
+settings file in every repository). A consumer receives migrations by pulling
+this repository, so both had to land on main BEFORE the estate is touched.
 
 ## Questions
 
 _None — scope ruled at the migrations-at-sync close._
 
 ## Findings
+
+- Trial runs against SafeKeepIt/SignMc, 2026-08-26, each reverted to a verified
+  byte-identical state afterwards: the first died before writing anything; the
+  second replayed 22 migrations and converted the configuration file; the third
+  replayed 26 and ended with no dangling link and no settings file. Two of the
+  shipped migrations (the lock-file drop and the header removal) were still
+  unmerged at that point, so their first real exercise is the estate run
+  itself. SignMc was left exactly as found and is NOT converged.
 
 - OPERATOR ORDER (2026-08-20): reset all repositories from manual changes now
   implemented by migrations — the estate must reach its state THROUGH the
