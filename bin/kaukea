@@ -787,7 +787,21 @@ prune_links() { # dead symlinks into this repo's .ai/repositories/: repoint if t
       1) ln -sfn "$(rel_target "$matches" "$l")" "$l"; say "  RELINK ${l#"$root"/} -> ${matches#"$root"/}" ;;
       *) say "  AMBIGUOUS ${l#"$root"/} ($n sources carry $rest — kai will not guess)" ;;
     esac
-  done < <(find "$root" \( -name .git -o -name .ai \) -prune -o -type l -print 2>/dev/null)
+  done < <(links_under "$root")
+}
+
+# links_under <root> -> every symlink belonging to THIS checkout, one per line.
+# A directory carrying its own .git is a different checkout — a worktree, a
+# nested clone, a submodule — and its files are not ours to repair or remove,
+# however much they look like ours. Detected rather than matched by path: where
+# worktrees are put is a convention of whoever made them, and a sync that guesses
+# at the convention will one day guess wrong. -mindepth 1 keeps the test off the
+# root itself, which always has a .git and would otherwise prune everything.
+links_under() {
+  local root=$1
+  find "$root" -mindepth 1 \( -name .git -o -name .ai \) -prune \
+       -o -type d -exec test -e '{}/.git' ';' -prune \
+       -o -type l -print 2>/dev/null
 }
 
 ensure_gitignore() {
@@ -901,7 +915,12 @@ next_migration() { # next_migration <root> <watermark> <already-applied-file>
 
 apply_pending_migrations() { # apply_pending_migrations <root> — the merged engine
   local root=$1 wm line d nn id path base done_file highest=""
-  done_file=$(mktemp); trap 'rm -f "$done_file"' RETURN
+  # The trap has to disarm itself. A RETURN trap set inside a function stays
+  # installed in the caller once that function returns, so it fires a second
+  # time when the caller returns — by which point done_file is out of scope and
+  # `set -u` kills the run. That is what ended a sync with "done_file: unbound
+  # variable" after every migration had already applied cleanly.
+  done_file=$(mktemp); trap 'rm -f "${done_file:-}"; trap - RETURN' RETURN
   # NO WATERMARK MEANS EVERY MIGRATION IS PENDING (operator, 2026-08-26).
   # Absence is the marker; nothing is written to stand in for it and no date is
   # invented. Each migration then detects for itself whether it still applies —
