@@ -217,3 +217,18 @@ disk into the git folder without downloading anything again.
 
 _Board: `store-in-git-folder` · reported from Panopticon · relates to
 `stale-laid-links`._
+
+#### 📝 `f/ai-toml-doc` → `archive/ai-toml-doc`
+
+`.ai.toml` had no user-facing documentation — the only thing close was an
+example file that read like a specification and still described a syntax the
+tool no longer uses. `docs/ai-toml.md` now covers what the file is, that it
+belongs to whoever owns the repository and that `kai install` only ever appends
+to it, how to name a project, the three shapes a `source` takes, taking part of
+a package with `include`, why only `@HEAD` is acted on today, and where the
+clones actually live. Turning a repository into a package other repositories can
+install is kept in its own section, since most readers never need it. Reached
+from the README. The old example is deleted, along with a stored note claiming
+it outranked every decision and document that contradicted it.
+
+_Board: `ai-toml-doc`._
