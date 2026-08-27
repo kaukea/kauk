@@ -52,7 +52,7 @@ Until 0.1.0, `bin/kauk` is the shipped **bash stopgap** (component `cli-core`,
 Decision-007): the file-package half of the grammar — `init` / `install <owner>/<repo>`
 / `sync` / `resolve` — over git-vendored packages (`.ai/repositories/`), declared as
 `[[dependency]]` blocks in the repository's one configuration file, `.ai.toml`, whose
-root table also carries the repository's own identity (`docs/configuration-files.md`).
+root table also carries the repository's own identity (`docs/ai-toml.md`).
 The real CLI inherits the grammar and replaces it.
 
 **The clones live in the git folder; the working tree only points at them.** A package

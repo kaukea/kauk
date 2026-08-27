@@ -14,7 +14,7 @@
 #                                          --assist asks Claude to attempt a merge
 #
 # ONE configuration file per repository: .ai.toml, at its root
-# (docs/configuration-files.md, the operator's own). Its root table says what
+# (docs/ai-toml.md). Its root table says what
 # THIS repository is; its [[dependency]] entries say what it consumes.
 #
 #   name = "my-thing"          # optional; defaults to the directory name
@@ -239,7 +239,7 @@ dep_ref() { # dep_ref <root> <id> -> HEAD, a branch/tag/commit, or nothing
 }
 
 # A repository declares itself a package with type = "package" in the ROOT
-# TABLE of its own .ai.toml (docs/configuration-files.md). When set, it applies
+# TABLE of its own .ai.toml (docs/ai-toml.md). When set, it applies
 # its own migrations/ to itself, lays its own agents/skills, and publishes its
 # own files by copy (see lay_self). When absent, it is an ordinary project.
 is_package_repo() { [ "$(root_field "$1" type)" = package ]; }

@@ -17,7 +17,7 @@ repository that does not is simply a repository.
 ## The root table of `.ai.toml` — declaring that this repository is a package
 
 A repository becomes a package by saying so in the root table of its own `.ai.toml`,
-the one configuration file it has (`docs/configuration-files.md`):
+the one configuration file it has (`docs/ai-toml.md`):
 
 ```toml
 name = "orchard"
