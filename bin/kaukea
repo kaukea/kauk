@@ -295,8 +295,9 @@ pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
 }
 
 # ---------- frontmatter ----------
-# Artifacts self-declare (Decisions 046/047/048): `categories:` (roles: as
-# fallback until the orchids rename lands), dependencies as flat
+# Artifacts self-declare (Decisions 046/047/048): `categories:` (`roles:` is
+# still read as a fallback, for the packages whose declarations have not been
+# converted to the newer key yet), dependencies as flat
 # `dependencies-<kind>:` lists or the nested `dependencies:` map, and their own
 # files as globs. Kept trivially parseable for the thin CLI: flat inline lists.
 fm_block() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1" 2>/dev/null; }

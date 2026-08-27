@@ -20,7 +20,7 @@ A repository becomes a package by saying so in the root table of its own `.ai.to
 the one configuration file it has (`docs/configuration-files.md`):
 
 ```toml
-name = "orchids"
+name = "orchard"
 type = "package"
 ```
 

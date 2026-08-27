@@ -103,5 +103,5 @@ Hosting and DNS for `kauk.ai` (and `apt.kauk.org`). Static host is either GitHub
 
 ## workflow
 
-The agent operating model (orchids-managed): shared agent-rule files, skills, hooks, and
+The agent operating model (managed by the orchard package): shared agent-rule files, skills, hooks, and
 the workflow/branch/close machinery. Lives in `.claude/` + the `AGENTS*.md` files.
