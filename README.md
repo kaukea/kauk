@@ -30,7 +30,12 @@ hoard. See `ARCHITECTURE.md`.
   block says what it consumes — `source` of `owner/repo` (resolved to GitHub), a
   git URI, or a local path, with an optional `include = ["<category-path>", …]`
   on git sources. Without an include, everything installs. Sync converges and
-  lays; it never publishes your local edits to a source.
+  lays; it never publishes your local edits to a source. You do not have to run
+  it to get started: the packages a repository declares are cloned at session
+  start, into the git folder rather than the working tree, so a fresh clone or a
+  brand-new worktree reaches its packages without a sync. Every worktree shares
+  that folder and therefore the same clone; each checkout reaches it through
+  `.ai/repositories/`, which is ignored and never committed.
 - `docs/package-format.md` — **what a package is.** A package is a repository of files
   that knows nothing about kauk: its contents are the convention directories
   `skills/ agents/ hooks/ tools/ files/`, and anything outside them is ignored. There is

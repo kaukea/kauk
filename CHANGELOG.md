@@ -190,3 +190,30 @@ skill renames to `kai` with its content rewritten to the current model.
 Migration `2026-08-16-command-is-kai.md` cleans consumers' dangling links.
 
 _Board: cli-rename-kai · Decision-026, operator emphasis 2026-08-16._
+
+#### ✨ `f/store-in-git-folder` → `archive/store-in-git-folder`
+
+The directory holding a repository's packages is ignored, so git never puts it
+in a checkout: a fresh clone and every new worktree began with all of their
+committed links pointing at nothing, and the only way out was knowing to run a
+sync. The store moves into the git folder, which every worktree of a repository
+shares, so one clone serves all of them; each checkout reaches it through a link
+that is never committed and so may differ per checkout. Session start clones
+whatever a repository declares and does not yet have, which is what lets a fresh
+checkout work on its own.
+
+That also settles what the committed links carry. Their targets were absolute,
+naming the machine that wrote them, which quietly reverted the relative-symlink
+migration at every sync; and when laid or repaired from inside a worktree they
+were counted from the outer checkout, so links needing two steps were written
+with five and broke the moment their branch landed on main — one repository lost
+all of its agents, skills, tools and hooks that way in a single squash. The
+count now comes from the nearest `.ai.toml` above the link, which sits at a fixed
+place whichever checkout you are standing in.
+
+Two migrations carry existing repositories across: one repairs the committed
+links, descending into no other checkout, and one moves the clones already on
+disk into the git folder without downloading anything again.
+
+_Board: `store-in-git-folder` · reported from Panopticon · relates to
+`stale-laid-links`._
