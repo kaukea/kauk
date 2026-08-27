@@ -10,6 +10,18 @@ served at [kauk.ai](https://kauk.ai).
 > is reserved as `0.0.0` placeholders — `kauk` on PyPI, `@kauk.ai/kauk` on npm (npm's
 > similarity filter refuses the unscoped `kauk`); the real CLI ships at `0.1.0`.
 
+## Configuring a repository
+
+Every repository that uses kai has one file at its root, `.ai.toml`. It says what the
+repository is and what packages it consumes, and it is the only configuration file there
+is — no lock file, nothing hidden elsewhere. `kai install` appends a block to it; the
+rest of the file is yours.
+
+You can also manually manage your dependencies using the `.ai.toml` file — see
+[`docs/ai-toml.md`](docs/ai-toml.md) for what goes in it: naming your project, the shapes
+a `source` can take, taking only part of a package, and what turns a repository into a
+package other repositories can install.
+
 ## Design in one line
 
 Bind the *workflow*, not the *secrets* — one interface reaches every backend, but each
@@ -42,11 +54,13 @@ hoard. See `ARCHITECTURE.md`.
   no manifest to write.
 - `.ai.toml` — the one configuration file: identity in the root table, `[[dependency]]`
   blocks for what it consumes. Yours to edit; `kai install` only ever appends a block.
+  Written up in [`docs/ai-toml.md`](docs/ai-toml.md).
 - `namespace-reservation/` — the PyPI + npm placeholder packages that reserve the `kauk`
   name. Publish steps in `namespace-reservation/UPLOAD.md`.
 - `site/` — the `kauk.ai` projection (GitHub Pages / static host); one repo serves all
   `kauk.ai/<pkg>` pages.
-- `docs/` — the board (`TODO.md` + sidecars), `decisions.md`, and `naming.md`.
+- `docs/` — `ai-toml.md` (the configuration file), `package-format.md`, the board
+  (`TODO.md` + sidecars), `decisions.md`, and `naming.md`.
 - `tests/` — fixture-driven checks; `tests/convention-reader.sh` covers distribution,
   idempotence, pruning, collisions and self-publishing, and
   `tests/config-migration.sh` covers the move onto one configuration file.
