@@ -232,3 +232,23 @@ from the README. The old example is deleted, along with a stored note claiming
 it outranked every decision and document that contradicted it.
 
 _Board: `ai-toml-doc`._
+
+#### 🐛 `f/sync-stays-put` → `archive/sync-stays-put`
+
+A sync run in one checkout reached into a worktree belonging to another session,
+rewrote seventy-four of its links and deleted six of its files: the dead-link
+repair walked the whole tree and stopped only at the git and package
+directories, and every link it found in the worktree genuinely was dead, because
+a worktree never receives the package store. The walk now stops at any directory
+carrying its own git folder — worktree, nested clone or submodule — detected
+rather than matched by path, since where worktrees are put is a convention of
+whoever made them.
+
+The same run ended by reporting an unbound variable after every migration had
+applied cleanly. A cleanup installed for one function's own return stays
+installed in its caller and fired a second time with its variable out of scope,
+so every migration-applying sync since the watermark fix had exited non-zero
+after doing its work. The trap now disarms itself.
+
+_Board: `sync-stays-put` · found by running a sync · relates to
+`store-in-git-folder`._
