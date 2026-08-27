@@ -1,4 +1,6 @@
 - created: 2026-08-27
+- completed: 2026-08-27
+- completed_during: f/store-in-git-folder
 - created_by: opus-5
 - created_during: f/store-in-git-folder
 - size: m
@@ -12,6 +14,10 @@
 _None._
 
 ## Findings
+
+Result: merged to main on 2026-08-27, preserved under
+archive/store-in-git-folder. 396 assertions across eight suites green at branch
+HEAD, plus an end-to-end run against a fresh clone of this repository.
 
 - The reported defect was real: `link_one` wrote the absolute target it was
   handed and the dead-link repair repointed absolute too, so every sync undid
