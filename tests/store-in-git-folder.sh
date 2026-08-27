@@ -207,6 +207,25 @@ check "what it did is reported"                       'grep -q "repointed" "$TMP
 run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON7" >"$TMP/mig1b" 2>&1
 check "a second run repoints nothing"                 'grep -q "0 repointed" "$TMP/mig1b"'
 
+# The case that matters in the field: a clone made somewhere else. Its committed
+# links carry an absolute path naming the checkout they were written in, which is
+# never this repository's root — so the claimed base cannot be matched against it
+# and the tail has to be taken from the store marker instead.
+CON9="$TMP/con9"; make_consumer "$CON9" "$ORIGIN"
+ln -sfn "/somewhere/else/entirely/.ai/repositories/kaukea/orchard/agents/gardener.md" "$CON9/.claude/agents/gardener.md"
+ln -sfn "/somewhere/else/entirely/.ai/repositories/kaukea/orchard/skills/enforcing-rules" "$CON9/.claude/skills/enforcing-rules"
+run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON9" >"$TMP/mig1c" 2>&1
+check "a foreign absolute path is still repaired"     '[ "$(readlink "$CON9/.claude/agents/gardener.md")" = "../../.ai/repositories/kaukea/orchard/agents/gardener.md" ]'
+check "both of them were"                             '[ "$(readlink "$CON9/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "and it reports having seen them"               'grep -q "2 store link(s) examined, 2 repointed" "$TMP/mig1c"'
+run_hook "$CON9"
+check "they resolve once the store arrives"           'grep -q "AGENT BODY" "$CON9/.claude/agents/gardener.md"'
+
+# a link that is absolute but has nothing to do with the store is not ours
+ln -sfn "/etc/hostname" "$CON9/.claude/agents/unrelated.md"
+run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON9" >"$TMP/mig1d" 2>&1
+check "an unrelated absolute link is left alone"      '[ "$(readlink "$CON9/.claude/agents/unrelated.md")" = "/etc/hostname" ]'
+
 echo "== migration 02 moves an existing store into the git folder =="
 CON8="$TMP/con8"; make_consumer "$CON8" "$ORIGIN"
 mkdir -p "$CON8/.ai/repositories/kaukea"

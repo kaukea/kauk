@@ -31,19 +31,13 @@ while IFS= read -r l; do
   [ -L "$l" ] || continue
   t=$(readlink "$l")
 
-  # Only links into the package store are ours to touch, whatever base they claim.
+  # A link naming the package store is a store link whatever base it claims, and
+  # the base is precisely what cannot be trusted: an absolute one names the
+  # checkout it was written in, which in a clone is a different machine's path
+  # and never this root. So the tail is taken from the store marker itself and
+  # the claimed base is discarded, rather than matched against this repository.
   case "$t" in
-    /*)
-      case "$t" in
-        "$root"/*) rest=${t#"$root"/} ;;
-        *) continue ;;
-      esac ;;
-    *".ai/repositories/"*)
-      rest=".ai/repositories/${t##*".ai/repositories/"}" ;;
-    *) continue ;;
-  esac
-  case "$rest" in
-    .ai/repositories/*) ;;
+    *".ai/repositories/"*) rest=".ai/repositories/${t##*".ai/repositories/"}" ;;
     *) continue ;;
   esac
   seen=$((seen + 1))
