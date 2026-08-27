@@ -58,6 +58,9 @@ make_consumer() {
 
 run_hook() { (cd "$1" && "$HOOKS" session.start </dev/null 2>"$TMP/err"); }
 
+# same fence extraction the migration engine itself uses
+run_migration() { awk '/^```sh$/{b=1;next} /^```/{b=0} b' "$1" | (cd "$2" && bash); }
+
 PKG="$TMP/origins/kaukea/orchard"
 make_package "$PKG"
 ORIGIN="file://$PKG"
@@ -176,6 +179,53 @@ check "it really is dead"                              '[ ! -e "$CON6/.claude/sk
 check "it was repaired"                                '[ -e "$CON6/.claude/skills/enforcing-rules/SKILL.md" ]'
 check "and the repair is relative"                     '[ "$(readlink "$CON6/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
 check "the repair names no home directory"             '! readlink "$CON6/.claude/skills/enforcing-rules" | grep -q "$HOME"'
+
+echo "== migration 01 repairs a depth counted from the wrong repository =="
+CON7="$TMP/con7"; make_consumer "$CON7" "$ORIGIN"
+run_hook "$CON7"
+# exactly the damage seen in the field: five steps where two are correct, which
+# resolved inside the worktree it was written in and nowhere after the squash
+ln -sfn "../../../../../.ai/repositories/kaukea/orchard/agents/gardener.md" "$CON7/.claude/agents/gardener.md"
+# and the older shape the same pass has to heal: an absolute path naming this machine
+ln -sfn "$CON7/.ai/repositories/kaukea/orchard/skills/enforcing-rules" "$CON7/.claude/skills/enforcing-rules"
+mkdir -p "$CON7/.claude/tools"
+ln -s ../../.ai/repositories/kaukea/orchard/agents/gardener.md "$CON7/.claude/tools/already-right.md"
+# a worktree whose links belong to it, not to the checkout running the migration
+git -C "$CON7" worktree add -q "$CON7/.claude/worktrees/w3" -b f/w3 HEAD
+ln -sfn "../../../../../.ai/repositories/kaukea/orchard/agents/gardener.md" "$CON7/.claude/worktrees/w3/.claude/agents/gardener.md"
+
+check "the damaged link really is dead"               '[ ! -e "$CON7/.claude/agents/gardener.md" ]'
+run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON7" >"$TMP/mig1" 2>&1
+check "five steps became two"                         '[ "$(readlink "$CON7/.claude/agents/gardener.md")" = "../../.ai/repositories/kaukea/orchard/agents/gardener.md" ]'
+check "the repaired link resolves"                    'grep -q "AGENT BODY" "$CON7/.claude/agents/gardener.md"'
+check "the absolute one was relativized"              '[ "$(readlink "$CON7/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "no target names a home directory any more"     '! find "$CON7/.claude" -maxdepth 2 -type l -exec readlink {} \; | grep -q "^/"'
+check "a correct link was left alone"                 '[ "$(readlink "$CON7/.claude/tools/already-right.md")" = "../../.ai/repositories/kaukea/orchard/agents/gardener.md" ]'
+check "the worktree was not touched"                  '[ "$(readlink "$CON7/.claude/worktrees/w3/.claude/agents/gardener.md")" = "../../../../../.ai/repositories/kaukea/orchard/agents/gardener.md" ]'
+check "the store itself was not descended into"       '! grep -q "^repointed \.ai/" "$TMP/mig1"'
+check "what it did is reported"                       'grep -q "repointed" "$TMP/mig1"'
+run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON7" >"$TMP/mig1b" 2>&1
+check "a second run repoints nothing"                 'grep -q "0 repointed" "$TMP/mig1b"'
+
+echo "== migration 02 moves an existing store into the git folder =="
+CON8="$TMP/con8"; make_consumer "$CON8" "$ORIGIN"
+mkdir -p "$CON8/.ai/repositories/kaukea"
+git clone --quiet "$ORIGIN" "$CON8/.ai/repositories/kaukea/orchard"
+check "the clone starts in the working tree"          '[ -d "$CON8/.ai/repositories/kaukea/orchard/.git" ] && [ ! -L "$CON8/.ai/repositories/kaukea/orchard" ]'
+check "the git folder holds nothing yet"              '[ ! -d "$CON8/.git/kai/repositories" ]'
+check "the committed link resolves before"            'grep -q "SKILL BODY" "$CON8/.claude/skills/enforcing-rules/SKILL.md"'
+run_migration "$ROOT/migrations/2026-08-27-02-store-moves-into-the-git-folder.md" "$CON8" >"$TMP/mig2" 2>&1
+check "the clone now lives in the git folder"         '[ -d "$CON8/.git/kai/repositories/kaukea/orchard/.git" ]'
+check "a link was left in its place"                  '[ -L "$CON8/.ai/repositories/kaukea/orchard" ]'
+check "the link points at the moved clone"            '[ "$(readlink "$CON8/.ai/repositories/kaukea/orchard")" = "$CON8/.git/kai/repositories/kaukea/orchard" ]'
+check "the committed link still resolves"             'grep -q "SKILL BODY" "$CON8/.claude/skills/enforcing-rules/SKILL.md"'
+check "the committed link was not rewritten"          '[ "$(readlink "$CON8/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "nothing new appears to commit"                 '[ -z "$(git -C "$CON8" status --porcelain)" ]'
+check "the move is reported"                          'grep -q "moved kaukea/orchard" "$TMP/mig2"'
+run_migration "$ROOT/migrations/2026-08-27-02-store-moves-into-the-git-folder.md" "$CON8" >"$TMP/mig2b" 2>&1
+check "a second run moves nothing"                    'grep -q "0 clone(s) moved" "$TMP/mig2b"'
+check "and a worktree then shares that one clone"     'git -C "$CON8" worktree add -q "$CON8/.claude/worktrees/w4" -b f/w4 HEAD && run_hook "$CON8/.claude/worktrees/w4" && grep -q "SKILL BODY" "$CON8/.claude/worktrees/w4/.claude/skills/enforcing-rules/SKILL.md"'
+check "still exactly one clone on disk"               '[ "$(find "$CON8/.git/kai/repositories" -maxdepth 3 -name .git | wc -l)" -eq 1 ]'
 
 echo
 printf 'store-in-git-folder: %s/%s passed\n' "$PASS" "$((PASS + FAIL))"
