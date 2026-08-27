@@ -1,6 +1,6 @@
 ---
 name: kai
-description: "Run whenever the operator says install or sync kai, kauk, orchids, or a package, and at workflow start and end. Keeps the repository's vendored file packages — skills, agents, hooks, tools, shared rule files — converged with their sources through the kai CLI (`kaukea` executable; `kauk` is the backup alias): `kai init` bootstraps a repository, `kai install <owner>/<repo> | <path>` adds a package source, `kai sync` pulls with rebase and lays what the repository selected, `kai sync --push` publishes local edits to a source."
+description: "Run whenever the operator says install or sync kai, kauk, orchard, or a package, and at workflow start and end. Keeps the repository's vendored file packages — skills, agents, hooks, tools, shared rule files — converged with their sources through the kai CLI (`kaukea` executable; `kauk` is the backup alias): `kai init` bootstraps a repository, `kai install <owner>/<repo> | <path>` adds a package source, `kai sync` pulls with rebase and lays what the repository selected, `kai sync --push` publishes local edits to a source."
 metadata:
   tags: [kai, kauk, packages, sync, install, select, vendoring]
 ---
@@ -12,7 +12,7 @@ the backup alias. One tool, three names, one behaviour.
 
 ## When
 
-- The operator says install, sync, or update a package, kai, kauk, or orchids.
+- The operator says install, sync, or update a package, kai, kauk, or orchard.
 - At workflow start and end, so the repository's laid artifacts converge.
 
 ## What it does

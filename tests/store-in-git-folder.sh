@@ -1,0 +1,251 @@
+#!/usr/bin/env bash
+# Black-box tests for the session-start store bootstrap in bin/kai-hooks.sh.
+#
+# The store lives in the git folder, which every worktree of a repository
+# shares, and each checkout reaches it through a link inside the ignored
+# .ai/repositories/ directory. What these cases have to prove is that the
+# arrangement holds in the two places it has always broken: a checkout that
+# has never had the store, and a worktree, which git gives nothing because
+# the directory holding it is ignored and so never checked out.
+#
+# Throwaway git repos, file:// origins so nothing touches the network, real
+# bin/kai-hooks.sh, check/ok/no.
+#
+#   tests/store-in-git-folder.sh              run all cases
+set -uo pipefail
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+HOOKS="$ROOT/bin/kai-hooks.sh"
+KAI="$ROOT/bin/kai"
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+PASS=0; FAIL=0
+ok()   { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
+no()   { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
+check(){ if eval "$2"; then ok "$1"; else no "$1"; fi; }
+
+git_init() {
+  mkdir -p "$1"; git -C "$1" init -q
+  git -C "$1" config user.email t@example.com
+  git -C "$1" config user.name Test
+}
+
+# A package to depend on: one skill, one agent, so both a directory artifact
+# and a file artifact are exercised through the link chain.
+make_package() {
+  local p=$1
+  git_init "$p"
+  mkdir -p "$p/skills/enforcing-rules" "$p/agents"
+  printf -- '---\nname: enforcing-rules\n---\nSKILL BODY\n' > "$p/skills/enforcing-rules/SKILL.md"
+  printf 'AGENT BODY\n' > "$p/agents/gardener.md"
+  printf 'name = "orchard"\ntype = "package"\n' > "$p/.ai.toml"
+  git -C "$p" add -A && git -C "$p" commit -qm package
+}
+
+# A consumer holding exactly what a real one commits: the ignore line, the
+# .ai.toml declaration, and the laid links in their short relative form.
+make_consumer() {
+  local c=$1 origin=$2
+  git_init "$c"
+  mkdir -p "$c/.claude/skills" "$c/.claude/agents"
+  printf '.ai/repositories/\n/.claude/worktrees/\n' > "$c/.gitignore"
+  printf '[[dependency]]\nsource = "%s"\n' "$origin" > "$c/.ai.toml"
+  ln -s ../../.ai/repositories/kaukea/orchard/skills/enforcing-rules "$c/.claude/skills/enforcing-rules"
+  ln -s ../../.ai/repositories/kaukea/orchard/agents/gardener.md "$c/.claude/agents/gardener.md"
+  git -C "$c" add -A && git -C "$c" commit -qm consumer
+}
+
+run_hook() { (cd "$1" && "$HOOKS" session.start </dev/null 2>"$TMP/err"); }
+
+# same fence extraction the migration engine itself uses
+run_migration() { awk '/^```sh$/{b=1;next} /^```/{b=0} b' "$1" | (cd "$2" && bash); }
+
+PKG="$TMP/origins/kaukea/orchard"
+make_package "$PKG"
+ORIGIN="file://$PKG"
+
+echo "== a checkout that has never had the store bootstraps itself =="
+CON="$TMP/con"; make_consumer "$CON" "$ORIGIN"
+check "committed link is dead before the hook runs"  '[ ! -e "$CON/.claude/skills/enforcing-rules/SKILL.md" ]'
+check "no store directory exists yet"                '[ ! -d "$CON/.git/kai/repositories" ]'
+run_hook "$CON"
+check "hook exits 0"                                  '[ $? -eq 0 ]'
+check "the ignored directory now exists"              '[ -d "$CON/.ai/repositories" ]'
+check "it explains itself with a README"              '[ -f "$CON/.ai/repositories/README.md" ]'
+check "the README is not committed"                   '[ -z "$(git -C "$CON" ls-files .ai/)" ]'
+check "the clone landed in the git folder"            '[ -d "$CON/.git/kai/repositories/kaukea/orchard/.git" ]'
+check "the checkout links to that clone"              '[ "$(readlink "$CON/.ai/repositories/kaukea/orchard")" = "$CON/.git/kai/repositories/kaukea/orchard" ]'
+check "a skill resolves through the chain"            'grep -q "SKILL BODY" "$CON/.claude/skills/enforcing-rules/SKILL.md"'
+check "an agent resolves through the chain"           'grep -q "AGENT BODY" "$CON/.claude/agents/gardener.md"'
+check "the tree is clean"                             '[ -z "$(git -C "$CON" status --porcelain)" ]'
+check "no incoming clone was left behind"             '[ -z "$(find "$CON/.git/kai" -name "*.incoming.*" 2>/dev/null)" ]'
+
+echo "== a second run changes nothing and does not clone again =="
+BEFORE=$(git -C "$CON/.git/kai/repositories/kaukea/orchard" rev-parse HEAD)
+STAMP=$(stat -c %Y "$CON/.git/kai/repositories/kaukea/orchard/.git" 2>/dev/null)
+run_hook "$CON"
+check "the same clone is still in place"              '[ "$(git -C "$CON/.git/kai/repositories/kaukea/orchard" rev-parse HEAD)" = "$BEFORE" ]'
+check "it was not re-cloned"                          '[ "$(stat -c %Y "$CON/.git/kai/repositories/kaukea/orchard/.git" 2>/dev/null)" = "$STAMP" ]'
+check "the tree is still clean"                       '[ -z "$(git -C "$CON" status --porcelain)" ]'
+
+echo "== a worktree gets the same store without a second clone =="
+git -C "$CON" worktree add -q "$CON/.claude/worktrees/feat" -b f/feat HEAD
+WT="$CON/.claude/worktrees/feat"
+check "git checked out the committed links"           '[ -L "$WT/.claude/skills/enforcing-rules" ]'
+check "committed target is identical to the parent's" '[ "$(readlink "$WT/.claude/skills/enforcing-rules")" = "$(readlink "$CON/.claude/skills/enforcing-rules")" ]'
+check "and it is dead until the hook runs"            '[ ! -e "$WT/.claude/skills/enforcing-rules/SKILL.md" ]'
+run_hook "$WT"
+check "a skill resolves in the worktree"              'grep -q "SKILL BODY" "$WT/.claude/skills/enforcing-rules/SKILL.md"'
+check "an agent resolves in the worktree"             'grep -q "AGENT BODY" "$WT/.claude/agents/gardener.md"'
+check "it reuses the one clone in the git folder"     '[ "$(readlink "$WT/.ai/repositories/kaukea/orchard")" = "$CON/.git/kai/repositories/kaukea/orchard" ]'
+check "there is still exactly one clone"              '[ "$(find "$CON/.git/kai/repositories" -maxdepth 3 -name .git | wc -l)" -eq 1 ]'
+check "the worktree tree is clean"                    '[ -z "$(git -C "$WT" status --porcelain)" ]'
+check "the worktree kept its own branch"              '[ "$(git -C "$WT" rev-parse --abbrev-ref HEAD)" = "f/feat" ]'
+check "the parent tree is still clean"                '[ -z "$(git -C "$CON" status --porcelain)" ]'
+
+echo "== the committed link is never rewritten by any of this =="
+check "parent link unchanged"                         '[ "$(readlink "$CON/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "worktree link unchanged"                       '[ "$(readlink "$WT/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "no committed target names a home directory"    '! git -C "$CON" ls-tree -r HEAD | awk "\$1==\"120000\"{print \$4}" | while read -r f; do git -C "$CON" cat-file -p "HEAD:$f"; echo; done | grep -q "^/"'
+
+echo "== deleting the directory is safe: the next session restores it =="
+rm -rf "$CON/.ai"
+check "it is gone"                                    '[ ! -d "$CON/.ai/repositories" ]'
+run_hook "$CON"
+check "restored"                                      '[ -d "$CON/.ai/repositories" ]'
+check "the skill resolves again"                      'grep -q "SKILL BODY" "$CON/.claude/skills/enforcing-rules/SKILL.md"'
+check "without cloning a second time"                 '[ "$(find "$CON/.git/kai/repositories" -maxdepth 3 -name .git | wc -l)" -eq 1 ]'
+
+echo "== a local-path source is used where it lies, never cloned =="
+LOCAL="$TMP/local-pkg"; make_package "$LOCAL"
+CON2="$TMP/con2"; git_init "$CON2"
+printf '.ai/repositories/\n' > "$CON2/.gitignore"
+printf '[[dependency]]\nsource = "%s"\n' "$LOCAL" > "$CON2/.ai.toml"
+git -C "$CON2" add -A && git -C "$CON2" commit -qm consumer
+run_hook "$CON2"
+check "nothing was cloned for it"                     '[ ! -d "$CON2/.git/kai/repositories" ] || [ -z "$(find "$CON2/.git/kai/repositories" -maxdepth 3 -name .git 2>/dev/null)" ]'
+check "the directory was still prepared"              '[ -f "$CON2/.ai/repositories/README.md" ]'
+check "the tree is clean"                             '[ -z "$(git -C "$CON2" status --porcelain)" ]'
+
+echo "== a real clone already in place is left alone =="
+CON3="$TMP/con3"; make_consumer "$CON3" "$ORIGIN"
+mkdir -p "$CON3/.ai/repositories/kaukea"
+cp -r "$PKG" "$CON3/.ai/repositories/kaukea/orchard"
+printf 'HAND PLACED\n' > "$CON3/.ai/repositories/kaukea/orchard/skills/enforcing-rules/SKILL.md"
+run_hook "$CON3"
+check "it was not replaced by a link"                 '[ ! -L "$CON3/.ai/repositories/kaukea/orchard" ]'
+check "its contents were not touched"                 'grep -q "HAND PLACED" "$CON3/.ai/repositories/kaukea/orchard/skills/enforcing-rules/SKILL.md"'
+
+echo "== an unreachable source is reported, and never breaks the session =="
+CON4="$TMP/con4"; make_consumer "$CON4" "file://$TMP/does-not-exist"
+run_hook "$CON4"; rc=$?
+check "the hook still exits 0"                        '[ $rc -eq 0 ]'
+check "the failure is named on stderr"                'grep -q "could not be cloned" "$TMP/err"'
+check "stderr names the source"                       'grep -q "does-not-exist" "$TMP/err"'
+check "no half-written clone was left"                '[ -z "$(find "$CON4/.git/kai" -name "*.incoming.*" 2>/dev/null)" ]'
+check "the tree is clean"                             '[ -z "$(git -C "$CON4" status --porcelain)" ]'
+
+echo "== a laid link is counted from the repository it sits in, not from anywhere else =="
+# The defect this guards against: laying, or repairing, while standing in a
+# worktree used to count the link's depth from the outer checkout, so a link
+# that needed two steps was written with five. It resolved where it was written
+# and was wrong the moment its branch landed on the main branch.
+CON5="$TMP/con5"; make_consumer "$CON5" "$ORIGIN"
+run_hook "$CON5"
+( cd "$CON5" && "$KAI" sync ) >"$TMP/sync1" 2>&1 || true
+check "laid target is relative"                       '[ "$(readlink "$CON5/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "no laid target is absolute"                    '! find "$CON5/.claude" -type l -exec readlink {} \; | grep -q "^/"'
+check "no laid target names a home directory"         '! find "$CON5/.claude" -type l -exec readlink {} \; | grep -q "$HOME"'
+check "the skill still resolves"                      'grep -q "SKILL BODY" "$CON5/.claude/skills/enforcing-rules/SKILL.md"'
+
+git -C "$CON5" worktree add -q "$CON5/.claude/worktrees/w2" -b f/w2 HEAD
+WT2="$CON5/.claude/worktrees/w2"
+run_hook "$WT2"
+( cd "$WT2" && "$KAI" sync ) >"$TMP/sync2" 2>&1 || true
+check "laying inside a worktree counts two, not five"  '[ "$(readlink "$WT2/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "no worktree target is absolute"                 '! find "$WT2/.claude" -type l -exec readlink {} \; | grep -q "^/"'
+check "the skill resolves in the worktree"             'grep -q "SKILL BODY" "$WT2/.claude/skills/enforcing-rules/SKILL.md"'
+check "the worktree records nothing to commit"         '[ -z "$(git -C "$WT2" status --porcelain)" ]'
+check "and the outer checkout was left alone"          '[ "$(readlink "$CON5/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+
+echo "== a dead store link is repaired relative, never back to an absolute path =="
+CON6="$TMP/con6"; make_consumer "$CON6" "$ORIGIN"
+run_hook "$CON6"
+# a link left over from an older layout, dead, with the tail still carried by the source
+ln -sfn "../../.ai/repositories/kaukea/orchard/skills/moved-away/enforcing-rules" "$CON6/.claude/skills/enforcing-rules"
+check "it really is dead"                              '[ ! -e "$CON6/.claude/skills/enforcing-rules" ]'
+( cd "$CON6" && "$KAI" sync ) >"$TMP/sync3" 2>&1 || true
+check "it was repaired"                                '[ -e "$CON6/.claude/skills/enforcing-rules/SKILL.md" ]'
+check "and the repair is relative"                     '[ "$(readlink "$CON6/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "the repair names no home directory"             '! readlink "$CON6/.claude/skills/enforcing-rules" | grep -q "$HOME"'
+
+echo "== migration 01 repairs a depth counted from the wrong repository =="
+CON7="$TMP/con7"; make_consumer "$CON7" "$ORIGIN"
+run_hook "$CON7"
+# exactly the damage seen in the field: five steps where two are correct, which
+# resolved inside the worktree it was written in and nowhere after the squash
+ln -sfn "../../../../../.ai/repositories/kaukea/orchard/agents/gardener.md" "$CON7/.claude/agents/gardener.md"
+# and the older shape the same pass has to heal: an absolute path naming this machine
+ln -sfn "$CON7/.ai/repositories/kaukea/orchard/skills/enforcing-rules" "$CON7/.claude/skills/enforcing-rules"
+mkdir -p "$CON7/.claude/tools"
+ln -s ../../.ai/repositories/kaukea/orchard/agents/gardener.md "$CON7/.claude/tools/already-right.md"
+# a worktree whose links belong to it, not to the checkout running the migration
+git -C "$CON7" worktree add -q "$CON7/.claude/worktrees/w3" -b f/w3 HEAD
+ln -sfn "../../../../../.ai/repositories/kaukea/orchard/agents/gardener.md" "$CON7/.claude/worktrees/w3/.claude/agents/gardener.md"
+
+check "the damaged link really is dead"               '[ ! -e "$CON7/.claude/agents/gardener.md" ]'
+run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON7" >"$TMP/mig1" 2>&1
+check "five steps became two"                         '[ "$(readlink "$CON7/.claude/agents/gardener.md")" = "../../.ai/repositories/kaukea/orchard/agents/gardener.md" ]'
+check "the repaired link resolves"                    'grep -q "AGENT BODY" "$CON7/.claude/agents/gardener.md"'
+check "the absolute one was relativized"              '[ "$(readlink "$CON7/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "no target names a home directory any more"     '! find "$CON7/.claude" -maxdepth 2 -type l -exec readlink {} \; | grep -q "^/"'
+check "a correct link was left alone"                 '[ "$(readlink "$CON7/.claude/tools/already-right.md")" = "../../.ai/repositories/kaukea/orchard/agents/gardener.md" ]'
+check "the worktree was not touched"                  '[ "$(readlink "$CON7/.claude/worktrees/w3/.claude/agents/gardener.md")" = "../../../../../.ai/repositories/kaukea/orchard/agents/gardener.md" ]'
+check "the store itself was not descended into"       '! grep -q "^repointed \.ai/" "$TMP/mig1"'
+check "what it did is reported"                       'grep -q "repointed" "$TMP/mig1"'
+run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON7" >"$TMP/mig1b" 2>&1
+check "a second run repoints nothing"                 'grep -q "0 repointed" "$TMP/mig1b"'
+
+# The case that matters in the field: a clone made somewhere else. Its committed
+# links carry an absolute path naming the checkout they were written in, which is
+# never this repository's root — so the claimed base cannot be matched against it
+# and the tail has to be taken from the store marker instead.
+CON9="$TMP/con9"; make_consumer "$CON9" "$ORIGIN"
+ln -sfn "/somewhere/else/entirely/.ai/repositories/kaukea/orchard/agents/gardener.md" "$CON9/.claude/agents/gardener.md"
+ln -sfn "/somewhere/else/entirely/.ai/repositories/kaukea/orchard/skills/enforcing-rules" "$CON9/.claude/skills/enforcing-rules"
+run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON9" >"$TMP/mig1c" 2>&1
+check "a foreign absolute path is still repaired"     '[ "$(readlink "$CON9/.claude/agents/gardener.md")" = "../../.ai/repositories/kaukea/orchard/agents/gardener.md" ]'
+check "both of them were"                             '[ "$(readlink "$CON9/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "and it reports having seen them"               'grep -q "2 store link(s) examined, 2 repointed" "$TMP/mig1c"'
+run_hook "$CON9"
+check "they resolve once the store arrives"           'grep -q "AGENT BODY" "$CON9/.claude/agents/gardener.md"'
+
+# a link that is absolute but has nothing to do with the store is not ours
+ln -sfn "/etc/hostname" "$CON9/.claude/agents/unrelated.md"
+run_migration "$ROOT/migrations/2026-08-27-01-links-counted-from-their-own-repository.md" "$CON9" >"$TMP/mig1d" 2>&1
+check "an unrelated absolute link is left alone"      '[ "$(readlink "$CON9/.claude/agents/unrelated.md")" = "/etc/hostname" ]'
+
+echo "== migration 02 moves an existing store into the git folder =="
+CON8="$TMP/con8"; make_consumer "$CON8" "$ORIGIN"
+mkdir -p "$CON8/.ai/repositories/kaukea"
+git clone --quiet "$ORIGIN" "$CON8/.ai/repositories/kaukea/orchard"
+check "the clone starts in the working tree"          '[ -d "$CON8/.ai/repositories/kaukea/orchard/.git" ] && [ ! -L "$CON8/.ai/repositories/kaukea/orchard" ]'
+check "the git folder holds nothing yet"              '[ ! -d "$CON8/.git/kai/repositories" ]'
+check "the committed link resolves before"            'grep -q "SKILL BODY" "$CON8/.claude/skills/enforcing-rules/SKILL.md"'
+run_migration "$ROOT/migrations/2026-08-27-02-store-moves-into-the-git-folder.md" "$CON8" >"$TMP/mig2" 2>&1
+check "the clone now lives in the git folder"         '[ -d "$CON8/.git/kai/repositories/kaukea/orchard/.git" ]'
+check "a link was left in its place"                  '[ -L "$CON8/.ai/repositories/kaukea/orchard" ]'
+check "the link points at the moved clone"            '[ "$(readlink "$CON8/.ai/repositories/kaukea/orchard")" = "$CON8/.git/kai/repositories/kaukea/orchard" ]'
+check "the committed link still resolves"             'grep -q "SKILL BODY" "$CON8/.claude/skills/enforcing-rules/SKILL.md"'
+check "the committed link was not rewritten"          '[ "$(readlink "$CON8/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "nothing new appears to commit"                 '[ -z "$(git -C "$CON8" status --porcelain)" ]'
+check "the move is reported"                          'grep -q "moved kaukea/orchard" "$TMP/mig2"'
+run_migration "$ROOT/migrations/2026-08-27-02-store-moves-into-the-git-folder.md" "$CON8" >"$TMP/mig2b" 2>&1
+check "a second run moves nothing"                    'grep -q "0 clone(s) moved" "$TMP/mig2b"'
+check "and a worktree then shares that one clone"     'git -C "$CON8" worktree add -q "$CON8/.claude/worktrees/w4" -b f/w4 HEAD && run_hook "$CON8/.claude/worktrees/w4" && grep -q "SKILL BODY" "$CON8/.claude/worktrees/w4/.claude/skills/enforcing-rules/SKILL.md"'
+check "still exactly one clone on disk"               '[ "$(find "$CON8/.git/kai/repositories" -maxdepth 3 -name .git | wc -l)" -eq 1 ]'
+
+echo
+printf 'store-in-git-folder: %s/%s passed\n' "$PASS" "$((PASS + FAIL))"
+[ "$FAIL" -eq 0 ]

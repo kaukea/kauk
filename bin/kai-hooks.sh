@@ -58,13 +58,9 @@ capture_file() {
   printf '%s\n' "$CAPTURE_FILE" >> "$OUT_DIR/.manifest"
 }
 
-# source_dirs -> one package directory per line, from .ai.toml's [[dependency]]
-# blocks (bin/kaukea's dep_rows convention). A source that is neither a path,
-# a git URI, nor <owner>/<repo> is invalid — bin/kaukea's deps_list warns and
-# ignores it; mirrored here. On stderr, not stdout: unlike kaukea, this
-# process's stdout IS the hook-output channel the harness parses, never a
-# place for free text.
-source_dirs() {
+# raw_sources -> one source string per line, exactly as .ai.toml's
+# [[dependency]] blocks write it (bin/kaukea's dep_rows convention).
+raw_sources() {
   awk '
     /^[ \t]*\[\[dependency\]\][ \t]*$/ { indep = 1; next }
     /^[ \t]*\[/                          { indep = 0; next }
@@ -75,7 +71,16 @@ source_dirs() {
       else { sub(/[ \t]*#.*$/, "", v); sub(/[ \t]+$/, "", v) }
       if (v != "") print v
     }
-  ' "$AITOML" |
+  ' "$AITOML"
+}
+
+# source_dirs -> one package directory per line, from .ai.toml's [[dependency]]
+# blocks. A source that is neither a path, a git URI, nor <owner>/<repo> is
+# invalid — bin/kaukea's deps_list warns and ignores it; mirrored here. On
+# stderr, not stdout: unlike kaukea, this process's stdout IS the hook-output
+# channel the harness parses, never a place for free text.
+source_dirs() {
+  raw_sources |
   while IFS= read -r src; do
     [ -n "$src" ] || continue
     tail=${src##*/}
@@ -91,6 +96,97 @@ source_dirs() {
       *)    printf 'kai-hooks: .ai.toml: source "%s" is not <owner>/<repo>, a git URI, or a path — ignored\n' "$src" >&2 ;;
     esac
   done
+}
+
+# ---------- the package store ----------
+# The store lives in the git folder rather than in the working tree, because
+# every worktree of a repository shares that folder: one clone then serves all
+# of them, and no worktree ends up carrying a version of its own. Each checkout
+# reaches it through .ai/repositories/<owner>/<repo>, which is inside the
+# already-ignored directory and so is never committed — which is exactly what
+# lets the committed links keep one short relative form that is correct in
+# every checkout, measured from the checkout it sits in.
+
+store_dir() { # -> the shared store, absolute
+  local common
+  common=$(git rev-parse --git-common-dir 2>/dev/null) || return 1
+  case "$common" in /*) ;; *) common="$ROOT/${common#./}" ;; esac
+  printf '%s\n' "$common/kai/repositories"
+}
+
+uri_id_of() { # a git URI -> <owner>/<repo>, mirroring bin/kaukea's uri_id
+  local bare=$1 tail
+  bare=${bare%.git}; bare=${bare%/}; tail=${bare##*:}
+  case "$tail" in
+    */*) printf '%s/%s\n' "$(basename "$(dirname "$tail")")" "$(basename "$tail")" ;;
+    *)   printf '%s/%s\n' "$(basename "$(dirname "$bare")")" "$(basename "$bare")" ;;
+  esac
+}
+
+write_store_readme() { # explain the directory to whoever opens it, never committed
+  local f="$1/README.md"
+  [ -f "$f" ] && return 0
+  cat > "$f" 2>/dev/null <<'MD'
+# Package store
+
+This directory holds the packages this repository depends on, as declared in
+`.ai.toml`. It is ignored by git, so nothing here is part of the repository's
+history and nothing here needs to be committed.
+
+Each entry is a link into a single clone kept in this repository's git folder.
+Every worktree shares that folder, so all of them read the same clone and none
+of them can drift onto a version of its own.
+
+You do not need to create or restore any of this by hand. It is rebuilt at the
+start of every session: whatever `.ai.toml` declares and is not present yet is
+cloned then. Deleting this directory is safe — the next session puts it back.
+MD
+}
+
+# ensure_sources — make every declared source present before anything looks for
+# what it carries. This runs at session start because the sources may not exist
+# in this checkout at all: a fresh clone has never had them, and a fresh worktree
+# gets nothing, since the directory holding them is ignored and git therefore
+# never checks it out. Clone-if-absent only; it never fetches, pulls, or lays.
+#
+# A clone lands on a temporary name and is moved into place once it has finished,
+# so a session-start timeout that kills this mid-clone leaves no half-written
+# package behind — the next session simply tries again.
+ensure_sources() {
+  local store slot origin id link tmp src tail
+  store=$(store_dir) || return 0
+  mkdir -p "$ROOT/.ai/repositories" 2>/dev/null || return 0
+  write_store_readme "$ROOT/.ai/repositories"
+  while IFS= read -r src; do
+    [ -n "$src" ] || continue
+    tail=${src##*/}
+    case "$tail" in *@*) src=${src%@*} ;; esac
+    case "$src" in
+      /*|./*|../*) continue ;;                                  # used where it lies
+      *://*|git@*) id=$(uri_id_of "$src"); origin=$src ;;
+      */*)         id=$src; origin="https://github.com/$src" ;;
+      *)           continue ;;                                  # source_dirs reports it
+    esac
+    slot="$store/$id"
+    if [ ! -d "$slot/.git" ]; then
+      mkdir -p "$(dirname "$slot")" 2>/dev/null || continue
+      tmp="$slot.incoming.$$"
+      rm -rf "$tmp" 2>/dev/null
+      if git clone --quiet "$origin" "$tmp" 2>/dev/null; then
+        rm -rf "$slot" 2>/dev/null
+        mv "$tmp" "$slot" 2>/dev/null || { rm -rf "$tmp" 2>/dev/null; continue; }
+      else
+        rm -rf "$tmp" 2>/dev/null
+        printf 'kai-hooks: %s: could not be cloned from %s — what it provides is unavailable this session\n' "$id" "$origin" >&2
+        continue
+      fi
+    fi
+    link="$ROOT/.ai/repositories/$id"
+    [ -L "$link" ] && [ "$(readlink "$link")" = "$slot" ] && continue
+    [ -e "$link" ] && [ ! -L "$link" ] && continue               # a real clone is already there
+    mkdir -p "$(dirname "$link")" 2>/dev/null || continue
+    ln -sfn "$slot" "$link" 2>/dev/null || true
+  done < <(raw_sources)
 }
 
 # array_values <toml-array-literal> -> one bare item per line, e.g.
@@ -271,6 +367,11 @@ PY
     "$EVENT" "$total" "$((total - 1))" >&2
   cat "$first"
 }
+
+# Before anything is looked for in a source, make the sources exist. Only at
+# session start: it is the one event that precedes all work, and the only one
+# where paying for a clone is right.
+[ "$EVENT" = "session.start" ] && ensure_sources
 
 # Same reasoning as run_hook_dir: read off fd 9, not fd 0, and no mapfile.
 while IFS= read -r src <&9 || [ -n "$src" ]; do

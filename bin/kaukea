@@ -295,8 +295,9 @@ pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
 }
 
 # ---------- frontmatter ----------
-# Artifacts self-declare (Decisions 046/047/048): `categories:` (roles: as
-# fallback until the orchids rename lands), dependencies as flat
+# Artifacts self-declare (Decisions 046/047/048): `categories:` (`roles:` is
+# still read as a fallback, for the packages whose declarations have not been
+# converted to the newer key yet), dependencies as flat
 # `dependencies-<kind>:` lists or the nested `dependencies:` map, and their own
 # files as globs. Kept trivially parseable for the thin CLI: flat inline lists.
 fm_block() { awk 'NR==1 && $0!="---"{exit} NR>1 && $0=="---"{exit} NR>1{print}' "$1" 2>/dev/null; }
@@ -636,12 +637,34 @@ lay_self() { # lay_self <root> — root-table type = "package": this repository 
   say "copy: $LAID laid/verified (self) [$(echo "$runtimes" | tr '\n' ' ')]"
 }
 
+lexical_abs() { # lexical_abs <base-dir> <path> -> absolute, ".." collapsed as text
+                # Deliberately textual: it must NOT follow symlinks, because the
+                # store itself is reached through one and resolving that would
+                # answer with the git folder rather than the package path being
+                # compared against.
+  local p=$2
+  case "$p" in /*) ;; *) p="$1/$p" ;; esac
+  printf '%s\n' "$p" | awk -F/ '{
+    n = 0
+    for (i = 1; i <= NF; i++) {
+      if ($i == "" || $i == ".") continue
+      if ($i == "..") { if (n > 0) n--; continue }
+      out[++n] = $i
+    }
+    s = ""
+    for (i = 1; i <= n; i++) s = s "/" out[i]
+    print (s == "" ? "/" : s)
+  }'
+}
+
 prune_deselected() { # a link whose artifact fell out of the selection is removed
   [ "$SEL_ACTIVE" = 1 ] || return 0
   local root=$1 src=$2 l t k n
   for l in "$root"/.claude/skills/* "$root"/.claude/agents/*; do
     [ -L "$l" ] || continue
-    t=$(readlink "$l")
+    # laid links are relative, so the raw target is resolved against the link's
+    # own directory before it can be matched against the package it came from
+    t=$(lexical_abs "$(dirname "$l")" "$(readlink "$l")")
     case "$t" in
       "$src"/skills/*) k=s; n=${t#"$src"/skills/}; n=${n%%/*} ;;
       "$src"/agents/*) k=a; n=$(basename "$t" .md) ;;
@@ -653,11 +676,46 @@ prune_deselected() { # a link whose artifact fell out of the selection is remove
 
 CONFLICTS=""
 
+# A laid link is COMMITTED, so its target has to be right in every checkout of
+# the repository, not just the one that laid it. An absolute target names the
+# machine that wrote it and is wrong everywhere else; a target counted from the
+# process working directory is wrong whenever the two differ, which is what put
+# five-step targets into links that needed two. The count is therefore taken
+# from the nearest .ai.toml at or above the link — the one landmark that sits at
+# a fixed place in a repository whichever checkout you are in.
+
+anchor_of() { # anchor_of <dir> -> nearest directory at or above it holding .ai.toml
+  local d=$1
+  while [ -n "$d" ] && [ "$d" != / ] && [ "$d" != . ]; do
+    [ -f "$d/.ai.toml" ] && { printf '%s\n' "$d"; return 0; }
+    d=$(dirname "$d")
+  done
+  return 1
+}
+
+rel_target() { # rel_target <abs-target> <linkpath> -> target as the link should carry it
+               # Falls back to the absolute path when there is no anchor to count
+               # from, or when the target lies outside it — a working link beats a
+               # relative one that cannot be derived honestly.
+  local target=$1 link=$2 anchor linkdir rest depth prefix="" i=0
+  linkdir=$(dirname "$link")
+  anchor=$(anchor_of "$linkdir") || { printf '%s\n' "$target"; return 0; }
+  case "$target" in "$anchor"/*) rest=${target#"$anchor"/} ;; *) printf '%s\n' "$target"; return 0 ;; esac
+  case "$linkdir" in
+    "$anchor")   depth=0 ;;
+    "$anchor"/*) depth=$(printf '%s' "${linkdir#"$anchor"/}" | awk -F/ '{print NF}') ;;
+    *)           printf '%s\n' "$target"; return 0 ;;
+  esac
+  while [ "$i" -lt "$depth" ]; do prefix="../$prefix"; i=$((i + 1)); done
+  printf '%s\n' "$prefix$rest"
+}
+
 link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
-  local target=$1 link=$2
+  local target=$1 link=$2 want
   [ -e "$target" ] || { say "  SKIP $link (target missing in package)"; return 1; }
+  want=$(rel_target "$target" "$link")
   if [ -L "$link" ]; then
-    [ "$(readlink "$link")" = "$target" ] || ln -sfn "$target" "$link"
+    [ "$(readlink "$link")" = "$want" ] || ln -sfn "$want" "$link"
     return 0
   fi
   if [ -e "$link" ]; then
@@ -665,7 +723,7 @@ link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
     CONFLICTS="$CONFLICTS$link|$target"$'\n'
     return 1
   fi
-  ln -s "$target" "$link"
+  ln -s "$want" "$link"
 }
 
 report_conflicts() { # invite the user to decide — never decide for them (Decision-041)
@@ -699,7 +757,8 @@ prune_links() { # dead symlinks into this repo's .ai/repositories/: repoint if t
     # match the target STRING anywhere it mentions the store: hand-laid links
     # have been found relative, and relative against the wrong base — a dead
     # link naming .ai/repositories/ is a store link whatever its base claims,
-    # and the repoint below rewrites it absolute, healing the base too
+    # and the repoint below rewrites it through rel_target, healing a wrong
+    # base along with a moved tail
     target=$(readlink "$l")
     case "$target" in
       *".ai/repositories/"*) ;;
@@ -725,7 +784,7 @@ prune_links() { # dead symlinks into this repo's .ai/repositories/: repoint if t
         else
           rm "$l"; say "  PRUNE ${l#"$root"/} (target gone from package)"
         fi ;;
-      1) ln -sfn "$matches" "$l"; say "  RELINK ${l#"$root"/} -> ${matches#"$root"/}" ;;
+      1) ln -sfn "$(rel_target "$matches" "$l")" "$l"; say "  RELINK ${l#"$root"/} -> ${matches#"$root"/}" ;;
       *) say "  AMBIGUOUS ${l#"$root"/} ($n sources carry $rest — kai will not guess)" ;;
     esac
   done < <(find "$root" \( -name .git -o -name .ai \) -prune -o -type l -print 2>/dev/null)
