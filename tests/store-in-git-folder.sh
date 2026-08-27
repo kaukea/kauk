@@ -246,6 +246,40 @@ check "a second run moves nothing"                    'grep -q "0 clone(s) moved
 check "and a worktree then shares that one clone"     'git -C "$CON8" worktree add -q "$CON8/.claude/worktrees/w4" -b f/w4 HEAD && run_hook "$CON8/.claude/worktrees/w4" && grep -q "SKILL BODY" "$CON8/.claude/worktrees/w4/.claude/skills/enforcing-rules/SKILL.md"'
 check "still exactly one clone on disk"               '[ "$(find "$CON8/.git/kai/repositories" -maxdepth 3 -name .git | wc -l)" -eq 1 ]'
 
+echo "== a sync stays inside the checkout that started it =="
+# Live incident: a sync run in the main checkout rewrote seventy-four links
+# belonging to another session's worktree and deleted six of its files, because
+# the dead-link repair walks the whole tree and stopped only at .git and .ai.
+CON10="$TMP/con10"; make_consumer "$CON10" "$ORIGIN"
+run_hook "$CON10"
+git -C "$CON10" worktree add -q "$CON10/.claude/worktrees/theirs" -b f/theirs HEAD
+THEIRS="$CON10/.claude/worktrees/theirs"
+# their links: one dead with a tail the source still carries (repair bait), one
+# dead with a tail nothing carries (prune bait)
+ln -sfn "../../.ai/repositories/kaukea/orchard/skills/moved/enforcing-rules" "$THEIRS/.claude/skills/enforcing-rules"
+ln -sfn "../../.ai/repositories/kaukea/orchard/agents/vanished.md" "$THEIRS/.claude/agents/gardener.md"
+THEIR_SKILL=$(readlink "$THEIRS/.claude/skills/enforcing-rules")
+THEIR_AGENT=$(readlink "$THEIRS/.claude/agents/gardener.md")
+THEIR_STATUS=$(git -C "$THEIRS" status --porcelain)
+( cd "$CON10" && "$KAI" sync ) >"$TMP/sync10" 2>&1 || true
+check "their repair-bait link is untouched"           '[ "$(readlink "$THEIRS/.claude/skills/enforcing-rules")" = "$THEIR_SKILL" ]'
+check "their prune-bait link still exists"            '[ -L "$THEIRS/.claude/agents/gardener.md" ]'
+check "and was not repointed either"                  '[ "$(readlink "$THEIRS/.claude/agents/gardener.md")" = "$THEIR_AGENT" ]'
+check "nothing in their worktree is reported at all"  '! grep -q "worktrees/theirs" "$TMP/sync10"'
+check "sync changed nothing in their tree"            '[ "$(git -C "$THEIRS" status --porcelain)" = "$THEIR_STATUS" ]'
+check "ours was still laid"                           'grep -q "SKILL BODY" "$CON10/.claude/skills/enforcing-rules/SKILL.md"'
+
+echo "== sync finishes cleanly once migrations have run =="
+# The cleanup a function installs for its own return stayed installed in its
+# caller and fired again with its variable out of scope, so `set -u` ended every
+# migration-applying sync with "done_file: unbound variable".
+CON11="$TMP/con11"; make_consumer "$CON11" "$ORIGIN"
+run_hook "$CON11"
+( cd "$CON11" && "$KAI" sync ) >"$TMP/sync11" 2>&1; rc=$?
+check "sync exits 0"                                  '[ $rc -eq 0 ]'
+check "no unbound variable is reported"               '! grep -q "unbound variable" "$TMP/sync11"'
+check "and nothing else went to stderr as an error"   '! grep -qi "line [0-9]*:" "$TMP/sync11"'
+
 echo
 printf 'store-in-git-folder: %s/%s passed\n' "$PASS" "$((PASS + FAIL))"
 [ "$FAIL" -eq 0 ]
