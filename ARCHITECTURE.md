@@ -55,6 +55,18 @@ Decision-007): the file-package half of the grammar — `init` / `install <owner
 root table also carries the repository's own identity (`docs/configuration-files.md`).
 The real CLI inherits the grammar and replaces it.
 
+**The clones live in the git folder; the working tree only points at them.** A package
+is cloned to `<git-common-dir>/kai/repositories/<owner>/<repo>`, and each checkout
+reaches it through `.ai/repositories/<owner>/<repo>`, a link that is ignored and so
+never committed. Every worktree of a repository shares the git folder, so one clone
+serves all of them and none can drift onto a version of its own; and because the link is
+uncommitted it may differ from checkout to checkout, which is what allows a laid link to
+carry one short target that is correct in every one of them. A laid link's target is
+counted from the nearest `.ai.toml` at or above it — never from a home directory, never
+from wherever the command was run. Session start clones whatever a repository declares
+and does not yet have, so a fresh checkout or a new worktree reaches its packages
+without a sync.
+
 **A package declares nothing.** Its contents are determined by convention — the
 directories `skills/ agents/ hooks/ tools/ files/` — and anything outside them is
 ignored (Decision-015; full specification in `docs/package-format.md`). This replaces
