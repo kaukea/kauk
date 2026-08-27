@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/board_lint.py
+../../.ai/repositories/kaukea/orchard/tools/board_lint.py

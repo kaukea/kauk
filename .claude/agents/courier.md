@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/agents/courier.md
+../../.ai/repositories/kaukea/orchard/agents/courier.md

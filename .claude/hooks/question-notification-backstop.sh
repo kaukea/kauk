@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/hooks/question-notification-backstop.sh
+../../.ai/repositories/kaukea/orchard/hooks/question-notification-backstop.sh

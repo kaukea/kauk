@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/sidebar_model.py
+../../.ai/repositories/kaukea/orchard/tools/sidebar_model.py

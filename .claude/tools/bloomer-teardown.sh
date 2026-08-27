@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/bloomer-teardown.sh
+../../.ai/repositories/kaukea/orchard/tools/bloomer-teardown.sh

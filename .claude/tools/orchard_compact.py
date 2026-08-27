@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/orchard_compact.py
+../../.ai/repositories/kaukea/orchard/tools/orchard_compact.py

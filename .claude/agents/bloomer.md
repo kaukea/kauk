@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/agents/bloomer.md
+../../.ai/repositories/kaukea/orchard/agents/bloomer.md

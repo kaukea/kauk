@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/sidebar_curses_colour.py
+../../.ai/repositories/kaukea/orchard/tools/sidebar_curses_colour.py

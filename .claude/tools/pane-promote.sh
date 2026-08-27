@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/pane-promote.sh
+../../.ai/repositories/kaukea/orchard/tools/pane-promote.sh

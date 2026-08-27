@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/hooks/question-input-activity.sh
+../../.ai/repositories/kaukea/orchard/hooks/question-input-activity.sh

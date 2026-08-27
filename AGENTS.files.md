@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/files/AGENTS.files.md
+.ai/repositories/kaukea/orchard/files/AGENTS.files.md

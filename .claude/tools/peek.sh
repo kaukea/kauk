@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/peek.sh
+../../.ai/repositories/kaukea/orchard/tools/peek.sh

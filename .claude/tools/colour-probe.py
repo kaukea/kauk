@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/colour-probe.py
+../../.ai/repositories/kaukea/orchard/tools/colour-probe.py

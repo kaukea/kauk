@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/orchard-question-broker-mount.sh
+../../.ai/repositories/kaukea/orchard/tools/orchard-question-broker-mount.sh

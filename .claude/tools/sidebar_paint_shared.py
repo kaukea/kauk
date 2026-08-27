@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/sidebar_paint_shared.py
+../../.ai/repositories/kaukea/orchard/tools/sidebar_paint_shared.py

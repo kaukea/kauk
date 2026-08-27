@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/hooks/courier-init.sh
+../../.ai/repositories/kaukea/orchard/hooks/courier-init.sh

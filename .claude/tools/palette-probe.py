@@ -1,1 +1,1 @@
-/home/sudoku/src/kaukea/kauk/.ai/repositories/kaukea/orchard/tools/palette-probe.py
+../../.ai/repositories/kaukea/orchard/tools/palette-probe.py
