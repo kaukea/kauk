@@ -16,6 +16,7 @@ set -uo pipefail
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 HOOKS="$ROOT/bin/kai-hooks.sh"
+KAI="$ROOT/bin/kai"
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
@@ -141,6 +142,40 @@ check "the failure is named on stderr"                'grep -q "could not be clo
 check "stderr names the source"                       'grep -q "does-not-exist" "$TMP/err"'
 check "no half-written clone was left"                '[ -z "$(find "$CON4/.git/kai" -name "*.incoming.*" 2>/dev/null)" ]'
 check "the tree is clean"                             '[ -z "$(git -C "$CON4" status --porcelain)" ]'
+
+echo "== a laid link is counted from the repository it sits in, not from anywhere else =="
+# The defect this guards against: laying, or repairing, while standing in a
+# worktree used to count the link's depth from the outer checkout, so a link
+# that needed two steps was written with five. It resolved where it was written
+# and was wrong the moment its branch landed on the main branch.
+CON5="$TMP/con5"; make_consumer "$CON5" "$ORIGIN"
+run_hook "$CON5"
+( cd "$CON5" && "$KAI" sync ) >"$TMP/sync1" 2>&1 || true
+check "laid target is relative"                       '[ "$(readlink "$CON5/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "no laid target is absolute"                    '! find "$CON5/.claude" -type l -exec readlink {} \; | grep -q "^/"'
+check "no laid target names a home directory"         '! find "$CON5/.claude" -type l -exec readlink {} \; | grep -q "$HOME"'
+check "the skill still resolves"                      'grep -q "SKILL BODY" "$CON5/.claude/skills/enforcing-rules/SKILL.md"'
+
+git -C "$CON5" worktree add -q "$CON5/.claude/worktrees/w2" -b f/w2 HEAD
+WT2="$CON5/.claude/worktrees/w2"
+run_hook "$WT2"
+( cd "$WT2" && "$KAI" sync ) >"$TMP/sync2" 2>&1 || true
+check "laying inside a worktree counts two, not five"  '[ "$(readlink "$WT2/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "no worktree target is absolute"                 '! find "$WT2/.claude" -type l -exec readlink {} \; | grep -q "^/"'
+check "the skill resolves in the worktree"             'grep -q "SKILL BODY" "$WT2/.claude/skills/enforcing-rules/SKILL.md"'
+check "the worktree records nothing to commit"         '[ -z "$(git -C "$WT2" status --porcelain)" ]'
+check "and the outer checkout was left alone"          '[ "$(readlink "$CON5/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+
+echo "== a dead store link is repaired relative, never back to an absolute path =="
+CON6="$TMP/con6"; make_consumer "$CON6" "$ORIGIN"
+run_hook "$CON6"
+# a link left over from an older layout, dead, with the tail still carried by the source
+ln -sfn "../../.ai/repositories/kaukea/orchard/skills/moved-away/enforcing-rules" "$CON6/.claude/skills/enforcing-rules"
+check "it really is dead"                              '[ ! -e "$CON6/.claude/skills/enforcing-rules" ]'
+( cd "$CON6" && "$KAI" sync ) >"$TMP/sync3" 2>&1 || true
+check "it was repaired"                                '[ -e "$CON6/.claude/skills/enforcing-rules/SKILL.md" ]'
+check "and the repair is relative"                     '[ "$(readlink "$CON6/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
+check "the repair names no home directory"             '! readlink "$CON6/.claude/skills/enforcing-rules" | grep -q "$HOME"'
 
 echo
 printf 'store-in-git-folder: %s/%s passed\n' "$PASS" "$((PASS + FAIL))"
