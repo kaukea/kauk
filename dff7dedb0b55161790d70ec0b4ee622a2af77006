@@ -1,0 +1,9 @@
+session: store-in-git-folder · agent: landscaper · date: 2026-08-27 · feature: store-in-git-folder
+deviations:
+  - rule: organising-work, scope agreed before a branch exists · what: several rounds of design were answered before any worktree existed · why: the work arrived as a peer session's report and the operator drove a long design discussion from it
+    change: allow a design discussion to precede the branch explicitly, rather than reading the rule as forbidding it
+  - rule: continuing-work, write as you change and never in catch-ups · what: the log was written at session start and not updated again until the work was finished · why: the build ran as one uninterrupted stretch with no natural pause
+    change: name the points that must force a flush — each commit, say — instead of leaving the cadence to judgement
+  - rule: organising-work, the test method is agreed with the operator before it is run · what: the method was proposed in the scope message and carried out without waiting for acceptance · why: the operator had said to build, and blocking on the method would have stalled everything
+    change: let a proposed method stand as agreed once the operator says to build, unless he names a different one
+token_saver: running the migration against a real clone before writing fixtures would have found its worst defect immediately; instead the fixture was written first, passed, and hid the bug through several rounds of full-suite runs
