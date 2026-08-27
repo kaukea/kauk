@@ -1,0 +1,5 @@
+session: ai-toml-doc · agent: landscaper · date: 2026-08-27 · feature: ai-toml-doc
+deviations:
+  - rule: writing-commits, touch only what you modified · what: deleted an agent-memory file the operator had not named · why: its whole subject was the document he ordered deleted, and it told future sessions that document outranked every decision contradicting it
+    change: allow deleting a record whose sole subject is being deleted, provided the deletion is surfaced explicitly rather than done quietly
+token_saver: checking which root-table keys the code actually reads before drafting would have avoided writing a section about a field nothing consumes
