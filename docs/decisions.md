@@ -1146,3 +1146,32 @@ Kauk ships only a GENERIC agent-launch skill — no agent name baked in, takes t
 #migrations #rebase #carriage
 
 Main independently shipped its own migrations engine (per-source watermark files, an `applied-by: agent` ask-file escape hatch) via the separate migrations-at-sync feature, landed hours before this branch's later commit implementing the operator's own subsequent ruling recorded above (one global watermark, no ask files). Operator, verbatim, on which survives the rebase: "This branch is the correct approach for now because the ask scale and everything else around it can be designed correctly once it has been scheduled on the board correctly." This branch's design wins the conflict; main's independent, non-conflicting additions (`prune_links` rewrite, orphan-clone sweep) are kept. Consequence for whoever ingests this at close: main's Decision-057/058 (the `applied-by: agent` ask-file format) describe a mechanism this resolution retires — likely stale once this branch lands, not struck here since that call belongs to whoever reconciles decisions.md at ingest. (Operator, 2026-08-20.)
+## [2026-08-27 00:00 CEST] Decision-074: the package store lives in the git folder
+#store #worktrees #links #delivery #cli-core
+
+The clones a repository consumes live at `<git-common-dir>/kai/repositories/<owner>/<repo>`, and each checkout reaches them through `.ai/repositories/<owner>/<repo>`, a link inside the already-ignored directory. Every worktree of a repository shares the git folder, so one clone serves all of them and none can drift onto a version of its own. Because the link is never committed it is free to differ from checkout to checkout, and that is precisely what allows one committed relative target to be correct in every one of them — an arrangement that is otherwise impossible, since no relative path resolves to the same place from two different places. Rejected on the way here: ignoring the laid links so they stop being committed (they must stay committed); a link conjured per worktree; a clone or a copy per worktree (two versions in two worktrees); and pointing a worktree's `.git` at the shared folder, which resolves the store but makes git report the branch as `main`. (Operator, 2026-08-27.)
+
+## [2026-08-27 00:00 CEST] Decision-075: session start makes the declared sources present
+#hooks #bootstrap #store #cli-core
+
+A hook shipped in the kai package walks the sources a repository declares at the start of every session and clones any that are missing. That is what lets a fresh clone, or a brand-new worktree, reach its packages without anyone knowing to run a sync first — the directory holding them is ignored, so git never checks it out. It clones only: it never fetches, pulls, rebases, or lays. (Operator, 2026-08-27.)
+
+## [2026-08-27 00:00 CEST] Decision-076: the store's README is written, never committed
+#store #bootstrap #readme
+
+`.ai/repositories/README.md` explains what the directory is and that losing it is harmless. The hook writes it and it stays ignored. Committing it was considered, since a committed file would make git create the directory in every checkout, and rejected: it would require a commit before the tool could run, or a commit made on the user's behalf, and kai has never written to a user's history. A directory that goes unexplained to someone browsing the repository is the smaller cost. (Operator, 2026-08-27.)
+
+## [2026-08-27 00:00 CEST] Decision-077: a laid link is counted from the nearest .ai.toml
+#links #laying #worktrees #cli-core
+
+The `../` count in a laid link's target is taken from the nearest `.ai.toml` at or above the link — never from a home directory, never from the process working directory. A symlink target resolves relative to the directory holding the link, so the count belongs to the link's own position in its own repository; `.ai.toml` sits at a fixed place in a repository whichever checkout you are standing in, which makes it the one reliable landmark. Counting from where the command happened to be standing is what wrote five-step targets into links that needed two, correct inside the worktree that wrote them and wrong the moment the branch landed on main. (Operator, 2026-08-27.)
+
+## [2026-08-27 00:00 CEST] Decision-078: docs/configuration-files.md was an example, not a spec
+#config #ai-toml #docs #authority
+
+That file was an agent invention; the operator annotated it only so there would be a worked example of the shape he wanted. It was never a specification and carries no authority — a stored note telling future sessions it outranked every decision and document contradicting it was wrong and is retired with it. The file is deleted. `docs/ai-toml.md` is where the configuration file is explained to the people who write it. (Operator, 2026-08-27.)
+
+## [2026-08-27 00:00 CEST] Decision-079: description in .ai.toml is free text
+#config #ai-toml
+
+The root table's `description` is a sentence for whoever opens the file. Nothing in the tool reads it today, and it is documented as such rather than as behaviour; it may be used later. `name` and `type` remain the only root-table keys anything acts on. (Operator, 2026-08-27.)
