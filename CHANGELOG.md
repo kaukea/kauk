@@ -296,3 +296,19 @@ which is what it was for.
 
 _Board: `update-is-the-verb` · retires Decision-042 · relates to
 `help-that-helps`._
+
+#### ♻️ `f/testable-clusters` → `archive/testable-clusters`
+
+Four defects shipped in a day, all invisible to a green suite and all found by
+running the tool against a real repository. Each was arithmetic over a name or a
+path — a name compared against an identifier, a reference cut at the wrong
+character, a depth counted from the wrong root, a link resolver asked a question
+it answers with silence — and none of them needed a repository to be wrong. That
+arithmetic now lives in `lib/names.sh` as pure functions of their arguments, with
+sixty unit cases asking every question that has ever been got wrong here, the
+regressions among them marked as such. `bin/kaukea` sources the library rather
+than carrying its own copy, locates it through whatever symlink it was invoked
+by, and says so legibly if the two ever travel apart.
+
+_Board: `testable-clusters` · first step of modelling the tool as a library ·
+relates to `cli-mvp`._
