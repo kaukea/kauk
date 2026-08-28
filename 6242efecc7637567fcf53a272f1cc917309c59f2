@@ -1,0 +1,5 @@
+session: symlink-port · agent: landscaper · date: 2026-08-28 · feature: symlink-port
+deviations:
+  - rule: organising-work approval gate · what: closed without the approval phrase · why: the operator said to continue for a while without waiting on him
+    change: treat an explicit instruction to continue unattended as approval for the work agreed in that instruction
+token_saver: my first draft tested only the decisions, which would have passed while the facts were gathered wrongly — the defect lives in the port, so the port needed its own test; writing the adapter test first would have made that obvious
