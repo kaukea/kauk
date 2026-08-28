@@ -1,0 +1,5 @@
+session: help-that-helps · agent: landscaper · date: 2026-08-28 · feature: help-that-helps
+deviations:
+  - rule: organising-work approval gate · what: closed without the approval phrase · why: standing instruction in this session to stop asking
+    change: treat a standing instruction to stop asking as approval for the remainder of the agreed work
+token_saver: none material; the task was small and self-contained
