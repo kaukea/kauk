@@ -1,0 +1,5 @@
+session: update-is-the-verb · agent: landscaper · date: 2026-08-28 · feature: update-is-the-verb
+deviations:
+  - rule: organising-work approval gate · what: closed without the approval phrase · why: the operator said go and explicitly not to wait
+    change: treat an explicit instruction not to wait as approval for the remainder of the agreed work
+token_saver: I designed a copy-based adoption mechanism over several rounds before the operator pointed out that a laid artifact is already a link into its package, so an edit through it needs no copying at all; reading how laying actually worked before designing would have skipped the whole detour
