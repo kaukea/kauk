@@ -266,3 +266,16 @@ migration that writes a declaration into a file that belongs to the operator, so
 it adds one block after the last dependency and changes nothing else.
 
 _Board: `kai-always-declared` · relates to `estate-links-run`._
+
+#### 📝 `f/help-that-helps` → `archive/help-that-helps`
+
+`kai --help` printed one line that named four commands and explained none of
+them, with the alternatives for a source run together with the alternatives for
+a command so it could not be read by eye; the same line answered an unknown
+command, making the reply to a mistake identical to the reply to a question.
+Help now describes each command and option in a sentence, says where the
+packages physically live, and points at the write-ups for the configuration file
+and the package format. A question goes to standard output and succeeds; a
+mistake names the word that was not understood, prints the help, and fails.
+
+_Board: `help-that-helps`._
