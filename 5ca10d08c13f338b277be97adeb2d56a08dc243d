@@ -1,0 +1,5 @@
+session: cases-are-the-contract · agent: landscaper · date: 2026-08-28 · feature: cases-are-the-contract
+deviations:
+  - rule: organising-work approval gate · what: closed without the approval phrase · why: standing instruction not to wait
+    change: treat a standing instruction not to wait as approval for the remainder of the agreed work
+token_saver: the tab-collapsing trap cost a debugging round that a one-line format decision would have avoided; choosing an unambiguous field encoding before writing the data file is cheaper than discovering it from three false failures
