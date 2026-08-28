@@ -73,6 +73,8 @@ if [ -z "$KAI_LIB" ] || [ ! -f "$KAI_LIB/names.sh" ]; then
   exit 1
 fi
 . "$KAI_LIB/names.sh"
+. "$KAI_LIB/fs.sh"
+. "$KAI_LIB/place.sh"
 
 die() { printf 'kai: %s\n' "$1" >&2; exit 1; }
 say()  { printf '%s\n' "$1"; }
@@ -523,30 +525,23 @@ NS_DST=""
 # says they are about the same subject and usually they are not, so both are kept
 # under the name of the package that brought them.
 namespace_for() { # namespace_for <dstdir> <name> <pkgns> <srcdir>
-  local dstdir=$1 n=$2 ns=$3 srcdir=${4:-} here there
-  if [ -e "$dstdir/$NS_LOCAL$NS_SEP$n" ]; then NS_DST="$ns$NS_SEP$n"; return 0; fi
-  # A DEAD link is not evidence of a second package — it ships nothing. It is
-  # usually a source that moved, and healing it belongs to the dead-link repair,
-  # which cannot do its job if this renames it out of the way first.
-  if [ -L "$dstdir/$n" ] && [ -e "$dstdir/$n" ] && [ -n "$srcdir" ]; then
-    # Whether it is the SAME package is a question about where the existing link
-    # resolves, not about what the package calls itself: the store is keyed by
-    # owner and repository while the namespace is the package's own name, and
-    # they are routinely different. Comparing the two never matches, so every
-    # package would look like a stranger to itself.
-    # Resolved LEXICALLY, not with readlink -f, which answers nothing at all when
-    # an intermediate directory is missing — and a link waiting to be repaired is
-    # dead precisely because something along its path has moved. Following it
-    # would also resolve the store's own link and answer with the git folder.
-    here=$(collapse "$dstdir" "$(readlink "$dstdir/$n")")
-    there=$(collapse "$dstdir" "$srcdir")
-    case "$here" in
-      "$there"/*) ;;                              # its own: leave the plain name alone
-      *)
-        mv "$dstdir/$n" "$dstdir/$NS_LOCAL$NS_SEP$n"
-        say "  NAMESPACED $NS_LOCAL$NS_SEP$n and $ns$NS_SEP$n — two packages ship this name, and nothing says they mean the same thing"
-        NS_DST="$ns$NS_SEP$n"; return 0 ;;
-    esac
+  # Gathers the facts and asks place.sh; the judgement itself lives there, where
+  # it can be asked every awkward case without a repository to ask it in.
+  local dstdir=$1 n=$2 ns=$3 srcdir=${4:-} taken=no kind existing=""
+  [ -e "$dstdir/$NS_LOCAL$NS_SEP$n" ] && taken=yes
+  kind=$(fs_kind "$dstdir/$n")
+  case "$kind" in
+    link|dead-link) existing=$(collapse "$dstdir" "$(fs_target "$dstdir/$n")") ;;
+  esac
+  [ -n "$srcdir" ] && srcdir=$(collapse "$dstdir" "$srcdir")
+
+  if [ "$(name_choice "$taken" "$kind" "$existing" "$srcdir")" = namespace ]; then
+    if [ "$taken" = no ] && [ "$kind" != absent ]; then
+      fs_rename "$dstdir/$n" "$dstdir/$NS_LOCAL$NS_SEP$n"
+      say "  NAMESPACED $NS_LOCAL$NS_SEP$n and $ns$NS_SEP$n — two packages ship this name, and nothing says they mean the same thing"
+    fi
+    NS_DST="$ns$NS_SEP$n"
+    return 0
   fi
   NS_DST="$n"
 }
@@ -676,22 +671,13 @@ prune_deselected() { # a link whose artifact fell out of the selection is remove
 # from the nearest .ai.toml at or above the link — the one landmark that sits at
 # a fixed place in a repository whichever checkout you are in.
 
-anchor_of() { # anchor_of <dir> -> nearest directory at or above it holding .ai.toml
-  local d=$1
-  while [ -n "$d" ] && [ "$d" != / ] && [ "$d" != . ]; do
-    [ -f "$d/.ai.toml" ] && { printf '%s\n' "$d"; return 0; }
-    d=$(dirname "$d")
-  done
-  return 1
-}
-
 rel_target() { # rel_target <abs-target> <linkpath> -> target as the link should carry it
                # Falls back to the absolute path when there is no anchor to count
                # from, or when the target lies outside it — a working link beats a
                # relative one that cannot be derived honestly.
   local target=$1 link=$2 anchor linkdir rest depth prefix="" i=0
   linkdir=$(dirname "$link")
-  anchor=$(anchor_of "$linkdir") || { printf '%s\n' "$target"; return 0; }
+  anchor=$(fs_find_up "$linkdir" .ai.toml) || { printf '%s\n' "$target"; return 0; }
   case "$target" in "$anchor"/*) rest=${target#"$anchor"/} ;; *) printf '%s\n' "$target"; return 0 ;; esac
   case "$linkdir" in
     "$anchor")   depth=0 ;;
@@ -702,26 +688,23 @@ rel_target() { # rel_target <abs-target> <linkpath> -> target as the link should
   printf '%s\n' "$prefix$rest"
 }
 
-link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
-  local target=$1 link=$2 want
+link_one() { # link_one <abs-target> <linkpath> -> 0 placed, 1 skipped
+  local target=$1 link=$2 want kind
   [ -e "$target" ] || { say "  SKIP $link (target missing in package)"; return 1; }
   want=$(rel_target "$target" "$link")
-  if [ -L "$link" ]; then
-    [ "$(readlink "$link")" = "$want" ] || ln -sfn "$want" "$link"
-    return 0
-  fi
-  if [ -e "$link" ]; then
-    # A real file standing where a link belongs is replaced by the link. Nothing
-    # is copied anywhere: the link reaches the package's own repository, so from
-    # here on an edit made through it IS an edit of that repository, committed
-    # there and rebased onto the package's changes like any other. The version
-    # standing here stays in this repository's history, where it already was.
-    rm -rf "$link"
-    ln -sfn "$want" "$link"
-    say "  LINKED ${link##*/} — edits through it now go to the package it comes from"
-    return 0
-  fi
-  ln -s "$want" "$link"
+  kind=$(fs_kind "$link")
+  case "$(place_action "$kind" "$(fs_target "$link")" "$want")" in
+    correct) ;;
+    create)  fs_link "$want" "$link" ;;
+    rewrite) fs_link "$want" "$link" ;;
+    replace)
+      # Nothing is copied anywhere. The link reaches the package's own
+      # repository, so from here on an edit made through it IS an edit of that
+      # repository, committed there and rebased onto the package's changes like
+      # any other. What stood here stays in this repository's history.
+      fs_replace_with_link "$want" "$link"
+      say "  LINKED ${link##*/} — edits through it now go to the package it comes from" ;;
+  esac
 }
 
 copy_one() { # self-published packages copy into their own repo
