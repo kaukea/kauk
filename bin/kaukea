@@ -1013,7 +1013,7 @@ install_source() { # install_source <root> <tablekey-or-id> — register, clone,
 
 cmd_install() {
   local ref=${1:-}
-  [ -n "$ref" ] || die "usage: kai install <owner>/<repo> | <uri> | <path>"
+  [ -n "$ref" ] || die "install needs a package to add: an owner/repo, a git address, or a path to a checkout. See kai --help"
   local root; root=$(repo_root)
   ensure_aitoml "$root"
   validate_config "$root"
@@ -1221,7 +1221,7 @@ cmd_sync() {
       --status) status_only=1 ;;
       --pull)   pull=1 ;;
       --push)   push=1 ;;
-      *) die "usage: kai sync [--status | --pull | --push]" ;;
+      *) die "sync does not take \"$a\". It takes --status to report without writing, --pull to take updates, or --push to publish your edits. See kai --help" ;;
     esac
   done
   [ "$pull" = 1 ] && [ "$push" = 1 ] && die "one of --pull or --push — taking and giving are separate acts"
@@ -1251,6 +1251,51 @@ cmd_sync() {
   [ $status_only = 1 ] || announce_reload
 }
 
+usage() { # written to stdout when asked for, to stderr when the caller got it wrong
+  cat <<'TXT'
+kai — keeps a repository's agents, skills, hooks and tools in step with the
+packages it declares.
+
+usage: kai <command> [options]
+
+  init                  Set this repository up. Creates .ai.toml if it is
+                        missing, ignores the package store, and declares the kai
+                        package, which every managed repository needs.
+
+  install <source>      Add a package and lay what it carries. <source> is one
+                        of:
+                          owner/repo            resolved to GitHub
+                          a git address         used as given
+                          a path                a checkout on this machine
+                        Optionally suffixed @HEAD to follow the source.
+                        The declaration is appended to .ai.toml; nothing else in
+                        the file is touched.
+
+  sync                  Bring the declared packages up to date and lay them.
+                        Applies any pending migrations first, heals links whose
+                        source moved, and removes clones nothing declares.
+      --status          Report what it would do and write nothing.
+      --pull            Take updates from each source.
+      --push            Publish your own edits back to a source. Deliberate:
+                        a plain sync never sends anything anywhere.
+
+  resolve               List the paths where a file you own and a file a package
+                        wants to provide collide. kai never picks between them.
+      --assist          Ask Claude to propose a merge for each. It reads both
+                        versions, proposes, and writes and commits nothing.
+
+  --help, -h            This text.
+
+The packages themselves are cloned into this repository's git folder and reached
+through .ai/repositories/, which is ignored — so a fresh clone or a new worktree
+fetches what it needs at the start of a session, without a sync being run first.
+
+.ai.toml is yours to edit; kai only ever appends a dependency block to it.
+It is written up in docs/ai-toml.md, and what a package IS in
+docs/package-format.md.
+TXT
+}
+
 main() {
   SEL_FILE=$(mktemp); XDEPS=$(mktemp)
   trap 'rm -f "$SEL_FILE" "$XDEPS"' EXIT
@@ -1259,7 +1304,9 @@ main() {
     install) shift; cmd_install "$@" ;;
     sync)    shift; cmd_sync "$@" ;;
     resolve) shift; cmd_resolve "$@" ;;
-    *) die "usage: kai init | install <owner>/<repo> | <path> | sync [--status|--pull|--push] | resolve [--assist]" ;;
+    --help|-h|help) usage ;;
+    '') usage >&2; exit 2 ;;
+    *) printf 'kai: %s is not a kai command\n\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
 }
 main "$@"
