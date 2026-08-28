@@ -527,13 +527,41 @@ NS_LOCAL="local"
 NS_SEP=":"
 NS_DST=""
 
-namespace_for() { # a name collision keeps both, namespaced (Decision-042)
-  local dstdir=$1 n=$2 ns=$3
+# WHOSE name it collides with is the whole question, and it has two answers.
+#
+# Your own file sharing a name with an artifact of a package you have declared is
+# almost certainly the same thing: you are consuming that package, you can push
+# back to it, and what you have is your edit of it. That is taken as a local edit
+# and rebased from then on — handled by link_one, not here.
+#
+# Two DIFFERENT packages shipping the same name is the opposite case. Nothing
+# says they are about the same subject and usually they are not, so both are kept
+# under the name of the package that brought them.
+namespace_for() { # namespace_for <dstdir> <name> <pkgns> <srcdir>
+  local dstdir=$1 n=$2 ns=$3 srcdir=${4:-} here there
   if [ -e "$dstdir/$NS_LOCAL$NS_SEP$n" ]; then NS_DST="$ns$NS_SEP$n"; return 0; fi
-  if [ -e "$dstdir/$n" ] && [ ! -L "$dstdir/$n" ]; then
-    mv "$dstdir/$n" "$dstdir/$NS_LOCAL$NS_SEP$n"
-    say "  NAMESPACED $NS_LOCAL$NS_SEP$n (yours) and $ns$NS_SEP$n (package) — same name, different things"
-    NS_DST="$ns$NS_SEP$n"; return 0
+  # A DEAD link is not evidence of a second package — it ships nothing. It is
+  # usually a source that moved, and healing it belongs to the dead-link repair,
+  # which cannot do its job if this renames it out of the way first.
+  if [ -L "$dstdir/$n" ] && [ -e "$dstdir/$n" ] && [ -n "$srcdir" ]; then
+    # Whether it is the SAME package is a question about where the existing link
+    # resolves, not about what the package calls itself: the store is keyed by
+    # owner and repository while the namespace is the package's own name, and
+    # they are routinely different. Comparing the two never matches, so every
+    # package would look like a stranger to itself.
+    # Resolved LEXICALLY, not with readlink -f, which answers nothing at all when
+    # an intermediate directory is missing — and a link waiting to be repaired is
+    # dead precisely because something along its path has moved. Following it
+    # would also resolve the store's own link and answer with the git folder.
+    here=$(lexical_abs "$dstdir" "$(readlink "$dstdir/$n")")
+    there=$(lexical_abs "$dstdir" "$srcdir")
+    case "$here" in
+      "$there"/*) ;;                              # its own: leave the plain name alone
+      *)
+        mv "$dstdir/$n" "$dstdir/$NS_LOCAL$NS_SEP$n"
+        say "  NAMESPACED $NS_LOCAL$NS_SEP$n and $ns$NS_SEP$n — two packages ship this name, and nothing says they mean the same thing"
+        NS_DST="$ns$NS_SEP$n"; return 0 ;;
+    esac
   fi
   NS_DST="$n"
 }
@@ -547,7 +575,7 @@ lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns> <kind-l
     n=$(basename "$t")
     case "$n" in .*|__pycache__|*"$NS_SEP"*) continue ;; esac
     [ -n "$kind" ] && ! sel_allows "$kind" "$(basename "$n" .md)" && continue
-    if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns"; fi
+    if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns" "$srcdir"; fi
     place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
   done
 }
@@ -674,8 +702,6 @@ prune_deselected() { # a link whose artifact fell out of the selection is remove
   done
 }
 
-CONFLICTS=""
-
 # A laid link is COMMITTED, so its target has to be right in every checkout of
 # the repository, not just the one that laid it. An absolute target names the
 # machine that wrote it and is wrong everywhere else; a target counted from the
@@ -719,22 +745,17 @@ link_one() { # link_one <abs-target> <linkpath> -> 0 correct, 1 blocked
     return 0
   fi
   if [ -e "$link" ]; then
-    say "  BLOCKED $link (a real file is already there — kai did not place it, so kai will not touch it)"
-    CONFLICTS="$CONFLICTS$link|$target"$'\n'
-    return 1
+    # A real file standing where a link belongs is replaced by the link. Nothing
+    # is copied anywhere: the link reaches the package's own repository, so from
+    # here on an edit made through it IS an edit of that repository, committed
+    # there and rebased onto the package's changes like any other. The version
+    # standing here stays in this repository's history, where it already was.
+    rm -rf "$link"
+    ln -sfn "$want" "$link"
+    say "  LINKED ${link##*/} — edits through it now go to the package it comes from"
+    return 0
   fi
   ln -s "$want" "$link"
-}
-
-report_conflicts() { # invite the user to decide — never decide for them (Decision-041)
-  [ -n "$CONFLICTS" ] || return 0
-  local n; n=$(printf '%s' "$CONFLICTS" | grep -c . || true)
-  say ""
-  say "$n destination(s) already hold a file kai did not place. Nothing was changed."
-  say "kai cannot tell which version you intended, so it will not choose. You can:"
-  say "  kai resolve            list them with the package version alongside"
-  say "  kai resolve --assist   ask Claude to attempt a merge, under the usual gates"
-  say "  (or merge them yourself — that is always the fallback)"
 }
 
 copy_one() { # self-published packages copy into their own repo
@@ -1030,48 +1051,6 @@ cmd_install() {
   esac
   say "install: $id done"
   offer_tree "$root" "$id"
-  report_conflicts
-}
-
-# ---------- resolve ----------
-collect_conflicts() {
-  local root=$1 id origin raw
-  CONFLICTS=""
-  while read -r id origin raw; do
-    [ -n "$id" ] || continue
-    lay_source "$root" "$id" >/dev/null
-  done < <(deps_list "$root")
-}
-
-cmd_resolve() {
-  local root; root=$(repo_root)
-  validate_config "$root"
-  local assist=0
-  [ "${1:-}" = "--assist" ] && assist=1
-  collect_conflicts "$root"
-  [ -n "$CONFLICTS" ] || { say "resolve: nothing to resolve — no destination holds a file kai did not place"; return 0; }
-
-  local link target list=""
-  while IFS='|' read -r link target; do
-    [ -n "$link" ] || continue
-    say "  ${link#"$root"/}"
-    say "      yours:   $link"
-    say "      package: $target"
-    list="$list ${link#"$root"/}"
-  done < <(printf '%s' "$CONFLICTS")
-
-  if [ $assist = 0 ]; then
-    say ""
-    say "Merge them yourself, or run 'kai resolve --assist' to have Claude attempt it."
-    return 0
-  fi
-
-  command -v claude >/dev/null 2>&1 || die "claude is not on PATH — merge these yourself"
-  say ""
-  say "Attempting an assisted merge for:$list"
-  say "It follows the normal gates: it proposes, you approve, nothing is committed."
-  claude -p "You are in the git repository $root. These paths each hold a file the user owns, and a package wants to provide its own version at the same path:$list. For EACH: read the user's file, read the package version (the path is printed above as 'package:'), and judge whether a SIMPLE, unambiguous merge exists — one that loses nothing the user wrote. If it does, show the proposed result and explain it. If it does not, say so plainly and stop: the user resolves it themselves. Change nothing on disk. Commit nothing." --output-format text \
-    || say "assisted merge did not complete — resolve these yourself"
 }
 
 # ---------- init ----------
@@ -1104,11 +1083,13 @@ commit_local_edits() { # preserve uncommitted clone edits so the rebase carries 
   git -C "$clone" commit --quiet -m "🔁 local edits, preserved for rebase"
 }
 
-rebase_onto() { # rebase_onto <id> <clone> <target> -> 0 ok; 1 conflict (aborted, reported)
+rebase_onto() { # rebase_onto <id> <clone> <target> -> 0 ok; 1 left open for the user
   local id=$1 clone=$2 target=$3
   git -C "$clone" rebase --quiet "$target" 2>/dev/null && return 0
-  git -C "$clone" rebase --abort 2>/dev/null || true
-  say "$id: rebase onto $target CONFLICTS — nothing changed; the merge storyline is yours (clone: $clone)"
+  # The rebase is LEFT OPEN on purpose. Aborting here would throw away the very
+  # state the user needs in order to decide, and would leave nothing for
+  # --abort, --automerge or --resolve to act on. Being unfinished IS the mode.
+  say "$id: your version and the package's both changed the same lines — this update is waiting on you"
   return 1
 }
 
@@ -1212,18 +1193,154 @@ status_source() { # status_source <root> <id>
   lay_source "$root" "$id"
 }
 
-cmd_sync() {
+# ---------- conflict mode ----------
+# A collision is not a special case with a mechanism of its own. It goes through
+# what the tool already does everywhere else: take the changes, commit them,
+# rebase. Rebasing is what supplies the base a merge needs — the tool has the
+# user's version and the package's version, and without the commit they diverged
+# from every collision reads as irreconcilable instead of merging quietly.
+#
+# While a rebase is unfinished the repository is IN conflict mode, which is a
+# fact about the clone rather than a flag kai stores: git knows, so kai asks.
+# Mode state is per checkout, since two worktrees can be mid-update
+# independently.
+
+conflicted_clones() { # -> one clone path per line that is mid-rebase
+  local root=$1 d
+  for d in "$root"/.ai/repositories/*/*/; do
+    [ -d "${d}.git" ] || continue
+    if [ -d "${d}.git/rebase-merge" ] || [ -d "${d}.git/rebase-apply" ]; then
+      printf '%s\n' "${d%/}"
+    fi
+  done
+}
+
+in_conflict() { [ -n "$(conflicted_clones "$1")" ]; }
+
+conflict_report() { # what is unresolved, and what the user can do about it
+  local root=$1 clone id
+  while IFS= read -r clone; do
+    [ -n "$clone" ] || continue
+    id=${clone#"$root/.ai/repositories/"}
+    say ""
+    say "$id: your version and the package's both changed the same lines."
+    git -C "$clone" diff --name-only --diff-filter=U 2>/dev/null | sed 's|^|    |'
+  done < <(conflicted_clones "$root")
+  say ""
+  say "Nothing is lost — every version is in a commit. You can:"
+  say "  kai update --abort       put it back exactly as it was"
+  say "  kai update --automerge   let Claude propose the merge, then review it"
+  say "  kai update --resolve     you have edited the files; carry on from there"
+}
+
+conflict_abort() {
+  local root=$1 clone id n=0
+  while IFS= read -r clone; do
+    [ -n "$clone" ] || continue
+    id=${clone#"$root/.ai/repositories/"}
+    git -C "$clone" rebase --abort 2>/dev/null || true
+    say "$id: put back as it was"
+    n=$((n + 1))
+  done < <(conflicted_clones "$root")
+  [ "$n" -gt 0 ] || say "nothing to abort — no update is waiting on you"
+}
+
+conflict_continue() { # conflict_continue <root> [mine|theirs] — rebase --continue
+  # A side may be named instead of editing the files. Mind the inversion: a
+  # rebase replays YOUR commit on top of the package's, so within it "ours" is
+  # the package and "theirs" is your edit. Saying "mine" therefore takes
+  # --theirs, and getting this backwards silently keeps the wrong version.
+  local root=$1 side=${2:-} clone id marked n=0 pick=""
+  case "$side" in
+    mine)   pick=--theirs ;;
+    theirs) pick=--ours ;;
+    '')     ;;
+    *) die "--resolve takes mine or theirs, or nothing if you have edited the files yourself" ;;
+  esac
+
+  while IFS= read -r clone; do
+    [ -n "$clone" ] || continue
+    id=${clone#"$root/.ai/repositories/"}
+
+    if [ -n "$pick" ]; then
+      git -C "$clone" diff --name-only --diff-filter=U 2>/dev/null | while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        git -C "$clone" checkout "$pick" -- "$f" 2>/dev/null || true
+      done
+      say "$id: took $side for every file that could not be reconciled"
+    fi
+
+    # Look at the FILES, not the index: an unmerged index entry survives editing,
+    # so checking the index would refuse forever no matter what the user did.
+    marked=$(git -C "$clone" diff --name-only --diff-filter=U 2>/dev/null | while IFS= read -r f; do
+               grep -lE '^(<<<<<<<|=======|>>>>>>>) ?' "$clone/$f" 2>/dev/null
+             done)
+    if [ -n "$marked" ]; then
+      say "$id: these still carry conflict markers — finish them, or name a side with mine or theirs"
+      printf '%s\n' "$marked" | sed "s|^$clone/|    |"
+      return 1
+    fi
+    git -C "$clone" add -A
+    if GIT_EDITOR=true git -C "$clone" rebase --continue >/dev/null 2>&1; then
+      say "$id: resolved at $(git -C "$clone" rev-parse --short HEAD)"
+      n=$((n + 1))
+    else
+      say "$id: could not carry on — the rebase is still open; kai update --abort puts it back"
+      return 1
+    fi
+  done < <(conflicted_clones "$root")
+  [ "$n" -gt 0 ] || { say "nothing to resolve — no update is waiting on you"; return 0; }
+  return 0
+}
+
+conflict_automerge() {
+  local root=$1 clone id files
+  command -v claude >/dev/null 2>&1 || die "claude is not on PATH — edit the files yourself, then kai update --resolve"
+  while IFS= read -r clone; do
+    [ -n "$clone" ] || continue
+    id=${clone#"$root/.ai/repositories/"}
+    files=$(git -C "$clone" diff --name-only --diff-filter=U 2>/dev/null | tr '\n' ' ')
+    [ -n "$files" ] || continue
+    say "$id: asking for a proposed merge of: $files"
+    say "It proposes and you review. Nothing is committed, and kai update --abort still puts it back."
+    claude -p "You are in the git repository $clone, part-way through a rebase. These files carry conflict markers: $files. For EACH, resolve the markers into the result that keeps both sides' intent, editing the file in place and removing every marker. Where the two sides genuinely cannot be reconciled, leave that file's markers alone and say which and why. Do not run git. Commit nothing." --output-format text \
+      || say "$id: the proposed merge did not complete — the files are untouched where it failed"
+  done < <(conflicted_clones "$root")
+  say ""
+  say "Review what it did, then: kai update --resolve to carry on, or kai update --abort to drop it."
+}
+
+cmd_update() {
   local root; root=$(repo_root)
   validate_config "$root"
-  local status_only=0 pull=0 push=0 a
+  local status_only=0 pull=0 push=0 abort=0 automerge=0 resolve=0 side="" a
   for a in "$@"; do
     case "$a" in
-      --status) status_only=1 ;;
-      --pull)   pull=1 ;;
-      --push)   push=1 ;;
-      *) die "sync does not take \"$a\". It takes --status to report without writing, --pull to take updates, or --push to publish your edits. See kai --help" ;;
+      --status)    status_only=1 ;;
+      --pull)      pull=1 ;;
+      --push)      push=1 ;;
+      --abort)     abort=1 ;;
+      --automerge) automerge=1 ;;
+      --resolve)   resolve=1 ;;
+      mine|theirs) side=$a ;;
+      --resolve=*) resolve=1; side=${a#--resolve=} ;;
+      --resolve=mine)   resolve=1; side=mine ;;
+      --resolve=theirs) resolve=1; side=theirs ;;
+      -*) die "update does not take \"$a\". It takes --status to report without writing, --pull to take updates, or --push to publish your edits; while an update is waiting on you, --abort, --automerge or --resolve. See kai --help" ;;
+      *) [ "$resolve" = 1 ] && die "--resolve takes mine or theirs, or nothing if you have edited the files yourself" || die "update does not understand \"$a\". See kai --help" ;;
     esac
   done
+
+  # The three that act on an update already in progress, before anything else.
+  if [ "$abort" = 1 ]; then conflict_abort "$root"; return 0; fi
+  if [ "$automerge" = 1 ]; then conflict_automerge "$root"; return 0; fi
+  if [ "$resolve" = 1 ]; then conflict_continue "$root" "$side" || return 0; fi
+
+  if in_conflict "$root" && [ "$resolve" = 0 ]; then
+    say "an update is already waiting on you."
+    conflict_report "$root"
+    return 0
+  fi
   [ "$pull" = 1 ] && [ "$push" = 1 ] && die "one of --pull or --push — taking and giving are separate acts"
   # Apply what was already pending BEFORE anything is read or fetched
   # (docs/package-format.md: apply what was already pending -> rebase -> apply
@@ -1247,7 +1364,6 @@ cmd_sync() {
   [ $status_only = 1 ] || sweep_orphan_clones "$root"
   [ $status_only = 1 ] || resolve_xdeps "$root"
   prune_links "$root"
-  report_conflicts
   [ $status_only = 1 ] || announce_reload
 }
 
@@ -1271,18 +1387,24 @@ usage: kai <command> [options]
                         The declaration is appended to .ai.toml; nothing else in
                         the file is touched.
 
-  sync                  Bring the declared packages up to date and lay them.
+  update                Bring the declared packages up to date and lay them.
+                        Also spelled `sync`, which does the same thing.
                         Applies any pending migrations first, heals links whose
                         source moved, and removes clones nothing declares.
       --status          Report what it would do and write nothing.
       --pull            Take updates from each source.
       --push            Publish your own edits back to a source. Deliberate:
-                        a plain sync never sends anything anywhere.
+                        a plain update never sends anything anywhere.
 
-  resolve               List the paths where a file you own and a file a package
-                        wants to provide collide. kai never picks between them.
-      --assist          Ask Claude to propose a merge for each. It reads both
-                        versions, proposes, and writes and commits nothing.
+                        A file of yours where a package has one of its own is
+                        taken as your local edit of that file, and rebases onto
+                        the package's changes from then on. When both sides have
+                        changed the same lines the update stops and waits, and
+                        these three act on it:
+      --abort           Put everything back exactly as it was.
+      --automerge       Have Claude propose the merge for you to review.
+      --resolve         You have edited the files; carry on from there.
+                        Nothing is ever lost: every version is in a commit.
 
   --help, -h            This text.
 
@@ -1302,8 +1424,8 @@ main() {
   case "${1:-}" in
     init)    shift; cmd_init "$@" ;;
     install) shift; cmd_install "$@" ;;
-    sync)    shift; cmd_sync "$@" ;;
-    resolve) shift; cmd_resolve "$@" ;;
+    update)  shift; cmd_update "$@" ;;
+    sync)    shift; cmd_update "$@" ;;
     --help|-h|help) usage ;;
     '') usage >&2; exit 2 ;;
     *) printf 'kai: %s is not a kai command\n\n' "$1" >&2; usage >&2; exit 2 ;;
