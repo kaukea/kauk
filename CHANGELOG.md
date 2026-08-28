@@ -279,3 +279,20 @@ and the package format. A question goes to standard output and succeeds; a
 mistake names the word that was not understood, prints the help, and fails.
 
 _Board: `help-that-helps`._
+
+#### ✨ `f/update-is-the-verb` → `archive/update-is-the-verb`
+
+`update` is now the command that does the work and `sync` is a name for it. A
+file of yours where a package has one of its own is no longer a standoff: a laid
+artifact is a link into its package, so an edit through it is an edit of that
+repository, committed there and rebased onto the package's changes like anything
+else. Nothing is copied anywhere and nothing is lost, because every version is in
+a commit. When both sides have changed the same lines the rebase is left open —
+being unfinished is the state, and git holds it — and `kai update --abort`,
+`--automerge` or `--resolve` act on it, the last of which also takes `mine` or
+`theirs` if you would rather not edit anything. The separate `resolve` command is
+gone. Namespacing survives only for two different packages shipping one name,
+which is what it was for.
+
+_Board: `update-is-the-verb` · retires Decision-042 · relates to
+`help-that-helps`._

@@ -31,7 +31,8 @@ hoard. See `ARCHITECTURE.md`.
 ## Layout
 
 - `bin/kaukea` — the bash stopgap that vendors and lays file packages until `0.1.0`, invoked as **`kai`** (`kauk` stays as the backup alias):
-  `init` / `install <owner>/<repo> | <uri> | <path>` / `sync [--pull|--push]` / `resolve`.
+  `init` / `install <owner>/<repo> | <uri> | <path>` / `update [--pull|--push]`, also
+  spelled `sync`.
   Sync pulls with rebase, applies each package's pending migrations itself (in
   order, watermarked — anything it cannot finish is recorded as an ask for the
   next session, never a nag), heals laid links whose source moved, sweeps clean
@@ -47,7 +48,12 @@ hoard. See `ARCHITECTURE.md`.
   start, into the git folder rather than the working tree, so a fresh clone or a
   brand-new worktree reaches its packages without a sync. Every worktree shares
   that folder and therefore the same clone; each checkout reaches it through
-  `.ai/repositories/`, which is ignored and never committed.
+  `.ai/repositories/`, which is ignored and never committed. A laid artifact is a
+  link into the package it came from, so editing one edits that package: your
+  change is committed there and rebased onto its updates. When both sides have
+  changed the same lines the update stops and waits, and `--abort`, `--automerge`
+  or `--resolve` (optionally `mine` or `theirs`) settle it. Nothing is ever lost,
+  because every version is in a commit.
 - `docs/package-format.md` — **what a package is.** A package is a repository of files
   that knows nothing about kauk: its contents are the convention directories
   `skills/ agents/ hooks/ tools/ files/`, and anything outside them is ignored. There is
