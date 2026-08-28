@@ -328,3 +328,19 @@ instead.
 
 _Board: `cases-are-the-contract` · follows `testable-clusters` · relates to
 `cli-mvp`._
+
+#### ♻️ `f/symlink-port` → `archive/symlink-port`
+
+A dead link had no name — it was inferred by asking a resolver a question it
+answers with silence when a directory along the path is missing, and that
+silence was read as an answer, which is how a package's own link came to look
+like a stranger's. Asking the filesystem what is there is now `lib/fs.sh`, whose
+whole job is to turn what is on disk into facts and to report what a link
+carries without following it. The two judgements that were tangled with those
+calls — what to do about a destination, and what to call it when something is
+already there — are now pure functions in `lib/place.sh` with their own contract
+cases. Reintroducing the original defect on purpose is caught in 0.118s by nine
+assertions naming the broken function, where a scenario suite takes 9.158s to
+report 31 downstream symptoms.
+
+_Board: `symlink-port` · follows `cases-are-the-contract` · relates to `cli-mvp`._
