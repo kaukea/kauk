@@ -50,6 +50,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `bug · done · critical · complete · cli-core ·` [A migration that moves the store stranded every migration after it](TODO.md.d/migrations-resolve-late.md) ~estate-links-run ~migration-engine-rules
 - `bug · done · critical · complete · cli-core ·` [The orphan sweep deleted whole stores when it could not read the declarations](TODO.md.d/sweep-needs-declarations.md) ~estate-links-run
 - `bug · done · critical · complete · cli-core ·` [Migrations sharing one watermark prefix were skipped after the first](TODO.md.d/same-prefix-siblings.md) ⊘migrations-resolve-late ~estate-links-run
+- `housekeeping · functional · · complete · cli-core ·` [`kai --help` explains every command instead of naming four of them](TODO.md.d/help-that-helps.md)
 - `feature · functional · critical · complete · cli-core ·` [Every managed repository declares the kai package — without it no agent can be launched](TODO.md.d/kai-always-declared.md) ~estate-links-run
 - `bug · functional · critical · complete · cli-core ·` [A sync reached into another session's worktree, and ended non-zero after succeeding](TODO.md.d/sync-stays-put.md) ~store-in-git-folder
 - `housekeeping · functional · critical · complete · cli-core ·` [Document `.ai.toml` for the people who write it](TODO.md.d/ai-toml-doc.md) ~store-in-git-folder
