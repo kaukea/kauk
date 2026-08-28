@@ -1,0 +1,96 @@
+# The name arithmetic, as questions and answers.
+#
+# This file is the CONTRACT, not one language's tests. Every implementation of
+# kai answers these, and a runner in any language reads this file rather than
+# reaching into a particular one's functions. tests/unit-names.sh is the runner
+# for the shell implementation.
+#
+# Format: tab-separated.
+#   function <TAB> arg[|arg...] <TAB> expected <TAB> note
+# The expected value <true> or <false> means the function's exit status rather
+# than what it prints; <empty> means it prints nothing. Empty fields are spelled
+# out because a reader that treats tab as whitespace collapses runs of them, and
+# a contract should not depend on how one language's split behaves. A note beginning REGRESSION marks a question that was
+# once answered wrongly in a shipped version; those are never removed.
+#
+# Lines beginning # and blank lines are ignored. Arguments are separated by | so
+# that a tab never has to appear inside one.
+
+# --- a reference is only a reference in the last segment ---
+ref_of	kaukea/kauk	<empty>	a plain source names no reference
+ref_of	kaukea/kauk@HEAD	HEAD	a named reference is found
+ref_of	kaukea/kauk@topic	topic	a branch is found
+ref_of	git@github.com:kaukea/kauk.git	<empty>	REGRESSION a git address carries @ in its user part
+ref_of	git@github.com:kaukea/kauk.git@HEAD	HEAD	a git address may still carry a reference
+ref_of	/home/me@work/src/kauk	<empty>	an @ in a parent directory is not a reference
+
+# --- removing a reference leaves the source whole ---
+without_ref	kaukea/kauk	kaukea/kauk	nothing to remove
+without_ref	kaukea/kauk@HEAD	kaukea/kauk	a reference is removed
+without_ref	git@github.com:kaukea/kauk.git	git@github.com:kaukea/kauk.git	REGRESSION a git address survives intact
+without_ref	/home/me@work/src/kauk	/home/me@work/src/kauk	an @ in a parent survives
+
+# --- the repository half, whatever shape the source takes ---
+repo_half	kaukea/kauk	kauk	owner and repository
+repo_half	kaukea/kauk@HEAD	kauk	with a reference
+repo_half	git@github.com:kaukea/kauk.git	kauk	REGRESSION a git address
+repo_half	https://github.com/kaukea/kauk.git	kauk	an https address
+repo_half	/home/me/src/kaukea/kauk	kauk	a path to a checkout
+repo_half	/home/me/src/kaukea/kauk/	kauk	a trailing slash
+repo_half	kaukea/orchard	orchard	something else entirely
+
+# --- the identifier a package is stored under ---
+owner_repo	kaukea/kauk	kaukea/kauk	owner and repository pass through
+owner_repo	https://github.com/kaukea/kauk.git	kaukea/kauk	an https address
+owner_repo	git@github.com:kaukea/kauk.git	kaukea/kauk	a git address
+owner_repo	file:///home/me/kaukea/kauk	kaukea/kauk	a file address
+owner_repo	/home/me/src/kaukea/kauk	kaukea/kauk	REGRESSION the identifier is not the package's own name
+owner_repo	kaukea/kauk@HEAD	kaukea/kauk	a reference does not disturb it
+
+# --- making a path absolute, resolving nothing ---
+absolute	/root|/a/b	/a/b	already absolute
+absolute	/root|a/b	/root/a/b	relative to the base
+absolute	/root|./a	/root/a	a leading dot-slash
+absolute	/root|a/	/root/a	a trailing slash is dropped
+
+# --- collapsing, as text, never by following links ---
+collapse	/|/a/b/c	/a/b/c	nothing to collapse
+collapse	/|/a/b/c/..	/a/b	one step up
+collapse	/|/a/b/c/../..	/a	several steps up
+collapse	/a/b|../x	/a/x	a relative target from a base
+collapse	/|/nowhere/at/all	/nowhere/at/all	REGRESSION a path that does not exist still has an answer
+collapse	/a/b/missing|../../x	/a/x	REGRESSION through a directory that is not there
+collapse	/|/../..	/	past the root
+collapse	/|/a/./b	/a/b	dots are ignored
+
+# --- is one path inside another ---
+under	/a/b|/a/b/c	<true>	a child is inside
+under	/a/b|/a/b	<false>	the same path is not inside itself
+under	/a/b|/a/bb/c	<false>	a sibling is not inside
+under	/a/b/c|/a/b	<false>	a parent is not inside
+under	/a/b/|/a/b/c	<true>	a trailing slash on the parent
+
+# --- how far below the anchor ---
+depth_below	/r|/r	0	at the anchor
+depth_below	/r|/r/a	1	one down
+depth_below	/r|/r/a/b	2	two down
+depth_below	/r|/r/a/b/c/d/e	5	REGRESSION five down is five
+depth_below	/r|/elsewhere/a	<false>	outside the anchor has no depth
+
+# --- what a laid link should carry ---
+link_target	/r|/r/.ai/repositories/p/skills/x|/r	.ai/repositories/p/skills/x	at the root, no steps up
+link_target	/r|/r/.ai/repositories/p/skills/x|/r/.claude/skills	../../.ai/repositories/p/skills/x	REGRESSION two down carries two
+link_target	/r|/r/.ai/repositories/p/skills/x|/r/.claude/a/b	../../../.ai/repositories/p/skills/x	three down carries three
+link_target	/r/.claude/worktrees/w|/r/.claude/worktrees/w/.ai/repositories/p/skills/x|/r/.claude/worktrees/w/.claude/skills	../../.ai/repositories/p/skills/x	REGRESSION counted from the checkout it sits in, not the one above
+link_target	/r|/elsewhere/thing|/r/.claude/skills	/elsewhere/thing	a target outside the anchor is left alone
+link_target	/r|/r/thing|/elsewhere/skills	/r/thing	a link outside the anchor is left alone
+link_target	/home/someone/src/repo|/home/someone/src/repo/.ai/repositories/p/x|/home/someone/src/repo/.claude/skills	../../.ai/repositories/p/x	REGRESSION no home directory can appear in the answer
+
+# --- migration filenames ---
+mig_day	migrations/2026-08-28-01-a-thing.md	2026-08-28	the day
+mig_day	migrations/2026-08-19-relative-symlinks.md	2026-08-19	the day of an older form
+mig_seq	migrations/2026-08-28-01-a-thing.md	1	the sequence within the day
+mig_seq	migrations/2026-08-28-12-a-thing.md	12	a two-digit sequence
+mig_seq	migrations/2026-08-28-08-a-thing.md	8	REGRESSION a leading zero is not octal
+mig_seq	migrations/2026-08-19-relative-symlinks.md	0	REGRESSION the older form has no sequence
+mig_seq	2026-08-28-02-x.md	2	a bare filename works too
