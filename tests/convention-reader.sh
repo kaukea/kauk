@@ -114,8 +114,15 @@ commit_all "$PKG" "upstream touches alpha"
 printf 'conflicting local line\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
 UP=$(git -C "$PKG" rev-parse HEAD)
 ( cd "$CON" && "$KAUK" sync --push ) >"$TMP/outP5" 2>&1 || true
-check "conflict reported, not degraded" 'grep -q "CONFLICTS" "$TMP/outP5"'
+check "the update says it is waiting"  'grep -q "waiting on you" "$TMP/outP5"'
 check "source repository untouched"    '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UP" ]'
+check "the rebase is left open to act on" '[ -d "$CON/.ai/repositories/test/pkg/.git/rebase-merge" ] || [ -d "$CON/.ai/repositories/test/pkg/.git/rebase-apply" ]'
+( cd "$CON" && "$KAUK" update ) >"$TMP/outP5b" 2>&1 || true
+check "and says so again until it is settled" 'grep -q "already waiting on you" "$TMP/outP5b"'
+check "it offers the three ways out"   'grep -q -- "--abort" "$TMP/outP5b" && grep -q -- "--automerge" "$TMP/outP5b" && grep -q -- "--resolve" "$TMP/outP5b"'
+( cd "$CON" && "$KAUK" update --abort ) >"$TMP/outP5c" 2>&1 || true
+check "abort puts it back"             '[ ! -d "$CON/.ai/repositories/test/pkg/.git/rebase-merge" ] && [ ! -d "$CON/.ai/repositories/test/pkg/.git/rebase-apply" ]'
+check "abort says what it did"         'grep -q "put back as it was" "$TMP/outP5c"'
 ( cd "$CON/.ai/repositories/test/pkg" && git reset -q --hard origin/main 2>/dev/null && git pull -q --rebase origin main 2>/dev/null || true )
 
 echo "== a source naming anything but @HEAD is left untouched =="
@@ -234,35 +241,43 @@ check "selected artifact laid"         '[ -L "$CON7/.claude/skills/needy" ]'
 check "cross-package dep laid"         '[ -L "$CON7/.claude/skills/dep1" ]'
 check "cross-package closure reported" 'grep -q "closure: +dep" "$TMP/out9"'
 
-echo "== a real file the user owns is reported and skipped =="
+echo "== a file of yours becomes your edit of the package's file =="
 CON2="$TMP/consumer2"
 git_init "$CON2"; mkdir -p "$CON2/.claude"
 printf 'MINE — not kauk\n' > "$CON2/AGENTS.shared.md"
 commit_all "$CON2"
 ( cd "$CON2" && "$KAUK" install "$PKG" ) >"$TMP/outB" 2>&1 || true
-check "user file not replaced"         'grep -q "MINE" "$CON2/AGENTS.shared.md"'
-check "conflict reported"              'grep -qi "blocked" "$TMP/outB"'
-check "user invited to decide"         'grep -q "kai resolve" "$TMP/outB"'
+check "it is laid at the plain name"   '[ -L "$CON2/AGENTS.shared.md" ]'
+check "it reaches the package"         'readlink "$CON2/AGENTS.shared.md" | grep -q ".ai/repositories/"'
+check "and says where edits now go"    'grep -q "edits through it now go to the package" "$TMP/outB"'
+check "your version is still in history" 'git -C "$CON2" show HEAD:AGENTS.shared.md | grep -q "MINE"'
+check "nothing is namespaced"          '[ ! -e "$CON2/local:AGENTS.shared.md" ]'
 check "no agent dispatched on install" '! grep -qi "dispatching\|claude -p" "$TMP/outB"'
 
-echo "== resolve lists conflicts and decides nothing =="
-( cd "$CON2" && "$KAUK" resolve ) >"$TMP/outC" 2>&1 || true
-check "resolve lists the conflict"     'grep -q "AGENTS.shared.md" "$TMP/outC"'
-check "resolve shows both versions"    'grep -q "yours:" "$TMP/outC" && grep -q "package:" "$TMP/outC"'
-check "resolve changes nothing"        'grep -q "MINE" "$CON2/AGENTS.shared.md"'
-( cd "$CON" && "$KAUK" resolve ) >"$TMP/outD" 2>&1 || true
-check "resolve is quiet when clean"    'grep -qi "nothing to resolve" "$TMP/outD"'
+echo "== an edit through the link is an edit of the package =="
+printf 'MY EDIT\n' > "$CON2/AGENTS.shared.md"
+CLONE2=$(cd "$CON2" && readlink -f "$(readlink AGENTS.shared.md)" | sed 's|/files/.*||')
+check "the package repository sees it" '[ -n "$(git -C "$CLONE2" status --porcelain)" ]'
+check "the edit is not in this repository" '! git -C "$CON2" diff -- AGENTS.shared.md | grep -q "MY EDIT"'
+check "what changed here is the link"      'git -C "$CON2" status --porcelain -- AGENTS.shared.md | grep -qE "^ (T|M)" && [ -L "$CON2/AGENTS.shared.md" ]'
 
-echo "== a name collision is namespaced, not merged =="
+echo "== resolve is no longer a command of its own =="
+( cd "$CON2" && "$KAUK" resolve ) >"$TMP/outC" 2>&1 || true
+check "it is refused"                  'grep -q "resolve is not a kai command" "$TMP/outC"'
+check "and the help is offered"        'grep -q -- "--resolve" "$TMP/outC"'
+
+echo "== two DIFFERENT packages sharing a name keep both =="
 CON4="$TMP/consumer4"
-git_init "$CON4"; mkdir -p "$CON4/.claude/skills/alpha"
-printf -- '---\nname: alpha\n---\nMY OWN alpha\n' > "$CON4/.claude/skills/alpha/SKILL.md"
+git_init "$CON4"; mkdir -p "$CON4/.claude"
 commit_all "$CON4"
-( cd "$CON4" && "$KAUK" install "$PKG" ) >"$TMP/outE" 2>&1 || true
-check "user's version kept as local:"  'grep -q "MY OWN" "$CON4/.claude/skills/local:alpha/SKILL.md"'
-check "package version namespaced"     '[ -L "$CON4/.claude/skills/pkg:alpha" ]'
-check "bare name no longer occupied"   '[ ! -e "$CON4/.claude/skills/alpha" ]'
-check "namespacing is announced"       'grep -qi "namespaced" "$TMP/outE"'
+PKGX="$TMP/test/pkgx"; git_init "$PKGX"; mkdir -p "$PKGX/skills/alpha"
+printf -- '---\nname: alpha\n---\nX ALPHA\n' > "$PKGX/skills/alpha/SKILL.md"
+pkg_toml "$PKGX" pkgx; commit_all "$PKGX"
+( cd "$CON4" && "$KAUK" install "$PKG" && "$KAUK" install "$PKGX" ) >"$TMP/outE" 2>&1 || true
+check "the first keeps a namespaced copy" '[ -e "$CON4/.claude/skills/local:alpha" ]'
+check "the second is namespaced too"      '[ -L "$CON4/.claude/skills/pkgx:alpha" ]'
+check "the bare name is given up"         '[ ! -e "$CON4/.claude/skills/alpha" ]'
+check "and it says why"                   'grep -qi "two packages ship this name" "$TMP/outE"'
 
 echo "== no runtime detected: nothing is laid =="
 CON3="$TMP/consumer3"

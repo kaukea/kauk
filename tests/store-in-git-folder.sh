@@ -338,15 +338,18 @@ echo "== the help says what each command does =="
 "$KAI" --help >"$TMP/help" 2>&1; HELP_RC=$?
 check "--help exits 0"                                '[ $HELP_RC -eq 0 ]'
 check "it goes to stdout, not stderr"                 '[ -s "$TMP/help" ] && [ -z "$("$KAI" --help 2>&1 >/dev/null)" ]'
-for verb in init install sync resolve; do
+for verb in init install update; do
   check "$verb is listed"                             'grep -q "^  '"$verb"'" "$TMP/help"'
 done
-for flag in --status --pull --push --assist; do
+check "sync is named as the other spelling"           'grep -q "Also spelled .sync" "$TMP/help"'
+check "resolve is no longer a command of its own"     '! grep -q "^  resolve " "$TMP/help"'
+for flag in --status --pull --push --abort --automerge --resolve; do
   check "$flag is explained"                          'grep -q -- "'"$flag"'" "$TMP/help"'
 done
 check "it says what a source can be"                  'grep -q "owner/repo" "$TMP/help" && grep -q "git address" "$TMP/help"'
-check "it says push is deliberate"                    'grep -qi "a plain sync never sends" "$TMP/help"'
-check "it says kai never picks between them"          'grep -qi "never picks between" "$TMP/help"'
+check "it says push is deliberate"                    'grep -qi "a plain update never sends" "$TMP/help"'
+check "it says your file becomes your edit"           'grep -qi "taken as your local edit" "$TMP/help"'
+check "it says nothing is ever lost"                  'grep -qi "every version is in a commit" "$TMP/help"'
 check "it says the config file is yours"              'grep -q "yours to edit" "$TMP/help"'
 check "it points at the written-up docs"              'grep -q "docs/ai-toml.md" "$TMP/help"'
 check "-h prints the same thing"                      '[ "$("$KAI" -h 2>&1)" = "$(cat "$TMP/help")" ]'
@@ -363,9 +366,10 @@ check "and prints the help"                           'grep -q "^usage: kai <com
 CON13="$TMP/con13"; make_consumer "$CON13" "$ORIGIN"
 ( cd "$CON13" && "$KAI" install ) >"$TMP/badinstall" 2>&1 || true
 check "install with nothing says what it needs"       'grep -q "install needs a package to add" "$TMP/badinstall"'
-( cd "$CON13" && "$KAI" sync --wat ) >"$TMP/badsync" 2>&1 || true
-check "an unknown sync flag names the flag"           'grep -q -- "sync does not take \"--wat\"" "$TMP/badsync"'
+( cd "$CON13" && "$KAI" update --wat ) >"$TMP/badsync" 2>&1 || true
+check "an unknown flag names the flag"                'grep -q -- "update does not take \"--wat\"" "$TMP/badsync"'
 check "and lists the ones it does take"               'grep -q -- "--status" "$TMP/badsync"'
+check "sync is accepted as the same command"          '( cd "$CON13" && "$KAI" sync --status ) >/dev/null 2>&1'
 
 echo
 printf 'store-in-git-folder: %s/%s passed\n' "$PASS" "$((PASS + FAIL))"
