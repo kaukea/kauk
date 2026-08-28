@@ -252,3 +252,17 @@ after doing its work. The trap now disarms itself.
 
 _Board: `sync-stays-put` · found by running a sync · relates to
 `store-in-git-folder`._
+
+#### ✨ `f/kai-always-declared` → `archive/kai-always-declared`
+
+A repository is given the kai package once, when it is initialised, and nothing
+ever put it back — every migration until now renames a declaration that already
+exists rather than creating one. The package carries the skill that launches an
+agent with the fleet's settings, which is the only sanctioned way to launch one,
+so a repository that lost the declaration cannot start an agent at all.
+`2026-08-28-01-kai-package-is-always-declared` adds the block when nothing names
+it, in any shape a source can take, and does nothing otherwise. It is the first
+migration that writes a declaration into a file that belongs to the operator, so
+it adds one block after the last dependency and changes nothing else.
+
+_Board: `kai-always-declared` · relates to `estate-links-run`._
