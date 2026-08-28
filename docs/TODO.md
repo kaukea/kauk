@@ -50,6 +50,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `bug · done · critical · complete · cli-core ·` [A migration that moves the store stranded every migration after it](TODO.md.d/migrations-resolve-late.md) ~estate-links-run ~migration-engine-rules
 - `bug · done · critical · complete · cli-core ·` [The orphan sweep deleted whole stores when it could not read the declarations](TODO.md.d/sweep-needs-declarations.md) ~estate-links-run
 - `bug · done · critical · complete · cli-core ·` [Migrations sharing one watermark prefix were skipped after the first](TODO.md.d/same-prefix-siblings.md) ⊘migrations-resolve-late ~estate-links-run
+- `feature · functional · critical · complete · cli-core ·` [The unit cases become a contract any implementation answers, not one language's tests](TODO.md.d/cases-are-the-contract.md) ~testable-clusters ~cli-mvp
 - `feature · functional · critical · complete · cli-core ·` [The name and path arithmetic becomes a library with unit tests of its own](TODO.md.d/testable-clusters.md) ~cli-mvp ~update-is-the-verb
 - `feature · functional · critical · complete · cli-core ·` [`update` is the verb, and a collision merges by rebase instead of stopping](TODO.md.d/update-is-the-verb.md) ~help-that-helps
 - `housekeeping · functional · · complete · cli-core ·` [`kai --help` explains every command instead of naming four of them](TODO.md.d/help-that-helps.md)

@@ -68,8 +68,10 @@ hoard. See `ARCHITECTURE.md`.
 - `docs/` — `ai-toml.md` (the configuration file), `package-format.md`, the board
   (`TODO.md` + sidecars), `decisions.md`, and `naming.md`.
 - `lib/` — the arithmetic of sources, identifiers and link targets, as pure
-  functions of their arguments; `tests/unit-names.sh` exercises it with no
-  repository, package or network involved.
+  functions of their arguments.
+- `spec/` — the questions every implementation of kai must answer, as data rather
+  than as one language's tests; `tests/unit-names.sh` is the runner for the shell
+  one, and needs no repository, package or network.
 - `tests/` — fixture-driven checks; `tests/convention-reader.sh` covers distribution,
   idempotence, pruning, collisions and self-publishing, and
   `tests/config-migration.sh` covers the move onto one configuration file.
