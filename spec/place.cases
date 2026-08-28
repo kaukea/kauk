@@ -1,0 +1,33 @@
+# What to do about a destination, and what to call it.
+#
+# Same format as spec/names.cases: tab-separated, arguments joined by |, and the
+# sentinels <true>, <false> and <empty>. A note beginning REGRESSION marks an
+# answer that was once wrong in a shipped version; those are never removed.
+#
+# These are questions about FACTS, not about a filesystem. The facts — what kind
+# of thing is at a path, what a link literally carries — come from lib/fs.sh.
+# That separation is the point: the awkward cases below need no repository to be
+# asked, and the awkward case that shipped a defect is the dead link.
+
+# --- what to do about a destination ---
+place_action	absent|<empty>|../../.ai/x	create	nothing is there
+place_action	link|../../.ai/x|../../.ai/x	correct	already pointing where it belongs
+place_action	link|/home/someone/.ai/x|../../.ai/x	rewrite	REGRESSION an absolute target is repointed, never kept
+place_action	link|../../../../../.ai/x|../../.ai/x	rewrite	REGRESSION a depth from the wrong root is repointed
+place_action	dead-link|../../.ai/moved/x|../../.ai/x	rewrite	REGRESSION a dead link is repointed, not removed
+place_action	dead-link|../../.ai/x|../../.ai/x	correct	a dead link already correct is left alone to be healed elsewhere
+place_action	file|<empty>|../../.ai/x	replace	a real file gives way to the link
+place_action	dir|<empty>|../../.ai/x	replace	a real directory gives way to the link
+
+# --- what to call it ---
+name_choice	no|absent|<empty>|/r/.ai/repositories/o/p/skills	plain	nothing is in the way
+name_choice	no|file|<empty>|/r/.ai/repositories/o/p/skills	plain	your own file takes the plain name and becomes your edit
+name_choice	no|dir|<empty>|/r/.ai/repositories/o/p/skills	plain	your own directory likewise
+name_choice	no|link|/r/.ai/repositories/o/p/skills/x|/r/.ai/repositories/o/p/skills	plain	REGRESSION a package recognises its own link
+name_choice	no|link|/r/.ai/repositories/o/other/skills/x|/r/.ai/repositories/o/p/skills	namespace	another package's link keeps both
+name_choice	no|dead-link|/r/.ai/repositories/o/other/skills/x|/r/.ai/repositories/o/p/skills	plain	REGRESSION a dead link is not evidence of a second package
+name_choice	yes|absent|<empty>|/r/.ai/repositories/o/p/skills	namespace	the plain name was already given up
+name_choice	yes|link|/r/.ai/repositories/o/p/skills/x|/r/.ai/repositories/o/p/skills	namespace	once given up it stays given up
+name_choice	no|link|/r/.ai/repositories/o/p/skills/x|<empty>	plain	with no source to compare against, do not rename anything
+name_choice	no|link|/r/.ai/repositories/o/p/skills|/r/.ai/repositories/o/p/skills	namespace	the source directory itself is not inside itself
+name_choice	no|link|/r/.ai/repositories/o/p/skills/x|/r/.ai/repositories/o/p/skills/	plain	a trailing slash on the source does not change the answer
