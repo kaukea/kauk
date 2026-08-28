@@ -3,6 +3,3 @@ type = "package"
 
 [[dependency]]
 source = "kaukea/orchard"
-
-[[dependency]]
-source = "/home/sudoku/src/kaukea/kauk"
