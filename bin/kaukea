@@ -61,6 +61,19 @@
 # Laying happens only AFTER selection.
 set -euo pipefail
 
+# The arithmetic of names, sources and link targets lives in a library that can
+# be exercised without a repository, a package or a network — tests/unit-names.sh
+# asks it every question that has ever been got wrong here. Located through
+# whatever symlink the executable was invoked by, the way everything else does.
+KAI_LIB=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib" 2>/dev/null && pwd) || KAI_LIB=""
+if [ -z "$KAI_LIB" ] || [ ! -f "$KAI_LIB/names.sh" ]; then
+  printf 'kai: cannot find its own library beside the executable (expected %s).\n' \
+         "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")/../lib/names.sh" >&2
+  printf 'kai: the bin and lib directories travel together — reinstall or check the symlink.\n' >&2
+  exit 1
+fi
+. "$KAI_LIB/names.sh"
+
 die() { printf 'kai: %s\n' "$1" >&2; exit 1; }
 say()  { printf '%s\n' "$1"; }
 warn() { printf '%s\n' "$1" >&2; }   # never into a list a caller is reading
@@ -131,51 +144,23 @@ dep_rows() { # dep_rows <root> -> "<source>\t<type>\t<include-csv>" per dependen
 
 dep_sources() { dep_rows "$1" | cut -d'|' -f1; }
 
-path_id() { # path_id <path> -> <owner>/<repo>: the last two path components
-  local p=${1%/}          # the origin remote is NOT consulted, so a renamed
-  echo "$(basename "$(dirname "$p")")/$(basename "$p")"   # remote never
-}                                                          # relocates a clone
 
-split_ref() { # split_ref <source> -> the @ref after the last /, or nothing
-  local tail=${1##*/}
-  case "$tail" in *@*) echo "${tail##*@}" ;; esac
-}
 
-strip_ref() { # strip_ref <source> -> the source with its @ref removed
-  local r; r=$(split_ref "$1")
-  [ -z "$r" ] && { echo "$1"; return 0; }
-  echo "${1%@$r}"
-}
 
-abs_path() { # abs_path <root> <path> -> ./relative resolved against the repository
-  case "$2" in
-    /*) echo "${2%/}" ;;
-    *)  echo "${1%/}/${2#./}" | sed 's|/*$||' ;;
-  esac
-}
 
-uri_id() { # uri_id <git-uri> -> <owner>/<repo>
-  local u=${1%.git} tail
-  u=${u%/}
-  tail=${u##*:}                 # git@host:owner/repo -> owner/repo
-  case "$tail" in
-    */*) echo "$(basename "$(dirname "$tail")")/$(basename "$tail")" ;;
-    *)   echo "$(basename "$(dirname "$u")")/$(basename "$u")" ;;
-  esac
-}
 
 deps_list() { # deps_list <root> -> "<id> <origin> <source-as-written>" per line
   local root=$1 raw typ inc bare
   while IFS='|' read -r raw typ inc; do
     [ -n "$raw" ] || continue
     case "$typ" in ''|package) ;; *) warn "WARN .ai.toml: dependency \"$raw\" has type \"$typ\" — only packages are acted on; ignored"; continue ;; esac
-    bare=$(strip_ref "$raw")
+    bare=$(without_ref "$raw")
     case "$bare" in
       *://*|git@*)
-        echo "$(uri_id "$bare") $bare $raw" ;;
+        echo "$(owner_repo "$bare") $bare $raw" ;;
       /*|./*|../*)
-        bare=$(abs_path "$root" "$bare")
-        echo "$(path_id "$bare") $bare $raw" ;;
+        bare=$(absolute "$root" "$bare")
+        echo "$(owner_repo "$bare") $bare $raw" ;;
       */*)
         echo "$bare https://github.com/$bare $raw" ;;
       *)
@@ -189,7 +174,7 @@ validate_config() { # the config errors worth stopping for, reported before any 
   while IFS='|' read -r raw typ inc; do
     [ -n "$raw" ] || continue
     [ -n "$inc" ] || continue
-    case "$(strip_ref "$raw")" in
+    case "$(without_ref "$raw")" in
       /*|./*|../*)
         die "dependency \"$raw\" carries an include list. include is accepted on git sources only: a local path is a development convenience that has to be replaced by its git source before publishing, and a selection that does not survive that swap is a trap. Remove the include, or point the dependency at the git source." ;;
     esac
@@ -234,7 +219,7 @@ dep_include() { # dep_include <root> <id> -> one category path per line
 
 dep_ref() { # dep_ref <root> <id> -> HEAD, a branch/tag/commit, or nothing
   local raw; raw=$(dep_source "$1" "$2")
-  [ -n "$raw" ] && split_ref "$raw"
+  [ -n "$raw" ] && ref_of "$raw"
   return 0
 }
 
@@ -553,8 +538,8 @@ namespace_for() { # namespace_for <dstdir> <name> <pkgns> <srcdir>
     # an intermediate directory is missing — and a link waiting to be repaired is
     # dead precisely because something along its path has moved. Following it
     # would also resolve the store's own link and answer with the git folder.
-    here=$(lexical_abs "$dstdir" "$(readlink "$dstdir/$n")")
-    there=$(lexical_abs "$dstdir" "$srcdir")
+    here=$(collapse "$dstdir" "$(readlink "$dstdir/$n")")
+    there=$(collapse "$dstdir" "$srcdir")
     case "$here" in
       "$there"/*) ;;                              # its own: leave the plain name alone
       *)
@@ -648,7 +633,7 @@ lay_self() { # lay_self <root> — root-table type = "package": this repository 
              # Unfiltered: self has no [[dependency]] include list to key off.
   local root=$1 ns rt runtimes
   is_package "$root" || { say "self: no package contents at root — nothing to lay"; return 0; }
-  ns=$(pkg_namespace "$root" "$(path_id "$root")")
+  ns=$(pkg_namespace "$root" "$(owner_repo "$root")")
   runtimes=$(detect_runtimes "$root")
   if [ -z "$runtimes" ]; then
     say "self: no agent runtime detected here — nothing laid"
@@ -665,25 +650,6 @@ lay_self() { # lay_self <root> — root-table type = "package": this repository 
   say "copy: $LAID laid/verified (self) [$(echo "$runtimes" | tr '\n' ' ')]"
 }
 
-lexical_abs() { # lexical_abs <base-dir> <path> -> absolute, ".." collapsed as text
-                # Deliberately textual: it must NOT follow symlinks, because the
-                # store itself is reached through one and resolving that would
-                # answer with the git folder rather than the package path being
-                # compared against.
-  local p=$2
-  case "$p" in /*) ;; *) p="$1/$p" ;; esac
-  printf '%s\n' "$p" | awk -F/ '{
-    n = 0
-    for (i = 1; i <= NF; i++) {
-      if ($i == "" || $i == ".") continue
-      if ($i == "..") { if (n > 0) n--; continue }
-      out[++n] = $i
-    }
-    s = ""
-    for (i = 1; i <= n; i++) s = s "/" out[i]
-    print (s == "" ? "/" : s)
-  }'
-}
 
 prune_deselected() { # a link whose artifact fell out of the selection is removed
   [ "$SEL_ACTIVE" = 1 ] || return 0
@@ -692,7 +658,7 @@ prune_deselected() { # a link whose artifact fell out of the selection is remove
     [ -L "$l" ] || continue
     # laid links are relative, so the raw target is resolved against the link's
     # own directory before it can be matched against the package it came from
-    t=$(lexical_abs "$(dirname "$l")" "$(readlink "$l")")
+    t=$(collapse "$(dirname "$l")" "$(readlink "$l")")
     case "$t" in
       "$src"/skills/*) k=s; n=${t#"$src"/skills/}; n=${n%%/*} ;;
       "$src"/agents/*) k=a; n=$(basename "$t" .md) ;;
@@ -850,15 +816,7 @@ pkg_artifact_names() { # pkg_artifact_names <src> -> kind/name per line, sorted
 # next migration — no ask files, no blocking, no hand-off to an agent.
 WATERMARK_FILE=".ai/migrations.toml"
 
-mig_date() { local b; b=$(basename "$1" .md); printf '%s\n' "${b:0:10}"; }
 
-mig_nn() { # mig_nn <path> -> the NN token as an integer; 0 for the older
-           # <YYYY-MM-DD>-<slug>.md form, which has no NN to read
-  local b rest nn
-  b=$(basename "$1" .md); rest=${b:11}; nn=${rest%%-*}
-  case "$nn" in ''|*[!0-9]*) nn=0 ;; esac
-  printf '%d\n' "$((10#$nn))"
-}
 
 collect_migrations() { # collect_migrations <root> -> "<date> <nn> <id> <path>"
                         # per line, one global stream sorted by date then NN.
@@ -873,13 +831,13 @@ collect_migrations() { # collect_migrations <root> -> "<date> <nn> <id> <path>"
       id=${d#"$root/.ai/repositories/"}; id=${id%/}
       for f in "${d}migrations"/*.md; do
         [ -e "$f" ] || continue
-        printf '%s %s %s %s\n' "$(mig_date "$f")" "$(mig_nn "$f")" "$id" "$f"
+        printf '%s %s %s %s\n' "$(mig_day "$f")" "$(mig_seq "$f")" "$id" "$f"
       done
     done
     if is_package_repo "$root" && [ -d "$root/migrations" ]; then
       for f in "$root"/migrations/*.md; do
         [ -e "$f" ] || continue
-        printf '%s %s %s %s\n' "$(mig_date "$f")" "$(mig_nn "$f")" "(self)" "$f"
+        printf '%s %s %s %s\n' "$(mig_day "$f")" "$(mig_seq "$f")" "(self)" "$f"
       done
     fi
   } | sort -k1,1 -k2,2n
@@ -1007,10 +965,10 @@ announce_reload() { # unconditional at the end of every sync, package or not
 # ---------- install ----------
 install_source() { # install_source <root> <tablekey-or-id> — register, clone, lay
   local root=$1 ref=$2 id origin clone src bare
-  bare=$(strip_ref "$ref")
+  bare=$(without_ref "$ref")
   case "$bare" in
-    *://*|git@*) register_dependency "$root" "$ref"; id=$(uri_id "$bare") ;;
-    /*|./*|../*) register_dependency "$root" "$ref"; id=$(path_id "$(abs_path "$root" "$bare")") ;;
+    *://*|git@*) register_dependency "$root" "$ref"; id=$(owner_repo "$bare") ;;
+    /*|./*|../*) register_dependency "$root" "$ref"; id=$(owner_repo "$(absolute "$root" "$bare")") ;;
     */*)         register_dependency "$root" "$ref"; id=$bare ;;
     *) say "  WARN install: '$ref' is not <owner>/<repo>, a git URI, or a path"; return 1 ;;
   esac
@@ -1043,10 +1001,10 @@ cmd_install() {
   install_source "$root" "$ref" || die "install: $ref failed"
   resolve_xdeps "$root"
   prune_links "$root"
-  local id bare; bare=$(strip_ref "$ref")
+  local id bare; bare=$(without_ref "$ref")
   case "$bare" in
-    *://*|git@*) id=$(uri_id "$bare") ;;
-    /*|./*|../*) id=$(path_id "$(abs_path "$root" "$bare")") ;;
+    *://*|git@*) id=$(owner_repo "$bare") ;;
+    /*|./*|../*) id=$(owner_repo "$(absolute "$root" "$bare")") ;;
     *)           id=$bare ;;
   esac
   say "install: $id done"
