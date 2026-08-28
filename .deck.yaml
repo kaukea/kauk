@@ -1,0 +1,7 @@
+# sebdeck (seb.tmux) per-repo deck preferences for sessions rooted here.
+# Night indigo so the bear reads: dark enough to be night, saturated
+# enough to survive the row blend, and nowhere near the cobalt the
+# control rail owns.
+title: kauk
+background:
+  color: "#2B1E5C"
