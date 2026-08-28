@@ -1175,3 +1175,17 @@ That file was an agent invention; the operator annotated it only so there would 
 #config #ai-toml
 
 The root table's `description` is a sentence for whoever opens the file. Nothing in the tool reads it today, and it is documented as such rather than as behaviour; it may be used later. `name` and `type` remain the only root-table keys anything acts on. (Operator, 2026-08-27.)
+
+## [2026-08-28 00:00 CEST] Decision-080: a collision is merged by rebase, not kept apart
+#conflicts #rebase #collision #update #cli-core
+
+Supersedes Decision-042, which the operator does not recognise as his: "I have no memory of saying anything like this." Its reasoning missed the distinction that matters. Two artifacts of the same name coming from two DIFFERENT packages say nothing about being about the same subject, and both are kept under the name of the package that brought them — that case, and only that case, is what keeping them apart was ever for. A file of your own colliding with a package you have declared and can publish back to is almost certainly the same file, and is treated as such.
+
+A laid artifact is a link into the package it came from, so an edit through it is already an edit of that repository. Nothing is copied anywhere. A real file standing where a link belongs is replaced by the link, and the version that stood there stays in the repository's own history. From then on the change is committed into the package and rebased onto whatever the package does next, which is what supplies the base a merge needs: without it the tool held two versions and nothing they had diverged from, and every difference read as irreconcilable.
+
+Where both sides changed the same lines the rebase is LEFT OPEN. Being unfinished is the state — git holds it, and kai asks rather than keeping a record of its own. `kai update --abort` restores, `--automerge` proposes, `--resolve` carries on from what the user edited and will take `mine` or `theirs` instead. Nothing is lossy at any point, because every version is in a commit. (Operator, 2026-08-28.)
+
+## [2026-08-28 00:00 CEST] Decision-081: update is the verb; sync is a name for it
+#cli #naming #update #sync
+
+`update` is the command that brings declared packages up to date and lays them. `sync` remains as another spelling of the same command; nothing distinguishes them. The separate `resolve` command is retired — what it described now happens inside `update`, where the work is. (Operator, 2026-08-28.)
