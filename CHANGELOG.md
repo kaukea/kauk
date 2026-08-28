@@ -312,3 +312,19 @@ by, and says so legibly if the two ever travel apart.
 
 _Board: `testable-clusters` · first step of modelling the tool as a library ·
 relates to `cli-mvp`._
+
+#### ♻️ `f/cases-are-the-contract` → `archive/cases-are-the-contract`
+
+With a second implementation planned in .NET, the unit cases for the name
+arithmetic stop being tests of the shell library and become the contract both
+implementations answer to. They move into `spec/names.cases` as data — question,
+arguments, expected answer, and what is being asked — so a runner in any language
+reads the same file; `tests/unit-names.sh` is now a thirty-line runner that knows
+nothing about what it is testing. Thirteen of the fifty-nine cases record answers
+that were wrong in a shipped version and are marked so they are never dropped. An
+expected value of nothing is written out rather than left blank, because a reader
+treating tab as whitespace collapses runs of them and reads the next column
+instead.
+
+_Board: `cases-are-the-contract` · follows `testable-clusters` · relates to
+`cli-mvp`._
