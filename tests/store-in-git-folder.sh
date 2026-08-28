@@ -280,6 +280,60 @@ check "sync exits 0"                                  '[ $rc -eq 0 ]'
 check "no unbound variable is reported"               '! grep -q "unbound variable" "$TMP/sync11"'
 check "and nothing else went to stderr as an error"   '! grep -qi "line [0-9]*:" "$TMP/sync11"'
 
+echo "== a managed repository ends up declaring the package that manages it =="
+MIG_KAI="$ROOT/migrations/2026-08-28-01-kai-package-is-always-declared.md"
+
+# a consumer that lost the declaration, with a root table and a comment to preserve
+CON12="$TMP/con12"; git_init "$CON12"
+printf '# my own note, hands off\nname = "thing"\ntype = "project"\n\n[[dependency]]\nsource = "kaukea/orchard"\n' > "$CON12/.ai.toml"
+git -C "$CON12" add -A && git -C "$CON12" commit -qm consumer
+run_migration "$MIG_KAI" "$CON12" >"$TMP/migkai" 2>&1
+check "the declaration was added"                     'grep -q "^source = \"kaukea/kauk\"$" "$CON12/.ai.toml"'
+check "exactly one of them"                           '[ "$(grep -c "kaukea/kauk" "$CON12/.ai.toml")" -eq 1 ]'
+check "the operator comment survived"                 'grep -q "^# my own note, hands off$" "$CON12/.ai.toml"'
+check "the root table survived"                       'grep -q "^name = \"thing\"$" "$CON12/.ai.toml"'
+check "the existing dependency survived"              'grep -q "kaukea/orchard" "$CON12/.ai.toml"'
+check "it is placed after the last dependency"        '[ "$(grep -n "kaukea/kauk" "$CON12/.ai.toml" | cut -d: -f1)" -gt "$(grep -n "kaukea/orchard" "$CON12/.ai.toml" | cut -d: -f1)" ]'
+check "and it says what it did"                       'grep -q "declared the kai package" "$TMP/migkai"'
+BEFORE12=$(cat "$CON12/.ai.toml")
+run_migration "$MIG_KAI" "$CON12" >"$TMP/migkai2" 2>&1
+check "a second run changes nothing"                  '[ "$(cat "$CON12/.ai.toml")" = "$BEFORE12" ]'
+check "and says it was already there"                 'grep -q "already declared" "$TMP/migkai2"'
+
+echo "== every shape of an existing declaration is recognised =="
+for shape in 'kaukea/kauk' 'kaukea/kauk@HEAD' 'git@github.com:kaukea/kauk.git' '/home/someone/src/kaukea/kauk'; do
+  C="$TMP/shape-$(echo "$shape" | tr -c 'a-zA-Z0-9' '-')"; git_init "$C"
+  printf '[[dependency]]\nsource = "%s"\n' "$shape" > "$C/.ai.toml"
+  git -C "$C" add -A && git -C "$C" commit -qm c
+  run_migration "$MIG_KAI" "$C" >"$TMP/s.out" 2>&1
+  check "left alone: $shape"                          '[ "$(grep -c "^source" "$C/.ai.toml")" -eq 1 ]'
+done
+
+echo "== the tool's own repository, and repositories kai does not manage =="
+SELF="$TMP/self"; git_init "$SELF"
+mkdir -p "$SELF/bin"; printf '#!/bin/sh\n' > "$SELF/bin/kaukea"
+printf 'name = "kauk"\ntype = "package"\n' > "$SELF/.ai.toml"
+git -C "$SELF" add -A && git -C "$SELF" commit -qm self
+run_migration "$MIG_KAI" "$SELF" >"$TMP/self.out" 2>&1
+check "the kai package declares nothing"              '! grep -q "kaukea/kauk" "$SELF/.ai.toml"'
+check "and says why"                                  'grep -q "IS the kai package" "$TMP/self.out"'
+
+UNMANAGED="$TMP/unmanaged"; git_init "$UNMANAGED"
+printf 'hello\n' > "$UNMANAGED/README.md"
+git -C "$UNMANAGED" add -A && git -C "$UNMANAGED" commit -qm c
+run_migration "$MIG_KAI" "$UNMANAGED" >"$TMP/un.out" 2>&1
+check "an unmanaged repository is untouched"          '[ ! -f "$UNMANAGED/.ai.toml" ]'
+check "and says so"                                   'grep -q "not managed by kai" "$TMP/un.out"'
+
+echo "== a repository with no dependencies at all gets one =="
+EMPTY="$TMP/empty"; git_init "$EMPTY"
+printf 'name = "solo"\n' > "$EMPTY/.ai.toml"
+git -C "$EMPTY" add -A && git -C "$EMPTY" commit -qm c
+run_migration "$MIG_KAI" "$EMPTY" >"$TMP/e.out" 2>&1
+check "the declaration was added"                     'grep -q "^source = \"kaukea/kauk\"$" "$EMPTY/.ai.toml"'
+check "the root table survived"                       'grep -q "^name = \"solo\"$" "$EMPTY/.ai.toml"'
+check "and the file is still valid to kai's reader"   '[ "$(grep -c "^\[\[dependency\]\]$" "$EMPTY/.ai.toml")" -eq 1 ]'
+
 echo
 printf 'store-in-git-folder: %s/%s passed\n' "$PASS" "$((PASS + FAIL))"
 [ "$FAIL" -eq 0 ]
