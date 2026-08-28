@@ -67,6 +67,9 @@ hoard. See `ARCHITECTURE.md`.
   `kauk.ai/<pkg>` pages.
 - `docs/` — `ai-toml.md` (the configuration file), `package-format.md`, the board
   (`TODO.md` + sidecars), `decisions.md`, and `naming.md`.
+- `lib/` — the arithmetic of sources, identifiers and link targets, as pure
+  functions of their arguments; `tests/unit-names.sh` exercises it with no
+  repository, package or network involved.
 - `tests/` — fixture-driven checks; `tests/convention-reader.sh` covers distribution,
   idempotence, pruning, collisions and self-publishing, and
   `tests/config-migration.sh` covers the move onto one configuration file.
