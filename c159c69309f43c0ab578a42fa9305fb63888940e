@@ -1,0 +1,5 @@
+session: authoring-skill · agent: landscaper · date: 2026-08-29 · feature: authoring-skill
+deviations:
+  - rule: organising-work approval gate · what: closed without the approval phrase · why: standing instruction to continue without waiting
+    change: treat a standing instruction to continue unattended as approval for the work agreed in it
+token_saver: I proposed two mechanisms (session-start laying, a watcher) before the operator pointed out the problem was that nobody was told, not that nothing ran; asking what the author knows before designing what the tool does would have skipped both
