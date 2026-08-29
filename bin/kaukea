@@ -340,7 +340,17 @@ artifact_file() { # artifact_file <src> <s|a> <name>
 # case this exists for: it tells an author about an order that only a package
 # changes, and it would be noise everywhere else. Read from the artifact's own
 # frontmatter, the way categories and dependencies already are.
-artifact_applies_to() { fm_list "$1" applies-to; }
+fm_value() { # fm_value <file> <key> -> a scalar frontmatter value, unquoted
+  [ -f "$1" ] || return 0
+  fm_block "$1" | awk -v k="$2" '
+    $0 ~ "^"k":[ \t]*[^[ \t]" {
+      v = $0; sub("^"k":[ \t]*", "", v)
+      gsub(/^[ \t"'"'"']+|[ \t"'"'"']+$/, "", v)
+      print v; exit
+    }'
+}
+
+artifact_applies_to() { fm_value "$1" applies-to; }
 
 only_for_packages() { # only_for_packages <artifact-path> <root> -> 0 when it should be skipped here
   # The frontmatter is in the artifact itself: a skill is a folder carrying
