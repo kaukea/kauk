@@ -1,0 +1,5 @@
+session: one-harness · agent: landscaper · date: 2026-08-30 · feature: one-harness
+deviations:
+  - rule: read a script end to end before running it (operator, 2026-08-04) · what: ran a regex across thirteen test files without reading what it would produce; it ate half a function · why: I treated a bulk transformation as different from a script, when it is the same act with less visibility
+    change: a transformation over files is a script — read what it will produce on one file before running it on all of them
+token_saver: the fix that finally held was a mechanism, not a correction; three earlier corrections to instances cost more than writing the guard would have
