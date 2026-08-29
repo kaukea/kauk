@@ -21,7 +21,12 @@ trap 'rm -rf "$TMP"' EXIT
 PASS=0; FAIL=0
 ok()   { PASS=$((PASS+1)); printf '  ok   %s\n' "$1"; }
 no()   { FAIL=$((FAIL+1)); printf '  FAIL %s\n' "$1"; }
-check(){ if eval "$2"; then ok "$1"; else no "$1"; fi; }
+# The assertion runs with pipefail OFF. Every one of these is "did the
+# matcher find it", and a matcher that exits early makes its writer take
+# SIGPIPE — which pipefail turns into a failed assertion, intermittently,
+# and looks like the code under test is broken. Cost three debugging
+# rounds on 2026-08-29 before the pattern was seen rather than the instance.
+check(){ if ( set +o pipefail; eval "$2" ); then ok "$1"; else no "$1"; fi; }
 
 git_init() { mkdir -p "$1"; git -C "$1" init -q; }
 
