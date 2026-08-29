@@ -358,3 +358,21 @@ there is new, since the reader handled only lists.
 
 _Board: `authoring-skill` · answers part of `package-authoring-skill` · relates
 to `runtime-topology`._
+
+#### ♻️ `f/type-is-a-dependency` → `archive/type-is-a-dependency`
+
+An artifact that is only usable in a repository which is itself a package now
+says so as a dependency, in the nested map that was designed for it and that
+nothing had used, rather than through a key invented beside it:
+
+```yaml
+dependencies:
+  type: package
+```
+
+Reading a plain value from that block is new; the reader understood lists only.
+The flat `dependencies-<kind>` spelling is untouched. Nothing breaks: no consumer
+had synced the old key, and a repository that already refers to the package still
+does not receive the skill, because `type` defaults to `project`.
+
+_Board: `type-is-a-dependency` · corrects `authoring-skill`._
