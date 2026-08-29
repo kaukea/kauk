@@ -1258,3 +1258,12 @@ A `visibility:` block of our own nested the same two ideas under names of our ch
 There is no version one without a transpiler and a full implementation of opencode. Those two together are what makes it one, and until both exist the tool is shipping below it whatever else is finished.
 
 This is why an artifact written today uses the keys the one supported runtime actually reads rather than a neutral spelling of our own: the neutral form is decided when there are two real targets to decide it against, which is the same moment version one becomes possible. (Operator, 2026-08-29.)
+
+## [2026-08-29 00:00 CEST] Decision-091: a report writes nothing, and a fix that is not a mechanism is not a fix
+#status #testing #flakiness #method
+
+`kai update --status` reports and writes nothing. It laid every artifact while saying otherwise, which is worse than not existing: a report is what somebody consults before deciding whether to act, so it must be safe to run when you are unsure.
+
+The second half is about method. Seventy-two assertions across nine suites piped a writer into a matcher that exits on its first match; the writer took SIGPIPE and `pipefail` turned that into an intermittent failure that looked like the code under test. The same pattern had already cost three debugging rounds that day, and each time the instance was corrected while the class was not — so it reappeared the moment a suite was written from scratch, hours after a telemetry note had been written about it. A record written for the operator is not a mechanism that reaches the agent writing the next thing.
+
+The fix is therefore in the shared assertion helper, not in seventy-two lines: assertions evaluate with `pipefail` off, which is the correct meaning of every one of those pipelines. (Operator, 2026-08-29: "What do you think made you do that?")

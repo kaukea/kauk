@@ -409,3 +409,18 @@ works with; `visibility` gives way to the keys the runtime actually reads; and
 rather than being silently ignored.
 
 _Board: `kai-is-self-contained` · relates to `runtime-topology`._
+
+#### 🐛 `f/status-and-push` → `archive/status-and-push`
+
+`kai update --status` promised to report and write nothing, and laid every
+artifact — delete a laid directory, ask for a status, and it came back. It no
+longer writes. Neither it nor `--push` had a single assertion against them, and
+they are the two commands worth trusting unattended; both are covered now,
+including that an ordinary update never publishes however much has changed
+locally. Writing those tests surfaced seventy-two assertions across nine suites
+that piped a writer into a matcher exiting on first match, so the writer took
+SIGPIPE and `pipefail` reported a failure that looked like the code under test —
+a pattern that had already cost three debugging rounds the same day. Assertions
+now evaluate with `pipefail` off, which is what every one of them meant.
+
+_Board: `status-and-push`._
