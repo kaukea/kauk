@@ -47,6 +47,8 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · functional · critical · complete · cli-core ·` [Publishing into your own repository is a link; init declares kai from git](TODO.md.d/publication-mode.md) ~estate-links-run ~authoring-skill
 - `housekeeping · functional · critical · complete · cmd-install ·` [An artifact needing a package says so as a dependency, not through a key of its own](TODO.md.d/type-is-a-dependency.md) ~authoring-skill
 - `feature · functional · critical · complete · cmd-install ·` [The kai package ships an authoring skill, laid only into repositories that are packages](TODO.md.d/authoring-skill.md) ~package-authoring-skill ~runtime-topology
+- `bug · todo · · blocked-on-answers · cmd-install ·` [Write access through a laid link is indistinguishable from owning the file](TODO.md.d/writable-links-not-yours.md) ~authoring-skill
+- `feature · functional · critical · complete · cmd-install ·` [kai carries nothing about another package's machinery](TODO.md.d/kai-is-self-contained.md) ~authoring-skill
 - `feature · todo · · blocked-on-answers · artifact-model ·` [A skill for authoring a kai package — one agent writing what every agent must be able to use · next major iteration](TODO.md.d/package-authoring-skill.md) ~runtime-topology ~claude-marketplace
 - `feature · todo · critical · plan-ready · cmd-install · gh#22` [Publish each package as a plugin into a kauk-maintained local marketplace](TODO.md.d/claude-marketplace.md) ⊘hooks-declarative
 - `feature · functional · critical · complete · cmd-install ·` [A package publishes into its own repository instead of vendoring itself](TODO.md.d/self-publishing.md) ⊘package-toml

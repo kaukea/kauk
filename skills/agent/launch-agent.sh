@@ -3,16 +3,14 @@
 #
 # A running Claude session cannot re-apply its own --settings, so the only way
 # to pick up bin/kai.settings.json is a fresh `claude` process started with it.
-# This script resolves that file EXACTLY the way every fleet dispatch resolves
-# it (.claude/tools/dispatch-agent.sh, and bin/kai.settings.json's own
-# SessionStart/SessionEnd/PreToolUse/UserPromptSubmit/Notification hooks that
-# call bin/kai-hooks.sh): command -v kai on PATH, then readlink -f the result
-# with a graceful fallback to the unresolved path, then dirname.
+# This script resolves that file EXACTLY the way bin/kai.settings.json's own
+# SessionStart/SessionEnd/PreToolUse/UserPromptSubmit/Notification hooks resolve
+# bin/kai-hooks.sh: command -v kai on PATH, then readlink -f the result with a
+# graceful fallback to the unresolved path, then dirname.
 #
 # Matching that resolution is not optional — the two ends of this exact
-# contract have disagreed before (kai.settings.json resolved kai-hooks.sh with
-# a bare `dirname` while dispatch-agent.sh resolved kai.settings.json with
-# `readlink -f`) and a green 13/13 suite missed it
+# contract have disagreed before (one end resolving with a bare `dirname` while
+# the other used `readlink -f`) and a green 13/13 suite missed it
 # (docs/TODO.md.d/fleet-settings-wiring.md, Decision — 2026-08-19
 # #verification #close).
 set -euo pipefail

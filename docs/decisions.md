@@ -1226,3 +1226,35 @@ This repository also consumes orchard, and some of the files at its root are lai
 The relationship with orchard here is deliberately intertwined and deliberately pinned old. It is not to be upgraded without being asked.
 
 Live case: the promise that a migration is always safe to run was written into `AGENTS.files.md`, which is orchard's. It went into orchard's clone, not into this repository's history, and was reverted. The same promise belongs — and now sits — in kai's own contract and in the `kai` skill. (Operator, 2026-08-29.)
+
+## [2026-08-29 00:00 CEST] Decision-087: kai carries nothing about another package's machinery
+#packages #dag #self-contained #launch
+
+The kai package shipped a skill instructing every repository that installed it that an agent must be launched through `.claude/tools/dispatch-agent.sh`, and that work launched any other way was invalid. That script belongs to orchard. A repository installing kai alone received the instruction and not the file — verified by installing kai into an empty repository.
+
+kai is self-contained: orchard builds on kai, never the reverse, and kai does not broadcast another package's rules into repositories that may never install it. Any agent can be launched in the kai environment by calling the CLI with the right parameters, which is what the `agent` skill does. There is no privileged launcher and nothing else to know. The skill is withdrawn, its references removed from the launcher and its script, and a migration takes the laid link out of consumers rather than leaving it to the dead-link report, which only names a tracked dangling link and leaves removal to the operator. (Operator, 2026-08-29.)
+
+## [2026-08-29 00:00 CEST] Decision-088: compatibility names the agents and models an artifact works with
+#frontmatter #compatibility #models #agents
+
+`compatibility` is a list of **agents** — the runtime an artifact is written for, such as `claude` — and **models**, such as `opus`. An artifact written against one model's habits or one runtime's surface says so there.
+
+What it is for is refusing to run the wrong thing in the wrong place: a skill that only makes sense under a particular model should not be handed to another one, and once that is enforced it becomes a check rather than a hope. Nothing reads it yet.
+
+It has been written as prose in artifacts that predate this — `compatibility: Requires git` — which is neither an agent nor a model. Those are wrong and are corrected as their packages are touched. (Operator, 2026-08-29, recovering the original intent: "write it down because I'll forget about it again".)
+
+## [2026-08-29 00:00 CEST] Decision-089: write the target's own visibility keys; there is no neutral form yet
+#frontmatter #visibility #transpiler #claude
+
+An artifact declares who may invoke it using the keys the target actually reads. On Claude that is `user-invocable` and `disable-model-invocation`, flat in the frontmatter.
+
+A `visibility:` block of our own nested the same two ideas under names of our choosing. It is removed. Nothing read it, one runtime is supported, and inventing a spelling to be translated later means writing something no target understands today. When a transpiler exists and a second runtime needs serving, the neutral form gets decided then — against two real targets rather than one imagined one.
+
+`pull-only` is retired outright and was never implemented. A source you do not want to publish back to is a source you do not push to; a flag adds nothing. (Operator, 2026-08-29.)
+
+## [2026-08-29 00:00 CEST] Decision-090: version one requires the transpiler and opencode
+#versioning #v1 #transpiler #opencode #runtime-topology
+
+There is no version one without a transpiler and a full implementation of opencode. Those two together are what makes it one, and until both exist the tool is shipping below it whatever else is finished.
+
+This is why an artifact written today uses the keys the one supported runtime actually reads rather than a neutral spelling of our own: the neutral form is decided when there are two real targets to decide it against, which is the same moment version one becomes possible. (Operator, 2026-08-29.)

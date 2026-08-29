@@ -63,7 +63,7 @@ You will find files you did not put there. Each one has a plain answer:
   migrations, warn about removed artifacts, lay by selection. It never
   publishes local edits. `sync` is another spelling of it.
 - `kai update --push` — the one deliberate act that publishes local edits back
-  to a source (pull-only packages refuse). `--pull` narrows to taking only.
+  to a source. `--pull` says the opposite out loud: take, publish nothing.
 - When an update cannot finish because both sides changed the same lines, it
   stops and waits rather than choosing: `kai update --abort` restores,
   `--automerge` proposes a merge for review, `--resolve` carries on from what

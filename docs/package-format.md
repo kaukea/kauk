@@ -108,7 +108,7 @@ skill convention:
 name: <folder-name>          # MUST equal the directory name
 description: <the trigger, then what it does>
 categories: [ <slash-path>, … ]
-compatibility: [ … ]         # optional; omitted = all
+compatibility: [ … ]         # optional; omitted = all — see Compatibility
 visibility:                  # optional; see Visibility
   user-invocable: true
   model-invocable: true
@@ -248,21 +248,49 @@ distinct, and a declaration permits specialisations a verbatim file cannot expre
 
 Helper scripts invoked by path, with no declaration, are **not** tools. They are files.
 
-## Visibility
+## Compatibility
 
-Every artifact may declare who is allowed to invoke it:
+An artifact may name what it works with:
 
 ```yaml
-visibility:
-  user-invocable: true      # appears in the user's slash list
-  model-invocable: true     # the model may auto-invoke it
+compatibility: [ claude, opus ]   # optional; omitted means all
 ```
 
-Both default to true. Process machinery — close procedures, handover, session-start
-rules — is typically `user-invocable: false`, so a consuming repo's slash list shows
-only genuinely operator-facing entries while the model still triggers the rest on their
-descriptions. The transpiler renders this into whatever the target calls it; on Claude
-that is `user-invocable` / `disable-model-invocation` in the artifact's own frontmatter.
+The list holds **agents** — the runtime a thing is written for, such as `claude` — and
+**models**, such as `opus`. An artifact written against one model's habits, or against
+one runtime's surface, says so here rather than being discovered to be wrong in use.
+
+Nothing reads it yet. What it is for is refusing to run the wrong thing in the wrong
+place: a skill that only makes sense under a particular model should not be handed to
+another one, and once this is enforced that becomes a check rather than a hope. Until
+then it is a declaration authors can make truthfully and early.
+
+It is a **list**, and it has been written as prose — `compatibility: Requires git` —
+in artifacts that predate this section. That is not what it means and does not describe
+an agent or a model. Those are wrong and should be corrected as their packages are
+touched.
+
+## Visibility
+
+Every artifact may declare who is allowed to invoke it. **Write the target's own keys.**
+On Claude that is, flat in the frontmatter:
+
+```yaml
+user-invocable: true              # appears in the user's slash list
+disable-model-invocation: false   # the model may auto-invoke it
+```
+
+Both default to permissive. Process machinery — close procedures, handover,
+session-start rules — is typically `user-invocable: false`, so a consuming repository's
+slash list shows only genuinely operator-facing entries while the model still triggers
+the rest from their descriptions.
+
+There was a `visibility:` block of our own here, nesting the same two ideas under names
+of our own choosing. It was removed: nothing reads it, only one runtime is supported,
+and inventing a spelling to be translated later means writing something no target
+understands today. When a transpiler exists and a second runtime needs serving, that is
+the moment to decide what the neutral form is — against two real targets rather than
+one imagined one.
 
 ## files/
 
