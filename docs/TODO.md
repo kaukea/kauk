@@ -45,7 +45,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
   - `housekeeping · functional · critical · complete · cli-core ·` [.ai.toml goes back to being the operator's file](TODO.md.d/ai-toml-cleanup.md)
   - `feature · functional · critical · complete · cmd-install ·` [Detect the runtimes in use, as a set rather than a winner](TODO.md.d/runtime-detection.md)
 - `feature · functional · critical · complete · cmd-install ·` [The kai package ships an authoring skill, laid only into repositories that are packages](TODO.md.d/authoring-skill.md) ~package-authoring-skill ~runtime-topology
-- `feature · todo · · queued · artifact-model ·` [A skill for authoring a kai package — one agent writing what every agent must be able to use](TODO.md.d/package-authoring-skill.md) ~runtime-topology ~claude-marketplace
+- `feature · todo · · blocked-on-answers · artifact-model ·` [A skill for authoring a kai package — one agent writing what every agent must be able to use · next major iteration](TODO.md.d/package-authoring-skill.md) ~runtime-topology ~claude-marketplace
 - `feature · todo · critical · plan-ready · cmd-install · gh#22` [Publish each package as a plugin into a kauk-maintained local marketplace](TODO.md.d/claude-marketplace.md) ⊘hooks-declarative
 - `feature · functional · critical · complete · cmd-install ·` [A package publishes into its own repository instead of vendoring itself](TODO.md.d/self-publishing.md) ⊘package-toml
 - `feature · done · critical · complete · cli-core ·` [The migration engine reaches a repository that has never run it](TODO.md.d/migration-engine-rules.md) ~estate-links-run ~migrations-at-sync

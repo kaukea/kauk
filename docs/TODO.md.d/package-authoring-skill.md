@@ -5,8 +5,9 @@
 
 ## Blockers
 
-Depends on how a self-publishing package lays its own artifacts being settled —
-see `self-publish-layout`.
+Deferred to the next major iteration (operator, 2026-08-29). The mechanical half
+shipped as `authoring-skill`; what remains is the multi-agent question, and that
+is not this iteration's problem.
 
 ## Questions
 

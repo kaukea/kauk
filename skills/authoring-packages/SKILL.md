@@ -1,6 +1,6 @@
 ---
 name: authoring-packages
-description: "Read before creating, moving or removing any agent, skill, hook or tool in a repository that is itself a kai package. Left alone an agent writes a new skill into the runtime's own directory, which is the opposite of what a package needs — the source belongs in the package's convention directory and the runtime directory holds a link to it. Covers where each kind of artifact lives, what makes one usable by an agent other than the one writing it, and what to run when you add or remove one."
+description: "Read before creating, moving or removing any agent, skill, hook or tool in a repository that is itself a kai package. Left alone an agent writes a new skill into the runtime's own directory, which is the opposite of what a package needs — the source belongs in the package's convention directory and the runtime directory holds a link to it. Covers where each kind of artifact lives and what to run when you add or remove one."
 applies-to: package
 ---
 
@@ -50,21 +50,11 @@ source, then update, which takes the link away with it.
 This is the one moment that needs a command. Editing an existing artifact needs
 nothing, because the link already points at the file you are editing.
 
-## Writing for agents other than the one writing it
+## Checking it
 
-The hardest part of authoring a package is that you are inside one agent, in one
-runtime, writing something every agent must be able to use.
-
-- **Do not describe your own surroundings.** Paths, directory names and tool names that
-  are true for the agent you happen to be are not true for the next one.
-- **Say when to read it, not who you are.** A skill's `description` is what another
-  agent matches against; write it as the situation it belongs to.
-- **A skill carries its own scripts; an agent carries none.** If an agent needs a
-  script, the script belongs to a tool or a skill the agent depends on.
-- **State what the reader must do, not what you did.** The reader has none of your
-  context and cannot ask you.
-- **Check it against the package format** — `docs/package-format.md` in the kai
-  repository is the contract, including the frontmatter each kind may carry.
+`docs/package-format.md` in the kai repository is the contract — what each kind may
+carry in its frontmatter, and what makes a repository installable at all. Read it
+before shipping something new.
 
 ## What you are not told by anything else
 
