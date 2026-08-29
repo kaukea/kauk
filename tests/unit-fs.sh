@@ -18,9 +18,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 . "$ROOT/lib/fs.sh"
 TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
 
-PASS=0; FAIL=0
-is() { if [ "$2" = "$3" ]; then PASS=$((PASS+1)); printf '  ok   %s\n' "$1"
-       else FAIL=$((FAIL+1)); printf '  FAIL %s\n       expected: %s\n       actual:   %s\n' "$1" "$2" "$3"; fi; }
+. "$(dirname "$0")/harness.sh"
 
 mkdir -p "$TMP/adir" "$TMP/target-dir"
 printf 'x\n' > "$TMP/afile"
@@ -73,6 +71,4 @@ fs_replace_with_link "target-file" "$TMP/standing"
 is "REGRESSION: a directory is replaced, not landed inside" "link" "$(fs_kind "$TMP/standing")"
 is "and carries the right target"    "target-file" "$(fs_target "$TMP/standing")"
 
-echo
-printf 'unit-fs: %s/%s passed\n' "$PASS" "$((PASS + FAIL))"
-[ "$FAIL" -eq 0 ]
+summary unit-fs

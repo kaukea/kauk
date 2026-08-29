@@ -11,7 +11,7 @@ CASES="$ROOT/spec/place.cases"
 
 [ -f "$CASES" ] || { printf 'unit-place: no cases at %s\n' "$CASES" >&2; exit 1; }
 
-PASS=0; FAIL=0
+. "$(dirname "$0")/harness.sh"
 while IFS=$'\t' read -r fn args expected note; do
   case "$fn" in ''|'#'*) continue ;; esac
   IFS='|' read -r -a argv <<< "$args"

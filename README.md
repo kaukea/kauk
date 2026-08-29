@@ -73,7 +73,9 @@ hoard. See `ARCHITECTURE.md`.
 - `spec/` — the questions every implementation of kai must answer, as data rather
   than as one language's tests; `tests/unit-names.sh` is the runner for the shell
   one, and needs no repository, package or network.
-- `tests/` — fixture-driven checks; `tests/convention-reader.sh` covers distribution,
+- `tests/` — every suite shares one assertion helper (`harness.sh`), and
+  `suites-are-sound.sh` fails if a test file defines its own or does not source it.
+  Fixture-driven checks; `tests/convention-reader.sh` covers distribution,
   idempotence, pruning, collisions and self-publishing, and
   `tests/config-migration.sh` covers the move onto one configuration file.
 
