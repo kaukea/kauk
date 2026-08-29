@@ -1095,7 +1095,7 @@ The settings pair is sequential — fleet-settings-wiring first, settings-lay-cl
 ## [2026-08-19 00:00 CEST] Decision-063: is_self_source is DELETED
 #migrations #packages
 
-`is_self_source` is DELETED. A repository declares itself a package with `[general] type = "package"` in `.ai.toml`, and that declaration — not an inferred self-source entry — is what makes kai apply the repository's own migrations, use its own agents and skills, and symlink its own files. `.ai.toml` is the user's file to manage however they like; no behaviour may be inferred from whether they happened to declare their own path as a source. The old inference was also a false premise: kai installs the kai package, so there is never not a package. (Operator, 2026-08-19.)
+`is_self_source` is DELETED. A repository declares itself a package with `type = "package"` in the ROOT TABLE of `.ai.toml` — the properties before any named table. (An earlier draft of this entry said `[general]`; that was a typo, corrected 2026-08-29. There is no general table and nothing has ever read one.), and that declaration — not an inferred self-source entry — is what makes kai apply the repository's own migrations, use its own agents and skills, and symlink its own files. `.ai.toml` is the user's file to manage however they like; no behaviour may be inferred from whether they happened to declare their own path as a source. The old inference was also a false premise: kai installs the kai package, so there is never not a package. (Operator, 2026-08-19.)
 
 ## [2026-08-19 00:00 CEST] Decision-064: ONE global watermark
 #migrations #watermark

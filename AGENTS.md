@@ -57,10 +57,10 @@ Taxonomy.
 - Follow the file registry in `AGENTS.shared.md` (docs/TODO.md + sidecars, docs/decisions.md,
   CHANGELOG.md, ARCHITECTURE.md). `main` is immutable; work on `f/<id>` branches; close per
   the `workflow-complete` skill.
-- This repo is kauk-managed: shared skills/agent-files are symlinks under `.ai/`; run
-  `kauk sync` (the `kauk` skill) to converge with the sources. `.ai.toml` is the
-  **operator's** file — edit it freely; kauk writes the lock file, not this one
-  (Decision-023).
+- This repo is kai-managed: shared skills and agent files are links into the package
+  store; run `kai update` (the `kai` skill) to converge with the sources. `.ai.toml` is
+  the **operator's** file — edit it freely. There is no lock file; the store itself is
+  the record of what a repository has been given.
 
 ## Communication
 

@@ -45,12 +45,13 @@ are signed/attested. *(components pending first feature.)*
 
 ## cli
 
-The `kauk` command — one grammar over the registry and federation. `publish`, `install`,
-`resolve`. *(components pending first feature.)*
+The `kauk` command — one grammar over the registry and federation. `publish`, `install`.
+*(components pending first feature.)*
 
-Until 0.1.0, `bin/kauk` is the shipped **bash stopgap** (component `cli-core`,
-Decision-007): the file-package half of the grammar — `init` / `install <owner>/<repo>`
-/ `sync` / `resolve` — over git-vendored packages (`.ai/repositories/`), declared as
+Until 0.1.0, `bin/kaukea` is the shipped **bash stopgap** (component `cli-core`),
+invoked as `kai`: the file-package half of the grammar — `init [--package]` /
+`install <owner>/<repo>` / `update`, also spelled `sync` — over git-vendored packages
+(`.ai/repositories/`), declared as
 `[[dependency]]` blocks in the repository's one configuration file, `.ai.toml`, whose
 root table also carries the repository's own identity (`docs/ai-toml.md`).
 The real CLI inherits the grammar and replaces it.
@@ -84,8 +85,9 @@ Two cross-cutting rules follow from it, and both hold everywhere in the tool:
   once (Decisions 012, 018).
 
 A repository that is itself a package is not vendored into itself: its working tree is
-the source and it publishes by copy, so its own edits are visible without a push
-(Decision-037).
+the source, and it publishes into itself the same way anything else is published — the
+runtime directory holds a link into the convention directory. Editing the source is
+immediately what runs, with no second copy and nothing to keep in step.
 
 **kai's static install** (`bin/kai.settings.json` + `bin/kai-hooks.sh`, beside the `kai`
 executable, never laid or vendored into a consumer) is the one settings file: it maps

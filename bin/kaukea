@@ -228,7 +228,7 @@ dep_ref() { # dep_ref <root> <id> -> HEAD, a branch/tag/commit, or nothing
 # A repository declares itself a package with type = "package" in the ROOT
 # TABLE of its own .ai.toml (docs/ai-toml.md). When set, it applies
 # its own migrations/ to itself, lays its own agents/skills, and publishes its
-# own files by copy (see lay_self). When absent, it is an ordinary project.
+# own files (see publish_own). When absent, it is an ordinary project.
 is_package_repo() { [ "$(root_field "$1" type)" = package ]; }
 
 declare_package() { # declare_package <root> — say this repository publishes as well as consumes
@@ -285,9 +285,8 @@ same_path() { [ -d "$1" ] && [ -d "$2" ] && [ "$(cd "$1" && pwd -P)" = "$(cd "$2
 # by comparing its path against root (is_self_source is retired, 2026-08-19):
 # .ai.toml is the operator's file and no behaviour hangs off what they wrote
 # in it. Self-application is exclusively the root table's type = "package" — see
-# is_package_repo and lay_self.
+# is_package_repo and publish_own.
 source_tree()  { clone_of "$1" "$2"; }
-publish_mode() { echo link; }
 
 pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
   local src=$1 id=$2 n; n=$(root_field "$src" name)
@@ -509,16 +508,16 @@ resolve_xdeps() { # cross-package closure by the name-rooted grammar (one level)
 }
 
 lay_one_artifact() { # lay_one_artifact <root> <id> <kind-letter> <name>
-  local root=$1 id=$2 l=$3 n=$4 src mode ns t dstdir
-  src=$(source_tree "$root" "$id"); mode=$(publish_mode "$root" "$id"); ns=$(pkg_namespace "$src" "$id")
+  local root=$1 id=$2 l=$3 n=$4 src ns t dstdir
+  src=$(source_tree "$root" "$id"); ns=$(pkg_namespace "$src" "$id")
   case "$l" in
     s) t="$src/skills/$n";    dstdir="$root/.claude/skills" ;;
     a) t="$src/agents/$n.md"; dstdir="$root/.claude/agents"; n="$n.md" ;;
     t) t="$src/tools/$n";     dstdir="$root/.claude/tools" ;;
   esac
   mkdir -p "$dstdir"
-  if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns"; fi
-  place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
+  namespace_for "$dstdir" "$n" "$ns"
+  link_one "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
 }
 
 render_tree() { # render_tree <root> <id> — the derived tree, for the add-time conversation
@@ -554,7 +553,6 @@ detect_runtimes() { # -> a SET, one name per line (Decision-018)
 # ---------- layout ----------
 LAID=0
 
-place_one() { case "$1" in copy) copy_one "$2" "$3" ;; *) link_one "$2" "$3" ;; esac; }
 
 NS_LOCAL="local"
 NS_SEP=":"
@@ -592,31 +590,31 @@ namespace_for() { # namespace_for <dstdir> <name> <pkgns> <srcdir>
   NS_DST="$n"
 }
 
-lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns> <kind-letter>
-  local mode=$1 srcdir=$2 dstdir=$3 ns=$5 kind=${6:-} t n
+lay_kind() { # lay_kind <src-dir> <dst-dir> <glob-suffix> <pkgns> <kind-letter>
+  local srcdir=$1 dstdir=$2 suffix=$3 ns=$4 kind=${5:-} t n
   [ -d "$srcdir" ] || return 0
   mkdir -p "$dstdir"
-  for t in "$srcdir"/*$4; do
+  for t in "$srcdir"/*$suffix; do
     [ -e "$t" ] || continue
     n=$(basename "$t")
     case "$n" in .*|__pycache__|*"$NS_SEP"*) continue ;; esac
     [ -n "$kind" ] && ! sel_allows "$kind" "$(basename "$n" .md)" && continue
     unmet_type_dependency "$t" "$LAY_ROOT" && continue
-    if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns" "$srcdir"; fi
-    place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
+    namespace_for "$dstdir" "$n" "$ns" "$srcdir"
+    link_one "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
   done
 }
 
 LAY_ROOT=""
 
-lay_claude() { # lay_claude <root> <src> <mode> <pkgns>
-  local root=$1 src=$2 mode=$3 ns=$4
+lay_claude() { # lay_claude <root> <src> <pkgns>
+  local root=$1 src=$2 ns=$3
   LAY_ROOT=$root
   NS_SEP=":"
-  lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""    "$ns" s
-  lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md" "$ns" a
-  lay_kind "$mode" "$src/hooks"  "$root/.claude/hooks"  ""    "$ns"
-  lay_kind "$mode" "$src/tools"  "$root/.claude/tools"  ""    "$ns"
+  lay_kind "$src/skills" "$root/.claude/skills" ""    "$ns" s
+  lay_kind "$src/agents" "$root/.claude/agents" ".md" "$ns" a
+  lay_kind "$src/hooks"  "$root/.claude/hooks"  ""    "$ns"
+  lay_kind "$src/tools"  "$root/.claude/tools"  ""    "$ns"
 }
 
 # EXACTLY ONE SETTINGS JSON EXISTS, AND IT IS PASSED, NEVER LAID (Decision-061).
@@ -631,7 +629,7 @@ never_laid() {
 }
 
 lay_files() { # files/<path> -> <root>/<path>, verbatim (Decision-015)
-  local root=$1 src=$2 mode=$3 rel
+  local root=$1 src=$2 rel
   [ -d "$src/files" ] || return 0
   while IFS= read -r rel; do
     [ -n "$rel" ] || continue
@@ -640,15 +638,14 @@ lay_files() { # files/<path> -> <root>/<path>, verbatim (Decision-015)
       continue
     fi
     mkdir -p "$root/$(dirname "$rel")"
-    place_one "$mode" "$src/files/$rel" "$root/$rel" && LAID=$((LAID+1))
+    link_one "$src/files/$rel" "$root/$rel" && LAID=$((LAID+1))
   done < <(cd "$src/files" && find . -type f 2>/dev/null | sed 's|^\./||')
 }
 
 lay_source() { # lay_source <root> <id>  (idempotent; never destroys real files)
-  local root=$1 id=$2 src mode rt runtimes ns
+  local root=$1 id=$2 src rt runtimes ns
   src=$(source_tree "$root" "$id")
   is_package "$src" || { say "$id: no package contents — nothing to lay"; return 0; }
-  mode=$(publish_mode "$root" "$id")
   ns=$(pkg_namespace "$src" "$id")
 
   runtimes=$(detect_runtimes "$root")
@@ -662,37 +659,42 @@ lay_source() { # lay_source <root> <id>  (idempotent; never destroys real files)
   build_selection "$root" "$src" "$id"
   for rt in $runtimes; do
     case "$rt" in
-      claude) lay_claude "$root" "$src" "$mode" "$ns" ;;
+      claude) lay_claude "$root" "$src" "$ns" ;;
       *)      say "  WARN $id: no renderer for runtime '$rt'" ;;
     esac
   done
-  lay_files "$root" "$src" "$mode"
+  lay_files "$root" "$src"
   prune_deselected "$root" "$src"
   SEL_ACTIVE=0
-  say "$mode: $LAID laid/verified ($id) [$(echo "$runtimes" | tr '\n' ' ')]"
+  say "link: $LAID laid/verified ($id) [$(echo "$runtimes" | tr '\n' ' ')]"
 }
 
-lay_self() { # lay_self <root> — root-table type = "package": this repository is
-             # also a consumer of ITS OWN migrations/agents/skills/files, laid
-             # by copy rather than link (there is no clone to link through).
-             # Unfiltered: self has no [[dependency]] include list to key off.
+publish_own() { # publish_own <root> — a repository whose root table says
+             # type = "package" also consumes its OWN migrations, agents,
+             # skills and files. Unfiltered: a repository carries no
+             # [[dependency]] block naming itself, so there is no include list
+             # to key off.
+             #
+             # Published the same way as anything else: the runtime directory
+             # holds a link into the convention directory, so editing the source
+             # is immediately what runs.
   local root=$1 ns rt runtimes
-  is_package "$root" || { say "self: no package contents at root — nothing to lay"; return 0; }
+  is_package "$root" || { say "nothing to publish: this repository has no package contents at its root"; return 0; }
   ns=$(pkg_namespace "$root" "$(owner_repo "$root")")
   runtimes=$(detect_runtimes "$root")
   if [ -z "$runtimes" ]; then
-    say "self: no agent runtime detected here — nothing laid"
+    say "nothing to publish: no agent runtime detected here"
     return 0
   fi
   LAID=0
   for rt in $runtimes; do
     case "$rt" in
-      claude) lay_claude "$root" "$root" copy "$ns" ;;
-      *)      say "  WARN self: no renderer for runtime '$rt'" ;;
+      claude) lay_claude "$root" "$root" "$ns" ;;
+      *)      say "  WARN no renderer for runtime '$rt' — nothing of its own published for it" ;;
     esac
   done
-  lay_files "$root" "$root" copy
-  say "copy: $LAID laid/verified (self) [$(echo "$runtimes" | tr '\n' ' ')]"
+  lay_files "$root" "$root"
+  say "link: $LAID published (its own) [$(echo "$runtimes" | tr '\n' ' ')]"
 }
 
 
@@ -757,18 +759,6 @@ link_one() { # link_one <abs-target> <linkpath> -> 0 placed, 1 skipped
   esac
 }
 
-copy_one() { # self-published packages copy into their own repo
-  local src=$1 dst=$2
-  [ -e "$src" ] || { say "  SKIP $dst (missing in package)"; return 1; }
-  case "$dst" in */.claude/*|"$PWD"/*) ;; *) die "refusing to write outside a published destination: $dst" ;; esac
-  [ -L "$dst" ] && rm "$dst"
-  if [ -d "$src" ]; then
-    [ -d "$dst" ] && diff -rq "$src" "$dst" >/dev/null 2>&1 && return 0
-    rm -rf "${dst:?}"; cp -r "$src" "$dst"; return 0
-  fi
-  cmp -s "$src" "$dst" 2>/dev/null && return 0
-  cp "$src" "$dst"
-}
 
 prune_links() { # dead symlinks into this repo's .ai/repositories/: repoint if the tail moved to exactly one cloned source; tracked debris is reported, only untracked true orphans are pruned
   local root=$1 l target rel rest d candidate matches n
@@ -1043,8 +1033,6 @@ cmd_install() {
   say "install: $id done"
   offer_tree "$root" "$id"
 }
-
-# ---------- init ----------
 cmd_init() {
   local root; root=$(repo_root)
   local script_repo as_package=0 a
@@ -1060,12 +1048,14 @@ cmd_init() {
   stamp_install_watermark "$root"
   script_repo=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
   if same_path "$script_repo" "$root"; then
-    lay_self "$root"
+    publish_own "$root"
     prune_links "$root"
-    say "init: done — this repository is itself the kai package (self-published; put type = \"package\" in the root table of .ai.toml to also apply its own migrations on sync)"
+    say "init: done — this repository IS the kai package; it publishes into itself. Put type = \"package\" in the root table of .ai.toml to also apply its own migrations on sync"
     return 0
   fi
-  install_source "$root" "${KAUK_ORIGIN:-$script_repo}" || true
+  # Where kai is published, always. A declaration is committed and read by
+  # everyone, so it never names a path on the machine that happened to run init.
+  install_source "$root" "kaukea/kauk" || true
   # Declaring a repository a package changes what its existing sources should
   # lay into it — the authoring skill is laid only here — so they are laid again
   # rather than waiting for the next update to notice.
@@ -1367,7 +1357,7 @@ cmd_update() {
     [ -n "$id" ] || continue
     if [ $status_only = 1 ]; then status_source "$root" "$id"; else sync_source "$root" "$id" "$pull" "$push"; fi
   done < <(printf '%s\n' "$list")
-  if [ "$self" = 1 ] && [ $status_only = 0 ]; then lay_self "$root"; fi
+  if [ "$self" = 1 ] && [ $status_only = 0 ]; then publish_own "$root"; fi
   [ $status_only = 1 ] || apply_pending_migrations "$root"
   [ $status_only = 1 ] || sweep_orphan_clones "$root"
   [ $status_only = 1 ] || resolve_xdeps "$root"

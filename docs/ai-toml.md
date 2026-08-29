@@ -118,9 +118,10 @@ Setting it to `package` changes three things:
 
 - The repository applies its own `migrations/` to itself, the same way a consumer
   applies yours — so you find out immediately when a migration you wrote misbehaves.
-- It lays its own agents and skills into itself, by copying rather than linking. A
-  package does not keep a clone of itself inside itself; it publishes into its own
-  working tree, so your edits are live without pushing first.
+- It publishes its own agents and skills into itself, the same way any package is
+  published: the runtime directory holds a link into the convention directory. A
+  package keeps no clone of itself inside itself, so editing a source file is
+  immediately what runs — nothing to copy across and nothing to push first.
 - It becomes installable by name, and its own name is what namespaces its artifacts in
   everyone else's repository.
 
