@@ -376,3 +376,20 @@ had synced the old key, and a repository that already refers to the package stil
 does not receive the skill, because `type` defaults to `project`.
 
 _Board: `type-is-a-dependency` · corrects `authoring-skill`._
+
+#### ✨ `f/publication-mode` → `archive/publication-mode`
+
+A repository that is a package published into itself by copying, which left the
+same file in two places and a step between them. It now publishes the way
+everything else does — the runtime directory holds a link into the convention
+directory — so editing a source file is immediately what runs. Copy is removed
+rather than deferred: nothing could reach it, and a mode left lying about is one
+something will try to use. `kai init` now declares `kaukea/kauk` and never a path
+on the machine that ran it. `2026-08-29-01-retired-sources-in-dependency-blocks`
+covers what the earlier rename cannot see — it matches the retired
+`[sources."…"]` table syntax only, so three repositories that reached the
+`[[dependency]]` form first were stranded, one naming an identifier that never
+existed. The format document loses a `[general]` table that never existed and a
+status line calling the format unimplemented two weeks after it was.
+
+_Board: `publication-mode` · relates to `estate-links-run`._

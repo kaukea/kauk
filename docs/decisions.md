@@ -1189,3 +1189,20 @@ Where both sides changed the same lines the rebase is LEFT OPEN. Being unfinishe
 #cli #naming #update #sync
 
 `update` is the command that brings declared packages up to date and lays them. `sync` remains as another spelling of the same command; nothing distinguishes them. The separate `resolve` command is retired — what it described now happens inside `update`, where the work is. (Operator, 2026-08-28.)
+
+## [2026-08-29 00:00 CEST] Decision-082: publishing is by link; there is no copy mode
+#publishing #link #copy #transpiler #cli-core
+
+A package publishes into a repository — including into itself — by linking the runtime directory to the convention directory. Editing a source file is then immediately what runs, with no second copy and no step between them.
+
+Copy is REMOVED, not deferred. Showing a mode invites something to reach for it, and it is not really a copy in any case: it is moving bytes with a translator in the middle. There is no transpiler and no translator, so there is no copying, and nothing worth saying about a component that does not exist. When one is built, publishing through it can be designed then, against a thing that is real. Pushing an edit back through a transformed artifact means merging files, and that is the work being avoided until it has to be done. (Operator, 2026-08-29.)
+
+## [2026-08-29 00:00 CEST] Decision-083: init declares the kai package from git, always
+#init #declaration #paths #cli-core
+
+Setting a repository up declares `kaukea/kauk` — where the package is published — and never a path on the machine that ran the command. A path is true on one machine and false in every clone of the repository that records the declaration, and a declaration is committed and read by everyone. No derivation from a remote, no fallback, no override: from git, full stop. (Operator, 2026-08-29: "no prettyness and no smartness".) (This supersedes the earlier behaviour of registering the tool's own checkout path.)
+
+## [2026-08-29 00:00 CEST] Decision-084: type = "package" is a root property; there is no general table
+#config #ai-toml #package
+
+A repository declares itself a package with `type = "package"` in the ROOT TABLE of `.ai.toml` — the properties before any named table. Earlier text in the format document and in the entry of 2026-08-19 said `[general]`; that was a typo. There is no general table, nothing has ever read one, and a root property is the same thing in principle. (Operator, 2026-08-29.)
