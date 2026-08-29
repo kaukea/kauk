@@ -62,6 +62,39 @@ Taxonomy.
   the **operator's** file — edit it freely. There is no lock file; the store itself is
   the record of what a repository has been given.
 
+## What this repository authors, and what is only laid here
+
+This repository is the kai package. It also consumes one — orchard — and that
+relationship is deliberately intertwined and deliberately old. Do not upgrade it
+without being asked.
+
+The consequence you have to hold in your head: some of the files at this root are
+**not this repository's**. They are laid here from a package, and the link reaches
+into that package's own repository.
+
+```
+AGENTS.shared.md   ->  .ai/repositories/kaukea/orchard/files/AGENTS.shared.md
+AGENTS.files.md    ->  .ai/repositories/kaukea/orchard/files/AGENTS.files.md
+AGENTS.md          authored here
+CLAUDE.md          authored here
+README.md          authored here
+```
+
+**Write access through a link is not ownership.** Editing a laid artifact edits the
+package it came from — that is what the tool is built to do, so that a user's own
+change reaches its source. It is exactly the wrong thing for pushing kai's own rules
+into somebody else's file because the link happens to be writable.
+
+So, before writing to anything at this root or under `.claude/`: check whether it is a
+link. If it is, it belongs to the package it points into, and the change is that
+repository's to make through its own workflow.
+
+**What kai has to say goes in kai's own artifacts** — `skills/`, `docs/`, and this
+file. The kai package must be self-contained: orchard builds on kai, never the reverse,
+and a consuming repository must get everything it needs about kai from kai alone. If
+something a consumer needs is missing, it goes in the `kai` skill, not into a document
+that arrives from elsewhere and happens to cover the same ground.
+
 ## Updating another repository
 
 When updating a repository other than this one — to a new version of a package, or to

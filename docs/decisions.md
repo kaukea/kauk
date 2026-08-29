@@ -1215,3 +1215,14 @@ Updating a repository other than this one — to a new version of a package, or 
 The session there is told only to suspend work and to resume when told. Nothing about what the update will do, what might change, or what went wrong somewhere else. Then the scripts that are meant to run are run, exactly, with nothing done by hand: the engine chooses which migrations apply from the watermark, every step is guarded on what it finds, and none of that is the agent's judgement to exercise. Feedback is asked for only afterwards, and asked open — what went wrong, what is confusing — never "did X happen", which is the same contamination arriving late.
 
 The live case: a session was warned in advance that committed links might become real files, a risk carried over from watching two package repositories transform. The repository in question declared no type, so it was an ordinary consumer and could not have been affected at all. It guarded against the risk anyway, and the agent then proved a negative it had invented, by snapshotting ten thousand paths for an operation that selects its own work and is safe to repeat. (Operator, 2026-08-29: "You are changing the patient by telling them what's gonna happen.")
+
+## [2026-08-29 00:00 CEST] Decision-086: write access through a laid link is not ownership
+#packages #boundaries #dag #orchard
+
+The kai package is self-contained. Orchard builds on kai, never the reverse, and a consuming repository must get everything it needs about kai from kai alone — from the `kai` skill and kai's own documents. If something a consumer needs is missing, it is added there, never to a document that arrives from another package and happens to cover the same ground.
+
+This repository also consumes orchard, and some of the files at its root are laid from it rather than authored here — `AGENTS.shared.md` and `AGENTS.files.md` are links into orchard's own repository. Editing one edits orchard. That is what the tool is built to do, so a user's own change reaches its source; it is exactly the wrong thing for broadcasting kai's rules into somebody else's file because the link happens to be writable. Before writing to anything at this root or under `.claude/`, check whether it is a link.
+
+The relationship with orchard here is deliberately intertwined and deliberately pinned old. It is not to be upgraded without being asked.
+
+Live case: the promise that a migration is always safe to run was written into `AGENTS.files.md`, which is orchard's. It went into orchard's clone, not into this repository's history, and was reverted. The same promise belongs — and now sits — in kai's own contract and in the `kai` skill. (Operator, 2026-08-29.)
