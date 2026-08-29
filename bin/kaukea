@@ -1387,8 +1387,10 @@ usage: kai <command> [options]
                         package, which every managed repository needs.
       --package         Also declare that this repository publishes artifacts of
                         its own, not only consumes them. Writes the root table
-                        saying so, and lays the skill that explains how to author
-                        one — which is laid nowhere else.
+                        saying so, which in turn satisfies any artifact that
+                        depends on the repository being a package — the skill
+                        explaining how to author one does, so it appears here and
+                        nowhere else.
 
   install <source>      Add a package and lay what it carries. <source> is one
                         of:

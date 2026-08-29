@@ -279,7 +279,7 @@ check "the second is namespaced too"      '[ -L "$CON4/.claude/skills/pkgx:alpha
 check "the bare name is given up"         '[ ! -e "$CON4/.claude/skills/alpha" ]'
 check "and it says why"                   'grep -qi "two packages ship this name" "$TMP/outE"'
 
-echo "== an artifact may say it is only for repositories that are packages =="
+echo "== an artifact may depend on the repository being a package =="
 # The authoring skill tells a package author about an order that only a package
 # changes: the source belongs in the convention directory and the runtime
 # directory holds a link. Everywhere else that is noise, so it is laid nowhere
@@ -287,7 +287,7 @@ echo "== an artifact may say it is only for repositories that are packages =="
 PKGA="$TMP/test/pkga"; git_init "$PKGA"
 mkdir -p "$PKGA/skills/ordinary" "$PKGA/skills/only-for-packages"
 printf -- '---\nname: ordinary\n---\nany repository\n' > "$PKGA/skills/ordinary/SKILL.md"
-printf -- '---\nname: only-for-packages\napplies-to: package\n---\npackages only\n' > "$PKGA/skills/only-for-packages/SKILL.md"
+printf -- '---\nname: only-for-packages\ndependencies:\n  type: package\n---\npackages only\n' > "$PKGA/skills/only-for-packages/SKILL.md"
 printf 'name = "pkga"\ntype = "package"\n' > "$PKGA/.ai.toml"; commit_all "$PKGA"
 
 CONP="$TMP/consumer-plain"; git_init "$CONP"; mkdir -p "$CONP/.claude"; commit_all "$CONP"
@@ -311,9 +311,10 @@ check "declaring twice leaves it alone" 'grep -q "already declares" "$TMP/outQ4"
 ( cd "$CONP" && "$KAUK" init --wat ) >"$TMP/outQ5" 2>&1 || true
 check "an unknown init flag is refused" 'grep -q "init does not take" "$TMP/outQ5"'
 
-echo "== a scalar frontmatter value is read, not just a list =="
-check "the value is seen"               'grep -q "applies-to: package" "$PKGA/skills/only-for-packages/SKILL.md"'
-check "a list-only reader would miss it" '! grep -q "applies-to:.*\[" "$PKGA/skills/only-for-packages/SKILL.md"'
+echo "== the dependency is expressed in the nested form, as a plain value =="
+check "it is under dependencies"        'grep -q "^dependencies:$" "$PKGA/skills/only-for-packages/SKILL.md"'
+check "the type is a plain value"       'grep -q "^  type: package$" "$PKGA/skills/only-for-packages/SKILL.md"'
+check "no key of its own was invented"  '! grep -q "applies-to" "$PKGA/skills/only-for-packages/SKILL.md"'
 
 echo "== no runtime detected: nothing is laid =="
 CON3="$TMP/consumer3"
