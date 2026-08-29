@@ -1315,6 +1315,9 @@ cmd_update() {
   for a in "$@"; do
     case "$a" in
       --status)    status_only=1 ;;
+      # --pull says out loud what an update does anyway: take, never give. It
+      # exists so "pull, don't push" can be stated rather than assumed, and it
+      # is refused alongside --push so the two cannot be asked for at once.
       --pull)      pull=1 ;;
       --push)      push=1 ;;
       --abort)     abort=1 ;;
@@ -1396,7 +1399,9 @@ usage: kai <command> [options]
                         Applies any pending migrations first, heals links whose
                         source moved, and removes clones nothing declares.
       --status          Report what it would do and write nothing.
-      --pull            Take updates from each source.
+      --pull            Take updates and publish nothing — which is what an
+                        update does anyway. It exists so that can be said rather
+                        than assumed, and it refuses to be combined with --push.
       --push            Publish your own edits back to a source. Deliberate:
                         a plain update never sends anything anywhere.
 

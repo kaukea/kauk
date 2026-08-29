@@ -279,6 +279,32 @@ check "the second is namespaced too"      '[ -L "$CON4/.claude/skills/pkgx:alpha
 check "the bare name is given up"         '[ ! -e "$CON4/.claude/skills/alpha" ]'
 check "and it says why"                   'grep -qi "two packages ship this name" "$TMP/outE"'
 
+echo "== the kai package carries nothing about another package's machinery =="
+# It shipped a skill saying every agent must be launched through a script it does
+# not ship. A repository installing kai alone got the instruction and not the file.
+# installed by path so this exercises the package in this working tree, not the
+# published one — init always declares kaukea/kauk and would fetch that instead
+KAIPKG=$(cd "$(dirname "$KAUK")/.." && pwd)
+SELFC="$TMP/kai-alone"; git_init "$SELFC"; mkdir -p "$SELFC/.claude"; commit_all "$SELFC"
+( cd "$SELFC" && "$KAUK" install "$KAIPKG" ) >"$TMP/outS" 2>&1 || true
+check "no skill about another package"  '[ ! -e "$SELFC/.claude/skills/orchard" ]'
+check "the agent skill is still there"  '[ -e "$SELFC/.claude/skills/agent" ]'
+check "and names no privileged launcher" '! grep -rq "dispatch-agent" "$SELFC/.claude/skills/agent/" 2>/dev/null'
+check "it launches any agent by name"   'grep -rq -- "--agent" "$SELFC/.claude/skills/agent/SKILL.md"'
+check "nothing it ships is missing"     'for l in "$SELFC"/.claude/skills/*; do [ -e "$l" ] || exit 1; done'
+
+echo "== --pull takes and never gives, and refuses to be paired with --push =="
+PULLC="$TMP/pull-consumer"; git_init "$PULLC"; mkdir -p "$PULLC/.claude"; commit_all "$PULLC"
+( cd "$PULLC" && "$KAUK" install "$PKG" ) >/dev/null 2>&1 || true
+UPSTREAM_BEFORE=$(git -C "$PKG" rev-parse HEAD)
+printf 'a local edit\n' >> "$PULLC/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
+( cd "$PULLC" && "$KAUK" update --pull ) >"$TMP/outPull" 2>&1 || true
+check "--pull publishes nothing"        '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UPSTREAM_BEFORE" ]'
+check "and the edit stays local"        'grep -q "a local edit" "$PULLC/.ai/repositories/test/pkg/skills/alpha/SKILL.md"'
+( cd "$PULLC" && "$KAUK" update --pull --push ) >"$TMP/outBoth" 2>&1 || true
+check "--pull with --push is refused"   'grep -q "taking and giving are separate acts" "$TMP/outBoth"'
+check "and it published nothing"        '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UPSTREAM_BEFORE" ]'
+
 echo "== init declares kai from git, whatever the machine =="
 INITC="$TMP/init-consumer"; git_init "$INITC"; mkdir -p "$INITC/.claude"; commit_all "$INITC"
 ( cd "$INITC" && "$KAUK" init ) >"$TMP/outR1" 2>&1 || true
