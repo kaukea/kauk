@@ -1061,6 +1061,16 @@ cmd_init() {
     return 0
   fi
   install_source "$root" "${KAUK_ORIGIN:-$script_repo}" || true
+  # Declaring a repository a package changes what its existing sources should
+  # lay into it — the authoring skill is laid only here — so they are laid again
+  # rather than waiting for the next update to notice.
+  if [ "$as_package" = 1 ]; then
+    local id origin raw
+    while read -r id origin raw; do
+      [ -n "$id" ] || continue
+      lay_source "$root" "$id"
+    done < <(deps_list "$root")
+  fi
   prune_links "$root"
   say "init: done — add a data package with 'kai install <owner>/<repo> | <path>'"
 }
@@ -1370,6 +1380,10 @@ usage: kai <command> [options]
   init                  Set this repository up. Creates .ai.toml if it is
                         missing, ignores the package store, and declares the kai
                         package, which every managed repository needs.
+      --package         Also declare that this repository publishes artifacts of
+                        its own, not only consumes them. Writes the root table
+                        saying so, and lays the skill that explains how to author
+                        one — which is laid nowhere else.
 
   install <source>      Add a package and lay what it carries. <source> is one
                         of:

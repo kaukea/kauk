@@ -279,6 +279,42 @@ check "the second is namespaced too"      '[ -L "$CON4/.claude/skills/pkgx:alpha
 check "the bare name is given up"         '[ ! -e "$CON4/.claude/skills/alpha" ]'
 check "and it says why"                   'grep -qi "two packages ship this name" "$TMP/outE"'
 
+echo "== an artifact may say it is only for repositories that are packages =="
+# The authoring skill tells a package author about an order that only a package
+# changes: the source belongs in the convention directory and the runtime
+# directory holds a link. Everywhere else that is noise, so it is laid nowhere
+# else. Declared by the artifact itself, the way categories and dependencies are.
+PKGA="$TMP/test/pkga"; git_init "$PKGA"
+mkdir -p "$PKGA/skills/ordinary" "$PKGA/skills/only-for-packages"
+printf -- '---\nname: ordinary\n---\nany repository\n' > "$PKGA/skills/ordinary/SKILL.md"
+printf -- '---\nname: only-for-packages\napplies-to: package\n---\npackages only\n' > "$PKGA/skills/only-for-packages/SKILL.md"
+printf 'name = "pkga"\ntype = "package"\n' > "$PKGA/.ai.toml"; commit_all "$PKGA"
+
+CONP="$TMP/consumer-plain"; git_init "$CONP"; mkdir -p "$CONP/.claude"; commit_all "$CONP"
+( cd "$CONP" && "$KAUK" install "$PKGA" ) >"$TMP/outQ1" 2>&1 || true
+check "an ordinary skill is laid"      '[ -e "$CONP/.claude/skills/ordinary" ]'
+check "the package-only one is not"    '[ ! -e "$CONP/.claude/skills/only-for-packages" ]'
+
+CONK="$TMP/consumer-package"; git_init "$CONK"; mkdir -p "$CONK/.claude"; commit_all "$CONK"
+( cd "$CONK" && "$KAUK" init --package && "$KAUK" install "$PKGA" ) >"$TMP/outQ2" 2>&1 || true
+check "init --package writes the type"  'grep -q "^type = \"package\"$" "$CONK/.ai.toml"'
+check "and names the repository"        'grep -q "^name = \"consumer-package\"$" "$CONK/.ai.toml"'
+check "and says what it did"            'grep -q "declared this repository a package" "$TMP/outQ2"'
+check "the ordinary skill is laid"      '[ -e "$CONK/.claude/skills/ordinary" ]'
+check "and so is the package-only one"  '[ -e "$CONK/.claude/skills/only-for-packages" ]'
+
+echo "== declaring one later brings it in =="
+( cd "$CONP" && "$KAUK" init --package ) >"$TMP/outQ3" 2>&1 || true
+check "it appears once declared"        '[ -e "$CONP/.claude/skills/only-for-packages" ]'
+( cd "$CONP" && "$KAUK" init --package ) >"$TMP/outQ4" 2>&1 || true
+check "declaring twice leaves it alone" 'grep -q "already declares" "$TMP/outQ4"'
+( cd "$CONP" && "$KAUK" init --wat ) >"$TMP/outQ5" 2>&1 || true
+check "an unknown init flag is refused" 'grep -q "init does not take" "$TMP/outQ5"'
+
+echo "== a scalar frontmatter value is read, not just a list =="
+check "the value is seen"               'grep -q "applies-to: package" "$PKGA/skills/only-for-packages/SKILL.md"'
+check "a list-only reader would miss it" '! grep -q "applies-to:.*\[" "$PKGA/skills/only-for-packages/SKILL.md"'
+
 echo "== no runtime detected: nothing is laid =="
 CON3="$TMP/consumer3"
 git_init "$CON3"
