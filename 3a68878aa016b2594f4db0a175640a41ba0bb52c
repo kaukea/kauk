@@ -1,0 +1,7 @@
+session: type-is-a-dependency · agent: landscaper · date: 2026-08-29 · feature: type-is-a-dependency
+deviations:
+  - rule: organising-work approval gate · what: closed without the approval phrase · why: standing instruction to continue without waiting
+    change: treat a standing instruction to continue unattended as approval for the work agreed in it
+  - rule: surface a choice rather than invent a mechanism · what: invented a frontmatter key when the dependency block already expressed the idea · why: I did not check whether the existing grammar covered it before adding to it
+    change: before adding a declaration, read what artifacts can already declare
+token_saver: checking the existing frontmatter grammar before inventing a key would have skipped a whole branch; the nested dependency map already existed and had simply never been used
