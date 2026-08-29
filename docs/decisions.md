@@ -1206,3 +1206,12 @@ Setting a repository up declares `kaukea/kauk` — where the package is publishe
 #config #ai-toml #package
 
 A repository declares itself a package with `type = "package"` in the ROOT TABLE of `.ai.toml` — the properties before any named table. Earlier text in the format document and in the entry of 2026-08-19 said `[general]`; that was a typo. There is no general table, nothing has ever read one, and a root property is the same thing in principle. (Operator, 2026-08-29.)
+
+## [2026-08-29 00:00 CEST] Decision-085: an update to another repository is an experiment, and telling it what to expect changes the result
+#estate #updates #feedback #method
+
+Updating a repository other than this one — to a new version of a package, or to find out what a change does in the field — is an experiment. What the agent says beforehand changes what comes back.
+
+The session there is told only to suspend work and to resume when told. Nothing about what the update will do, what might change, or what went wrong somewhere else. Then the scripts that are meant to run are run, exactly, with nothing done by hand: the engine chooses which migrations apply from the watermark, every step is guarded on what it finds, and none of that is the agent's judgement to exercise. Feedback is asked for only afterwards, and asked open — what went wrong, what is confusing — never "did X happen", which is the same contamination arriving late.
+
+The live case: a session was warned in advance that committed links might become real files, a risk carried over from watching two package repositories transform. The repository in question declared no type, so it was an ordinary consumer and could not have been affected at all. It guarded against the risk anyway, and the agent then proved a negative it had invented, by snapshotting ten thousand paths for an operation that selects its own work and is safe to repeat. (Operator, 2026-08-29: "You are changing the patient by telling them what's gonna happen.")

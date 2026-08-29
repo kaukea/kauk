@@ -62,6 +62,30 @@ Taxonomy.
   the **operator's** file — edit it freely. There is no lock file; the store itself is
   the record of what a repository has been given.
 
+## Updating another repository
+
+When updating a repository other than this one — to a new version of a package, or to
+find out what a change does in the field — you are running an experiment, and what you
+say beforehand changes its result.
+
+- **Say only: suspend work, and resume when told.** Nothing about what the update will
+  do, what might change, what to watch for, or what went wrong somewhere else. A session
+  told what to expect looks for that and reports on it, and stops looking for anything
+  else.
+- **Run exactly the scripts that are meant to run, and nothing by hand.** The engine
+  chooses which migrations apply from the watermark; every step is guarded on what it
+  finds and is safe to repeat. None of that is the agent's judgement to exercise, and
+  narrating it as though it were implies it needs supervising.
+- **Ask for feedback only afterwards**, and ask it open: what went wrong, if anything,
+  and what is confusing. Not "did X happen", which is the same contamination arriving
+  late.
+- Report what the run actually did, from the state before and after — not from what you
+  expected it to do.
+
+Told in advance, a session guards against a risk it may not even be able to have, and
+the agent ends up proving a negative it invented. (Operator, 2026-08-29: "You are
+changing the patient by telling them what's gonna happen.")
+
 ## Communication
 
 - **Plain English, always.** Full sentences, ordinary words. Do not use vocabulary an
