@@ -1251,3 +1251,10 @@ An artifact declares who may invoke it using the keys the target actually reads.
 A `visibility:` block of our own nested the same two ideas under names of our choosing. It is removed. Nothing read it, one runtime is supported, and inventing a spelling to be translated later means writing something no target understands today. When a transpiler exists and a second runtime needs serving, the neutral form gets decided then — against two real targets rather than one imagined one.
 
 `pull-only` is retired outright and was never implemented. A source you do not want to publish back to is a source you do not push to; a flag adds nothing. (Operator, 2026-08-29.)
+
+## [2026-08-29 00:00 CEST] Decision-090: version one requires the transpiler and opencode
+#versioning #v1 #transpiler #opencode #runtime-topology
+
+There is no version one without a transpiler and a full implementation of opencode. Those two together are what makes it one, and until both exist the tool is shipping below it whatever else is finished.
+
+This is why an artifact written today uses the keys the one supported runtime actually reads rather than a neutral spelling of our own: the neutral form is decided when there are two real targets to decide it against, which is the same moment version one becomes possible. (Operator, 2026-08-29.)
