@@ -15,6 +15,28 @@ the backup alias. One tool, three names, one behaviour.
 - The operator says install, update or sync a package, kai, kauk, or orchard.
 - At workflow start and end, so the repository's laid artifacts converge.
 
+## Migrations are safe to run — let them
+
+An update applies whatever migrations are newer than this repository's watermark.
+Let it. Do not skip one, run one by hand, inspect one first to decide, or stop a
+run part-way to check.
+
+- **Every step is guarded on what it finds**, never on where it assumes the
+  repository has got to — "if this file is here, move it", not "this repository
+  is now at layout four". A migration whose work is already done reports that and
+  changes nothing.
+- **They are therefore safe to repeat.** Running the same one twice is a no-op,
+  and a repository with no watermark replaying its whole history is safe for the
+  same reason — it is what happens on a fresh install.
+- **Which ones apply is the engine's decision**, taken from the watermark. It is
+  not a judgement for the agent to second-guess.
+- A diff can look alarming — a conversion long overdue lands all at once, and a
+  file changing shape reads as a deletion plus an untracked addition. That is the
+  work arriving, not damage.
+
+If a migration fails, it says so and the run carries on to the next one. Report
+the failure; do not repair it by hand.
+
 ## What kai leaves in a repository, and what to commit
 
 You will find files you did not put there. Each one has a plain answer:
