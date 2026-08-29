@@ -15,6 +15,20 @@ the backup alias. One tool, three names, one behaviour.
 - The operator says install, update or sync a package, kai, kauk, or orchard.
 - At workflow start and end, so the repository's laid artifacts converge.
 
+## What kai leaves in a repository, and what to commit
+
+You will find files you did not put there. Each one has a plain answer:
+
+- `.ai.toml` — yours. Commit it. kai only ever appends a dependency block.
+- `.ai/migrations.toml` — the **watermark**: which migration this repository has
+  been brought up to. **Commit it, every time it changes.** It is how the next
+  update knows what has already run, so a repository that loses it replays
+  everything. One line, tracked, and it changes only when a migration applies.
+- `.ai/repositories/` — the packages themselves, and ignored. Never commit it.
+  It holds a README saying the same thing, which is also ignored.
+- The laid artifacts under `.claude/` — links into a package. Commit them; they
+  are how the repository says what it runs.
+
 ## What it does
 
 - `kai init` — bootstrap this repository (creates `.ai.toml`, registers the
