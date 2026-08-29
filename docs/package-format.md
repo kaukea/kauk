@@ -8,9 +8,9 @@ Anything outside those directories is ignored.
 This document is the contract. A repository that follows it is installable; a
 repository that does not is simply a repository.
 
-> Status: specified 2026-08-10, not yet implemented. `bin/kauk` currently reads a
-> `manifest.conf` and must be changed to walk the tree. See `docs/decisions.md`
-> Decision-014 onward.
+> Status: implemented. `kai` walks the tree; `manifest.conf` is gone and nothing reads
+> it. This document is the contract, and it is followed exactly — an artifact in the
+> wrong directory is not in the package.
 
 ---
 
@@ -43,18 +43,18 @@ Any repository may declare itself a package, including one that also consumes pa
 
 ## Declaring a package, and publishing into your own repository
 
-A repository declares itself a package by carrying a `[general]` table in its own
-`.ai.toml`, the consumer-side file, with `type = "package"`:
+A repository declares itself a package with `type = "package"` in the root table of its
+own `.ai.toml` — the properties before any named table:
 
 ```toml
-[general]
+name = "orchard"
 type = "package"
 ```
 
 That declaration — and nothing inferred from how the operator happens to have set up
 their sources — is what makes kai apply the repository's own `migrations/` (merged
 into the single migration stream, see *migrations/* below), lay its own `agents/` and
-`skills/`, and publish its own `files/` by copy instead of by link. `.ai.toml` is the
+`skills/`, and publish its own `files/`. `.ai.toml` is the
 user's file; kai infers no behaviour from it beyond what it explicitly says, so a
 repository that happens to list its own path as a source carries no special meaning
 from that alone. (This replaces an earlier inference that compared a declared source's
@@ -72,8 +72,9 @@ Instead:
 - the artifacts are published exactly as they are for any other package — the same
   transformation, taking each convention directory and rendering it into the target's
   layout;
-- the publication type changes from link to **copy**: the rendered files are copied back
-  into the repository and committed, after which the normal flow works.
+- the artifacts are published the same way as anything else: the runtime directory
+  holds a link into the convention directory. Editing the source is immediately what
+  runs, with nothing to keep in step.
 
 Nothing else differs. A self-published package is a package.
 

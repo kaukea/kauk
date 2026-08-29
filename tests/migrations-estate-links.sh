@@ -222,5 +222,36 @@ printf '[sources."test/pkgj"]\n' > "$CON_UNREAD/.ai.toml"
 check "the store survives an unreadable file" '[ -d "$CON_UNREAD/.ai/repositories/test/pkgj/.git" ]'
 check "the skipped sweep is announced"        'grep -q "sweep skipped" "$TMP/out-unread"'
 
+echo "== a retired source is renamed in a dependency block, not only in the old table syntax =="
+# The earlier rename matches [sources."owner/repo"] headers. A repository that
+# reached the [[dependency]] form before it ran can never be matched by it, so
+# its sources keep naming repositories that moved. Three in the estate were in
+# exactly that state, one of them naming an identifier that never existed.
+MIGDEP="$ROOT/migrations/2026-08-29-01-retired-sources-in-dependency-blocks.md"
+
+DEPC="$TMP/dep-consumer"; git_init "$DEPC"
+printf '# mine, hands off\nname = "thing"\n\n[[dependency]]\nsource = "serialseb/kauk"\n\n[[dependency]]\nsource = "kaukea/orchids"\n\n[[dependency]]\nsource = "/home/someone/src/serialseb/orchids"\n\n[[dependency]]\nsource = "kaukea/other@HEAD"\n' > "$DEPC/.ai.toml"
+commit_all "$DEPC"
+mkdir -p "$DEPC/.ai/repositories/serialseb/kauk" "$DEPC/.ai/repositories/kaukea/orchids"
+run_migration "$MIGDEP" "$DEPC" >"$TMP/out-dep" 2>&1
+check "the retired owner is renamed"        'grep -q "^source = \"kaukea/kauk\"$" "$DEPC/.ai.toml"'
+check "an identifier that never existed too" '! grep -q "kaukea/orchids" "$DEPC/.ai.toml"'
+check "a path is matched by its tail"       '[ "$(grep -c "^source = \"kaukea/orchard\"$" "$DEPC/.ai.toml")" -eq 2 ]'
+check "an unrelated source is untouched"    'grep -q "^source = \"kaukea/other@HEAD\"$" "$DEPC/.ai.toml"'
+check "the operator comment survives"       'grep -q "^# mine, hands off$" "$DEPC/.ai.toml"'
+check "the root table survives"             'grep -q "^name = \"thing\"$" "$DEPC/.ai.toml"'
+check "clones under retired names are gone" '[ ! -d "$DEPC/.ai/repositories/serialseb/kauk" ] && [ ! -d "$DEPC/.ai/repositories/kaukea/orchids" ]'
+check "it says what it renamed"             'grep -q "renamed retired sources" "$TMP/out-dep"'
+BEFORE_DEP=$(cat "$DEPC/.ai.toml")
+run_migration "$MIGDEP" "$DEPC" >"$TMP/out-dep2" 2>&1
+check "a second run changes nothing"        '[ "$(cat "$DEPC/.ai.toml")" = "$BEFORE_DEP" ]'
+check "and says so"                         'grep -q "nothing to do" "$TMP/out-dep2"'
+
+CLEANC="$TMP/dep-clean"; git_init "$CLEANC"
+printf 'name = "x"\n\n[[dependency]]\nsource = "kaukea/orchard"\n' > "$CLEANC/.ai.toml"; commit_all "$CLEANC"
+run_migration "$MIGDEP" "$CLEANC" >"$TMP/out-clean" 2>&1
+check "a repository naming none is left alone" 'grep -q "nothing to do" "$TMP/out-clean"'
+
+
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

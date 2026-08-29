@@ -127,7 +127,7 @@ seed_watermark "$SELF" "2026-01-01-0"
 sed 's/^/     /' "$TMP/out5" | head -10
 
 check "own migration ran"                '[ -f "$SELF/order.log" ] && grep -q "^ownmig$" "$SELF/order.log"'
-check "own skill laid by COPY, not link" '[ -f "$SELF/.claude/skills/own/SKILL.md" ] && [ ! -L "$SELF/.claude/skills/own" ]'
+check "own skill published by link"      '[ -L "$SELF/.claude/skills/own" ] && [ -f "$SELF/.claude/skills/own/SKILL.md" ]'
 check "declares no sources yet syncs"    '! grep -qi "no sources in .ai.toml" "$TMP/out5"'
 
 echo "== absent type = \"package\": a repository does not apply its own migrations =="

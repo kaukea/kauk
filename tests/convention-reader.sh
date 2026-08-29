@@ -279,6 +279,12 @@ check "the second is namespaced too"      '[ -L "$CON4/.claude/skills/pkgx:alpha
 check "the bare name is given up"         '[ ! -e "$CON4/.claude/skills/alpha" ]'
 check "and it says why"                   'grep -qi "two packages ship this name" "$TMP/outE"'
 
+echo "== init declares kai from git, whatever the machine =="
+INITC="$TMP/init-consumer"; git_init "$INITC"; mkdir -p "$INITC/.claude"; commit_all "$INITC"
+( cd "$INITC" && "$KAUK" init ) >"$TMP/outR1" 2>&1 || true
+check "it declares the published name"      'grep -q "^source = \"kaukea/kauk\"$" "$INITC/.ai.toml"'
+check "and never a path on this machine"    '! grep -q "^source = \"/" "$INITC/.ai.toml"'
+
 echo "== an artifact may depend on the repository being a package =="
 # The authoring skill tells a package author about an order that only a package
 # changes: the source belongs in the convention directory and the runtime
@@ -324,11 +330,11 @@ printf 'placeholder\n' > "$CON3/.keep"; commit_all "$CON3" "empty" >/dev/null
 check "nothing laid without a runtime" '[ ! -e "$CON3/.claude/skills/alpha" ]'
 check "detection explained"            'grep -qi "no agent runtime detected" "$TMP/outF"'
 
-echo "== root-table type = \"package\" lays the repo into itself, by copy =="
+echo "== root-table type = \"package\" publishes the repo into itself, by link =="
 # is_self_source is retired: self-application is never inferred from a source
 # declaration pointing at the repo's own path. It is declared exclusively via
 # type = "package" in the ROOT TABLE of the repo's own .ai.toml (see
-# is_package_repo / lay_self in bin/kaukea). This fixture carries NO dependency
+# is_package_repo / publish_own in bin/kaukea). This fixture carries NO dependency
 # entry for itself, to also prove a self-referencing source is no longer
 # special-cased — it simply isn't present here at all.
 SELF="$TMP/test/selfpkg"
@@ -339,7 +345,12 @@ printf 'name = "selfpkg"\ntype = "package"\n' > "$SELF/.ai.toml"
 commit_all "$SELF"
 ( cd "$SELF" && "$KAUK" sync ) >"$TMP/outG" 2>&1 || true
 check "package repo is not cloned into itself" '[ ! -d "$SELF/.ai/repositories/test/selfpkg" ]'
-check "package repo lays its own skill by copy, not symlink" '[ -f "$SELF/.claude/skills/own/SKILL.md" ] && [ ! -L "$SELF/.claude/skills/own" ]'
+check "its own skill is published by link"   '[ -L "$SELF/.claude/skills/own" ]'
+check "the link reaches its own source"     '[ "$(readlink "$SELF/.claude/skills/own")" = "../../skills/own" ]'
+check "and the artifact reads through it"   '[ -f "$SELF/.claude/skills/own/SKILL.md" ]'
+# the point of link over copy: no second copy, so no step between editing and running
+printf -- '---\nname: own\n---\nEDITED IN PLACE\n' > "$SELF/skills/own/SKILL.md"
+check "an edit to the source is what runs"  'grep -q "EDITED IN PLACE" "$SELF/.claude/skills/own/SKILL.md"' 
 check "package repo self-sync is idempotent" '( cd "$SELF" && "$KAUK" sync >/dev/null 2>&1 ); [ -f "$SELF/.claude/skills/own/SKILL.md" ]'
 
 echo "== include on a local path is refused, with the reason =="
