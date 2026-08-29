@@ -424,3 +424,16 @@ a pattern that had already cost three debugging rounds the same day. Assertions
 now evaluate with `pipefail` off, which is what every one of them meant.
 
 _Board: `status-and-push`._
+
+#### ♻️ `f/one-harness` → `archive/one-harness`
+
+Ten suites each carried their own copy of the same assertion helpers, which is
+how one defect in them could be corrected three times and return each time. There
+is one copy now, in `tests/harness.sh`, sourced by every suite — and
+`tests/suites-are-sound.sh` fails if a test file defines its own helper,
+re-initialises the counters, or does not source the shared one. Written the old
+way, a new suite fails immediately and is told which of those it did. It also
+pins the helper's `pipefail` guard and the comment explaining what that guard
+cost, so neither is tidied away by someone who does not know.
+
+_Board: `one-harness` · follows `status-and-push`._

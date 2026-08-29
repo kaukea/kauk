@@ -1267,3 +1267,14 @@ This is why an artifact written today uses the keys the one supported runtime ac
 The second half is about method. Seventy-two assertions across nine suites piped a writer into a matcher that exits on its first match; the writer took SIGPIPE and `pipefail` turned that into an intermittent failure that looked like the code under test. The same pattern had already cost three debugging rounds that day, and each time the instance was corrected while the class was not — so it reappeared the moment a suite was written from scratch, hours after a telemetry note had been written about it. A record written for the operator is not a mechanism that reaches the agent writing the next thing.
 
 The fix is therefore in the shared assertion helper, not in seventy-two lines: assertions evaluate with `pipefail` off, which is the correct meaning of every one of those pipelines. (Operator, 2026-08-29: "What do you think made you do that?")
+
+## [2026-08-30 00:00 CEST] Decision-092: a recurring defect is prevented by a failing test, not by a rule
+#testing #method #harness #prevention
+
+The operator's question, after the same defect was introduced a fourth time: "how do we prevent you from ever doing that again?"
+
+Not by a rule in a document, and not by a note. Both existed. A note written at a workflow's close is a record for the operator; it reaches nobody writing the next thing. A rule reaches only whoever has read it and remembers to check.
+
+What prevents recurrence is a test that fails when the wrong thing is written. So: one assertion helper for every suite, in `tests/harness.sh`, and `tests/suites-are-sound.sh` failing if a test file defines its own, re-initialises the counters, or does not source the shared one. It also pins the helper's own guard and the comment explaining what that guard cost, so the line is not removed as noise by someone who does not know.
+
+Generally: when a defect recurs, fix the mechanism that permits it rather than the occurrence. If the same correction has been made twice, the second one is evidence that the first was in the wrong place. (Operator, 2026-08-30.)
