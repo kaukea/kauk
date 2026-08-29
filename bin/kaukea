@@ -334,32 +334,37 @@ artifact_file() { # artifact_file <src> <s|a> <name>
     a) echo "$1/agents/$3.md" ;;
   esac
 }
-
-# An artifact may say who it is for. `applies-to: package` means it is laid only
-# into a repository that declares itself a package — the authoring skill is the
-# case this exists for: it tells an author about an order that only a package
-# changes, and it would be noise everywhere else. Read from the artifact's own
-# frontmatter, the way categories and dependencies already are.
-fm_value() { # fm_value <file> <key> -> a scalar frontmatter value, unquoted
+fm_nested_value() { # fm_nested_value <file> <key> — a scalar under `dependencies:`
   [ -f "$1" ] || return 0
   fm_block "$1" | awk -v k="$2" '
-    $0 ~ "^"k":[ \t]*[^[ \t]" {
-      v = $0; sub("^"k":[ \t]*", "", v)
-      gsub(/^[ \t"'"'"']+|[ \t"'"'"']+$/, "", v)
+    /^dependencies:[ \t]*$/ { ind=1; next }
+    ind && /^[^ \t]/        { ind=0 }
+    ind && $0 ~ "^[ \t]+"k":[ \t]*[^[ \t]" {
+      v=$0; sub("^[ \t]+"k":[ \t]*","",v)
+      gsub(/^[ \t"'"'"']+|[ \t"'"'"']+$/,"",v)
       print v; exit
     }'
 }
 
-artifact_applies_to() { fm_value "$1" applies-to; }
+# An artifact declares what it needs. Usually that is other artifacts — skills,
+# agents, tools — and sometimes it is a property of the repository receiving it:
+#
+#   dependencies:
+#     type: package
+#
+# means the artifact is only usable where the repository is itself a package, so
+# it is laid there and nowhere else. That is the same kind of edge as any other
+# dependency, read from the same place. Giving it a key of its own would put a
+# second idea beside one that already covers it.
+artifact_needs_type() { fm_nested_value "$1" type; }
 
-only_for_packages() { # only_for_packages <artifact-path> <root> -> 0 when it should be skipped here
-  # The frontmatter is in the artifact itself: a skill is a folder carrying
-  # SKILL.md, every other kind is the file.
-  local a=$1 root=$2 fm=$1
+unmet_type_dependency() { # <artifact-path> <root> -> 0 when this repository cannot satisfy it
+  local a=$1 root=$2 fm=$1 need
   [ -d "$a" ] && fm="$a/SKILL.md"
   [ -f "$fm" ] || return 1
-  [ "$(artifact_applies_to "$fm")" = package ] || return 1
-  is_package_repo "$root" && return 1
+  need=$(artifact_needs_type "$fm")
+  [ -n "$need" ] || return 1
+  [ "$need" = "$(root_field "$root" type)" ] && return 1
   return 0
 }
 
@@ -596,7 +601,7 @@ lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns> <kind-l
     n=$(basename "$t")
     case "$n" in .*|__pycache__|*"$NS_SEP"*) continue ;; esac
     [ -n "$kind" ] && ! sel_allows "$kind" "$(basename "$n" .md)" && continue
-    only_for_packages "$t" "$LAY_ROOT" && continue
+    unmet_type_dependency "$t" "$LAY_ROOT" && continue
     if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns" "$srcdir"; fi
     place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
   done
