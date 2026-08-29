@@ -1,7 +1,8 @@
 ---
 name: authoring-packages
 description: "Read before creating, moving or removing any agent, skill, hook or tool in a repository that is itself a kai package. Left alone an agent writes a new skill into the runtime's own directory, which is the opposite of what a package needs — the source belongs in the package's convention directory and the runtime directory holds a link to it. Covers where each kind of artifact lives and what to run when you add or remove one."
-applies-to: package
+dependencies:
+  type: package
 ---
 
 # Authoring a kai package
@@ -58,5 +59,6 @@ before shipping something new.
 
 ## What you are not told by anything else
 
-This skill is laid only into repositories that declare themselves packages, and it is
-selected by `kai init --package`. If you are reading it, this repository is one.
+This skill declares that it depends on the repository being a package, so it is laid
+nowhere else and is selected by `kai init --package`. If you are reading it, this
+repository is one.

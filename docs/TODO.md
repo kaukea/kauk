@@ -44,6 +44,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
   - `feature · functional · critical · complete · cmd-install ·` [The `files/` kind: contents placed verbatim at their path](TODO.md.d/files-kind.md) ⊘manifest-by-convention
   - `housekeeping · functional · critical · complete · cli-core ·` [.ai.toml goes back to being the operator's file](TODO.md.d/ai-toml-cleanup.md)
   - `feature · functional · critical · complete · cmd-install ·` [Detect the runtimes in use, as a set rather than a winner](TODO.md.d/runtime-detection.md)
+- `housekeeping · functional · critical · complete · cmd-install ·` [An artifact needing a package says so as a dependency, not through a key of its own](TODO.md.d/type-is-a-dependency.md) ~authoring-skill
 - `feature · functional · critical · complete · cmd-install ·` [The kai package ships an authoring skill, laid only into repositories that are packages](TODO.md.d/authoring-skill.md) ~package-authoring-skill ~runtime-topology
 - `feature · todo · · blocked-on-answers · artifact-model ·` [A skill for authoring a kai package — one agent writing what every agent must be able to use · next major iteration](TODO.md.d/package-authoring-skill.md) ~runtime-topology ~claude-marketplace
 - `feature · todo · critical · plan-ready · cmd-install · gh#22` [Publish each package as a plugin into a kauk-maintained local marketplace](TODO.md.d/claude-marketplace.md) ⊘hooks-declarative
