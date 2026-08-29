@@ -337,6 +337,17 @@ filename now drives instead.
 - A `reload` step is available on any update, not only inside a migration: on the Claude
   target `/reload-plugins` picks up changed components without a restart.
 - Every step is guarded by observable state, never by assumed position in a sequence.
+- **Therefore a migration is always safe to run**, and that is a promise made to whoever
+  runs one, not only a rule for whoever writes one. A migration whose work is already
+  done reports that and changes nothing; running the same one twice is a no-op; and a
+  repository with no watermark replaying its entire history is safe for the same reason,
+  which is what a fresh install does. Nothing is to be skipped, inspected first, applied
+  by hand, or stopped part-way to check. A diff can still look alarming — a conversion
+  long overdue lands all at once — but that is the work arriving, not damage.
+
+  A migration that cannot honestly make this promise is not finished. It is the single
+  property the whole mechanism rests on: it is what lets the tool choose what to apply
+  without asking anyone, and what makes replaying safe when a watermark is lost.
 - **Errors are reported, not handled.** Kai runs a migration's shell steps and reports
   whichever ones failed, then moves on. There is no hand-off of a failed step to an
   agent, no file that parks a failure for a later session to pick up, and no routing
