@@ -231,6 +231,19 @@ dep_ref() { # dep_ref <root> <id> -> HEAD, a branch/tag/commit, or nothing
 # own files by copy (see lay_self). When absent, it is an ordinary project.
 is_package_repo() { [ "$(root_field "$1" type)" = package ]; }
 
+declare_package() { # declare_package <root> — say this repository publishes as well as consumes
+  local root=$1 f; f=$(ai_file "$root")
+  if [ -n "$(root_field "$root" type)" ]; then
+    say ".ai.toml: already declares what this repository is — left alone"
+    return 0
+  fi
+  # Prepended, because the root table is what comes before the first named one.
+  printf 'name = "%s"\ntype = "package"\n\n%s' "$(basename "$root")" "$(cat "$f")" > "$f.kai-tmp" && mv "$f.kai-tmp" "$f"
+  say ".ai.toml: declared this repository a package"
+  say "  its own agents, skills, hooks and tools are published from the convention"
+  say "  directories at its root, and the authoring skill is laid to say how"
+}
+
 ensure_aitoml() { # created empty: its contents are the operator's, not kai's
   local root=$1 f; f=$(ai_file "$root")
   [ -f "$f" ] && return 0
@@ -320,6 +333,34 @@ artifact_file() { # artifact_file <src> <s|a> <name>
     s) echo "$1/skills/$3/SKILL.md" ;;
     a) echo "$1/agents/$3.md" ;;
   esac
+}
+
+# An artifact may say who it is for. `applies-to: package` means it is laid only
+# into a repository that declares itself a package — the authoring skill is the
+# case this exists for: it tells an author about an order that only a package
+# changes, and it would be noise everywhere else. Read from the artifact's own
+# frontmatter, the way categories and dependencies already are.
+fm_value() { # fm_value <file> <key> -> a scalar frontmatter value, unquoted
+  [ -f "$1" ] || return 0
+  fm_block "$1" | awk -v k="$2" '
+    $0 ~ "^"k":[ \t]*[^[ \t]" {
+      v = $0; sub("^"k":[ \t]*", "", v)
+      gsub(/^[ \t"'"'"']+|[ \t"'"'"']+$/, "", v)
+      print v; exit
+    }'
+}
+
+artifact_applies_to() { fm_value "$1" applies-to; }
+
+only_for_packages() { # only_for_packages <artifact-path> <root> -> 0 when it should be skipped here
+  # The frontmatter is in the artifact itself: a skill is a folder carrying
+  # SKILL.md, every other kind is the file.
+  local a=$1 root=$2 fm=$1
+  [ -d "$a" ] && fm="$a/SKILL.md"
+  [ -f "$fm" ] || return 1
+  [ "$(artifact_applies_to "$fm")" = package ] || return 1
+  is_package_repo "$root" && return 1
+  return 0
 }
 
 artifact_categories() { # categories:, falling back to roles:
@@ -555,13 +596,17 @@ lay_kind() { # lay_kind <mode> <src-dir> <dst-dir> <glob-suffix> <pkgns> <kind-l
     n=$(basename "$t")
     case "$n" in .*|__pycache__|*"$NS_SEP"*) continue ;; esac
     [ -n "$kind" ] && ! sel_allows "$kind" "$(basename "$n" .md)" && continue
+    only_for_packages "$t" "$LAY_ROOT" && continue
     if [ "$mode" = copy ]; then NS_DST="$n"; else namespace_for "$dstdir" "$n" "$ns" "$srcdir"; fi
     place_one "$mode" "$t" "$dstdir/$NS_DST" && LAID=$((LAID+1))
   done
 }
 
+LAY_ROOT=""
+
 lay_claude() { # lay_claude <root> <src> <mode> <pkgns>
   local root=$1 src=$2 mode=$3 ns=$4
+  LAY_ROOT=$root
   NS_SEP=":"
   lay_kind "$mode" "$src/skills" "$root/.claude/skills" ""    "$ns" s
   lay_kind "$mode" "$src/agents" "$root/.claude/agents" ".md" "$ns" a
@@ -997,8 +1042,15 @@ cmd_install() {
 # ---------- init ----------
 cmd_init() {
   local root; root=$(repo_root)
-  local script_repo
+  local script_repo as_package=0 a
+  for a in "$@"; do
+    case "$a" in
+      --package) as_package=1 ;;
+      *) die "init does not take \"$a\". It takes --package, for a repository that publishes artifacts as well as consuming them. See kai --help" ;;
+    esac
+  done
   ensure_aitoml "$root"
+  [ "$as_package" = 1 ] && declare_package "$root"
   ensure_gitignore "$root"
   stamp_install_watermark "$root"
   script_repo=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
@@ -1009,6 +1061,16 @@ cmd_init() {
     return 0
   fi
   install_source "$root" "${KAUK_ORIGIN:-$script_repo}" || true
+  # Declaring a repository a package changes what its existing sources should
+  # lay into it — the authoring skill is laid only here — so they are laid again
+  # rather than waiting for the next update to notice.
+  if [ "$as_package" = 1 ]; then
+    local id origin raw
+    while read -r id origin raw; do
+      [ -n "$id" ] || continue
+      lay_source "$root" "$id"
+    done < <(deps_list "$root")
+  fi
   prune_links "$root"
   say "init: done — add a data package with 'kai install <owner>/<repo> | <path>'"
 }
@@ -1318,6 +1380,10 @@ usage: kai <command> [options]
   init                  Set this repository up. Creates .ai.toml if it is
                         missing, ignores the package store, and declares the kai
                         package, which every managed repository needs.
+      --package         Also declare that this repository publishes artifacts of
+                        its own, not only consumes them. Writes the root table
+                        saying so, and lays the skill that explains how to author
+                        one — which is laid nowhere else.
 
   install <source>      Add a package and lay what it carries. <source> is one
                         of:
