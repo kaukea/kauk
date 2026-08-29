@@ -1188,7 +1188,8 @@ status_source() { # status_source <root> <id>
   ahead=$(git -C "$clone" rev-list --count origin/main..HEAD)
   behind=$(git -C "$clone" rev-list --count HEAD..origin/main)
   say "$id: $behind incoming · $ahead outgoing · $dirty uncommitted local edit(s)"
-  lay_source "$root" "$id"
+  # NOTHING is laid here. --status reports and writes, is a contradiction, and
+  # the report is what somebody reaches for before deciding whether to act.
 }
 
 # ---------- conflict mode ----------
