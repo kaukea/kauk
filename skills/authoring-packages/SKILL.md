@@ -51,11 +51,27 @@ source, then update, which takes the link away with it.
 This is the one moment that needs a command. Editing an existing artifact needs
 nothing, because the link already points at the file you are editing.
 
-## Checking it
+## A skill is self-contained
 
-`docs/package-format.md` in the kai repository is the contract — what each kind may
-carry in its frontmatter, and what makes a repository installable at all. Read it
-before shipping something new.
+A skill carries everything it needs: `SKILL.md` and any scripts it calls, in its own
+folder. An agent carries nothing — it is a prompt. If an agent needs a script, that
+script belongs to a tool or to a skill the agent depends on, and the agent declares
+the dependency.
+
+This is not a preference. A skill that reaches outside its own folder is not
+installable, because what it reaches for is not part of what ships.
+
+## The conventions are strict
+
+`docs/package-format.md` in the kai repository is the contract, and it is followed
+exactly or nothing proceeds. An artifact in the wrong directory is not in the package.
+A skill that is a file rather than a folder is not a skill. Frontmatter the format does
+not define is not read. There is no tolerance built in and none is coming: the whole
+point of a package having no manifest is that the tree itself is the declaration, so
+the tree has to be right.
+
+Read the format before shipping something new, and check what you built against it
+rather than against what looks reasonable.
 
 ## What you are not told by anything else
 
