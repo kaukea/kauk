@@ -290,7 +290,9 @@ of our own choosing. It was removed: nothing reads it, only one runtime is suppo
 and inventing a spelling to be translated later means writing something no target
 understands today. When a transpiler exists and a second runtime needs serving, that is
 the moment to decide what the neutral form is — against two real targets rather than
-one imagined one.
+one imagined one. That is part of the work towards version one
+(`docs/TODO.md.d/runtime-topology.md`), and converting the artifacts that carry
+Claude's spelling is a migration that work ships.
 
 ## files/
 

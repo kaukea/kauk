@@ -48,6 +48,28 @@ _All answered by the operator, 2026-07-21 (Decision-013):_
   [[settings-lay-clobbers]]), replacing the wholesale settings.json link this
   sidecar lists as current state.
 
+## Carried in from 2026-08-29 — the visibility keys are interim
+
+Artifacts currently write Claude's own keys for who may invoke them, flat in the
+frontmatter: `user-invocable` and `disable-model-invocation`. That is deliberate
+and temporary.
+
+There was a `visibility:` block of our own, nesting the same two ideas under names
+we chose. It was removed because nothing read it, one runtime is supported, and
+inventing a spelling to be translated later means writing something no target
+understands today.
+
+**These keys become cross-platform as part of this work.** The neutral form gets
+decided here, against two real targets rather than one imagined one, and the
+transpiler renders it into whatever each runtime calls it. Until then Claude's
+spelling is what artifacts carry, and every artifact in the estate that has it
+will need converting when the neutral form lands — that conversion is a migration
+this feature ships.
+
+Same applies to `compatibility`, which is already neutral in shape (a list of
+agents and models) but is read by nothing. Enforcing it — refusing to hand a skill
+to a model it does not name — belongs to the same work.
+
 ## Proposal
 
 Design the artifact-type × runtime target topology per Decision-012/-013: for
