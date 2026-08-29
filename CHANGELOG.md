@@ -393,3 +393,19 @@ existed. The format document loses a `[general]` table that never existed and a
 status line calling the format unimplemented two weeks after it was.
 
 _Board: `publication-mode` · relates to `estate-links-run`._
+
+#### ✨ `f/kai-is-self-contained` → `archive/kai-is-self-contained`
+
+kai shipped a skill telling every repository that installed it that agents must be
+launched through a script kai does not ship, and that work launched any other way
+was invalid — verified by installing kai into an empty repository and getting the
+instruction without the file. It is withdrawn, along with every reference to that
+launcher in the `agent` skill and its script, and a migration removes the laid
+link from consumers rather than leaving a dangling one behind. Any agent can be
+launched by calling the CLI with the right parameters; there is no privileged
+launcher. `compatibility` is now defined as the agents and models an artifact
+works with; `visibility` gives way to the keys the runtime actually reads; and
+`pull-only`, never implemented, is retired. `--pull` says "take, publish nothing"
+rather than being silently ignored.
+
+_Board: `kai-is-self-contained` · relates to `runtime-topology`._
