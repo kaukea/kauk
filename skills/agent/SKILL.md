@@ -3,8 +3,7 @@ name: agent
 description: "Run when the operator wants to (re)start any named agent's root session with kai's fleet settings applied. A session cannot re-apply its own --settings, so this launches a fresh `claude --agent <name> --settings <kai.settings.json>` process in its own tmux window and hands the operator to it. Takes the agent name as an argument to the skill invocation. Any agent can be launched this way — there is no privileged launcher and nothing else to know."
 metadata:
   tags: [kai, launch, settings, tmux, session, bootstrap]
-visibility:
-  user-invocable: true
+user-invocable: true
 ---
 
 # agent (launch a settings-carrying agent session)
