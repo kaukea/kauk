@@ -1,0 +1,5 @@
+session: status-and-push · agent: landscaper · date: 2026-08-29 · feature: status-and-push
+deviations:
+  - rule: do not reintroduce a known defect pattern · what: wrote a fresh suite using the SIGPIPE-under-pipefail idiom hours after documenting it twice · why: I had corrected instances, never the class, so the shape in my head was still the original
+    change: when a defect recurs, fix the mechanism that permits it, not the occurrence; a telemetry note is a record for the operator and reaches no agent
+token_saver: reading status_source before writing a test for it found the defect in seconds; three debugging rounds went on the pipe pattern that a single change to the shared helper removed entirely
