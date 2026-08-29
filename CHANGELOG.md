@@ -344,3 +344,17 @@ assertions naming the broken function, where a scenario suite takes 9.158s to
 report 31 downstream symptoms.
 
 _Board: `symlink-port` · follows `cases-are-the-contract` · relates to `cli-mvp`._
+
+#### ✨ `f/authoring-skill` → `archive/authoring-skill`
+
+An agent asked for a new skill writes it where the runtime keeps skills, which is
+right everywhere except a package — where the source belongs in the convention
+directory and the runtime directory holds a link to it. Nothing said so. The kai
+package now carries a second skill that does, laid only into repositories that
+declare themselves packages and selected by the new `kai init --package`, which
+writes the root table saying what the repository is. An artifact may now declare
+who it is for with `applies-to:` in its own frontmatter; reading a scalar value
+there is new, since the reader handled only lists.
+
+_Board: `authoring-skill` · answers part of `package-authoring-skill` · relates
+to `runtime-topology`._
