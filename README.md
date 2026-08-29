@@ -31,8 +31,9 @@ hoard. See `ARCHITECTURE.md`.
 ## Layout
 
 - `bin/kaukea` — the bash stopgap that vendors and lays file packages until `0.1.0`, invoked as **`kai`** (`kauk` stays as the backup alias):
-  `init` / `install <owner>/<repo> | <uri> | <path>` / `update [--pull|--push]`, also
-  spelled `sync`.
+  `init [--package]` / `install <owner>/<repo> | <uri> | <path>` / `update [--pull|--push]`,
+  also spelled `sync`. `--package` declares a repository that publishes artifacts of its
+  own as well as consuming them, and lays the skill that explains how to author one.
   Sync pulls with rebase, applies each package's pending migrations itself (in
   order, watermarked — anything it cannot finish is recorded as an ask for the
   next session, never a nag), heals laid links whose source moved, sweeps clean
