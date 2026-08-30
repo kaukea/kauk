@@ -68,8 +68,9 @@ hoard. See `ARCHITECTURE.md`.
   `kauk.ai/<pkg>` pages.
 - `docs/` — `ai-toml.md` (the configuration file), `package-format.md`, the board
   (`TODO.md` + sidecars), `decisions.md`, and `naming.md`.
-- `lib/` — the arithmetic of sources, identifiers and link targets, as pure
-  functions of their arguments.
+- `lib/` — the arithmetic of sources, identifiers and link targets as pure functions
+  of their arguments, and the one reader of `.ai.toml`, shared by the executable and
+  the session hooks so the two cannot disagree about what a dependency is.
 - `spec/` — the questions every implementation of kai must answer, as data rather
   than as one language's tests; `tests/unit-names.sh` is the runner for the shell
   one, and needs no repository, package or network.

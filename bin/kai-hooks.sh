@@ -21,6 +21,24 @@ ROOT=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 AITOML="$ROOT/.ai.toml"
 [ -f "$AITOML" ] || exit 0
 
+# The ONE reader of .ai.toml, beside this script. This file used to carry its own
+# simplified copy, and the two had already diverged about what counts as a
+# dependency — see lib/aitoml.sh.
+# Resolved the way everything in this fleet resolves a path beside the binary:
+# readlink -f, with a graceful fallback to the unresolved path. A readlink
+# without -f is not a failure to exit on — it is the BSD one, and this script
+# has to keep dispatching under it.
+KAI_SELF=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")
+KAI_LIB=$(cd "$(dirname "$KAI_SELF")/../lib" 2>/dev/null && pwd) || KAI_LIB=""
+if [ -n "$KAI_LIB" ] && [ -f "$KAI_LIB/aitoml.sh" ]; then
+  . "$KAI_LIB/aitoml.sh"
+else
+  # A hook must never break a session, so this exits 0 — but silence here means
+  # nothing is bootstrapped and nobody knows why, so it says so first.
+  printf 'kai-hooks: cannot find its library beside the executable — the bin and lib directories travel together. Nothing was set up for this session.\n' >&2
+  exit 0
+fi
+
 STDIN_FILE=""
 OUT_DIR=""
 CAPTURE_FILE=""
@@ -58,29 +76,13 @@ capture_file() {
   printf '%s\n' "$CAPTURE_FILE" >> "$OUT_DIR/.manifest"
 }
 
-# raw_sources -> one source string per line, exactly as .ai.toml's
-# [[dependency]] blocks write it (bin/kaukea's dep_rows convention).
-raw_sources() {
-  awk '
-    /^[ \t]*\[\[dependency\]\][ \t]*$/ { indep = 1; next }
-    /^[ \t]*\[/                          { indep = 0; next }
-    indep && /^[ \t]*source[ \t]*=/ {
-      v = $0
-      sub(/^[ \t]*source[ \t]*=[ \t]*/, "", v)
-      if (substr(v, 1, 1) == "\"") { sub(/^"/, "", v); sub(/".*$/, "", v) }
-      else { sub(/[ \t]*#.*$/, "", v); sub(/[ \t]+$/, "", v) }
-      if (v != "") print v
-    }
-  ' "$AITOML"
-}
-
 # source_dirs -> one package directory per line, from .ai.toml's [[dependency]]
 # blocks. A source that is neither a path, a git URI, nor <owner>/<repo> is
 # invalid — bin/kaukea's deps_list warns and ignores it; mirrored here. On
 # stderr, not stdout: unlike kaukea, this process's stdout IS the hook-output
 # channel the harness parses, never a place for free text.
 source_dirs() {
-  raw_sources |
+  ai_package_sources "$ROOT" |
   while IFS= read -r src; do
     [ -n "$src" ] || continue
     tail=${src##*/}
@@ -186,7 +188,7 @@ ensure_sources() {
     [ -e "$link" ] && [ ! -L "$link" ] && continue               # a real clone is already there
     mkdir -p "$(dirname "$link")" 2>/dev/null || continue
     ln -sfn "$slot" "$link" 2>/dev/null || true
-  done < <(raw_sources)
+  done < <(ai_package_sources "$ROOT")
 }
 
 # array_values <toml-array-literal> -> one bare item per line, e.g.
