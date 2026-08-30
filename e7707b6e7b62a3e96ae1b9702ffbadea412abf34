@@ -1,0 +1,5 @@
+session: one-parser · agent: landscaper · date: 2026-08-30 · feature: one-parser
+deviations:
+  - rule: use what exists rather than writing what is nearest · what: wrote a second .ai.toml parser in the hook dispatcher while adding the session-start bootstrap · why: I was editing that file and reproduced its neighbourhood instead of reaching for the library
+    change: before writing a reader, a resolver or a helper, look for one; the operator named this habit and a review found it had already caused a behavioural divergence
+token_saver: the review the operator asked for found a live divergence in under five minutes of looking; doing it before the version bump rather than after is the whole value
