@@ -48,6 +48,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `housekeeping · functional · critical · complete · cmd-install ·` [An artifact needing a package says so as a dependency, not through a key of its own](TODO.md.d/type-is-a-dependency.md) ~authoring-skill
 - `feature · functional · critical · complete · cmd-install ·` [The kai package ships an authoring skill, laid only into repositories that are packages](TODO.md.d/authoring-skill.md) ~package-authoring-skill ~runtime-topology
 - `bug · todo · · blocked-on-answers · cmd-install ·` [Write access through a laid link is indistinguishable from owning the file](TODO.md.d/writable-links-not-yours.md) ~authoring-skill
+- `bug · functional · critical · complete · cli-core ·` [Two readers of `.ai.toml` had already diverged about what a dependency is](TODO.md.d/one-parser.md) ~one-harness
 - `housekeeping · functional · critical · complete · cli-core ·` [One assertion helper, and a suite that fails if a test copies it](TODO.md.d/one-harness.md) ~status-and-push
 - `bug · functional · critical · complete · cli-core ·` [`--status` wrote while promising not to, and seventy-two assertions raced](TODO.md.d/status-and-push.md)
 - `feature · functional · critical · complete · cmd-install ·` [kai carries nothing about another package's machinery](TODO.md.d/kai-is-self-contained.md) ~authoring-skill
