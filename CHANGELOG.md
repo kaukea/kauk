@@ -451,3 +451,15 @@ exiting silently. `tests/one-reader.sh` fails if either executable grows its own
 reader again, or if the two answer the same file differently.
 
 _Board: `one-parser` · follows `one-harness`._
+
+#### 🐛 `f/one-resolution` → `archive/one-resolution`
+
+Finding the library beside the executable was written three times in `bin/kaukea`
+in three different forms, two of them without the fallback the rest of the fleet
+uses. Those two do not fail where `readlink -f` is unsupported — the path becomes
+`./../lib`, relative to the working directory, and a stranger's library is
+sourced silently. It is resolved once now, made absolute, and reused;
+`tests/one-reader.sh` pins that, including that no stranger's library can be
+sourced under such a resolver.
+
+_Board: `one-resolution` · follows `one-parser`._

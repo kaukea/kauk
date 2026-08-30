@@ -1287,3 +1287,12 @@ There is one reader of `.ai.toml`, in `lib/aitoml.sh`, and every executable sour
 This follows from the operator's diagnosis of a habit: an agent reproduces whatever is closest to where it is editing, so a codebase drifts from its intent wherever that habit has been at work. The review he asked for found it immediately — two parsers for one format, already disagreeing about whether a dependency declaring a non-package type counts, which meant the tool ignored one and the session-start hook cloned it.
 
 Generally: a second implementation of a format is a defect the moment it is written, not when it drifts. The drift is only when it is noticed. (Operator, 2026-08-30.)
+
+## [2026-08-30 00:00 CEST] Decision-094: duplication that cannot be removed is pinned by a test that the copies agree
+#duplication #bootstrap #resolution #method
+
+Some duplication is forced. Finding where the tool lives is what an entry point must do before it can source anything, so the settings file's hook commands, the executable, the hook dispatcher and the standalone launcher each resolve it unaided — four independent copies of one contract, and no library can remove them.
+
+Where duplication cannot be removed, it is pinned: a test asserts the copies agree. The settings file's five commands already had one. The three in `bin/kaukea` had none, were not forced, and were not the same — two lacked the fallback the others use, which where `readlink -f` is unsupported does not fail but silently sources a library found relative to the working directory.
+
+So: remove duplication where it can be removed, and where it cannot, make disagreement fail a test. An unforced copy is a defect; a forced copy that nothing checks is the same defect waiting. (Operator, 2026-08-30, asking for a duplication audit before a version bump.)
