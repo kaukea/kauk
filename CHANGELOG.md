@@ -437,3 +437,17 @@ pins the helper's `pipefail` guard and the comment explaining what that guard
 cost, so neither is tidied away by someone who does not know.
 
 _Board: `one-harness` · follows `status-and-push`._
+
+#### 🐛 `f/one-parser` → `archive/one-parser`
+
+`.ai.toml` was read by two independent parsers — the real one in `bin/kaukea` and
+a simplified copy in `bin/kai-hooks.sh`, written beside the code that needed it —
+and they had already diverged: a dependency declaring a type other than `package`
+is ignored by the tool and was cloned by the session-start hook regardless. There
+is one reader now, in `lib/aitoml.sh`, sourced by both. Removing the copy exposed
+that the hook must keep working under a `readlink` with no `-f`; it now resolves
+the way the rest of the fleet does and reports a broken install rather than
+exiting silently. `tests/one-reader.sh` fails if either executable grows its own
+reader again, or if the two answer the same file differently.
+
+_Board: `one-parser` · follows `one-harness`._

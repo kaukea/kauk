@@ -1278,3 +1278,12 @@ Not by a rule in a document, and not by a note. Both existed. A note written at 
 What prevents recurrence is a test that fails when the wrong thing is written. So: one assertion helper for every suite, in `tests/harness.sh`, and `tests/suites-are-sound.sh` failing if a test file defines its own, re-initialises the counters, or does not source the shared one. It also pins the helper's own guard and the comment explaining what that guard cost, so the line is not removed as noise by someone who does not know.
 
 Generally: when a defect recurs, fix the mechanism that permits it rather than the occurrence. If the same correction has been made twice, the second one is evidence that the first was in the wrong place. (Operator, 2026-08-30.)
+
+## [2026-08-30 00:00 CEST] Decision-093: one reader per file format, and a test that keeps it that way
+#duplication #parsers #aitoml #method
+
+There is one reader of `.ai.toml`, in `lib/aitoml.sh`, and every executable sources it. `tests/one-reader.sh` fails if either grows its own, or if the two answer the same file differently.
+
+This follows from the operator's diagnosis of a habit: an agent reproduces whatever is closest to where it is editing, so a codebase drifts from its intent wherever that habit has been at work. The review he asked for found it immediately — two parsers for one format, already disagreeing about whether a dependency declaring a non-package type counts, which meant the tool ignored one and the session-start hook cloned it.
+
+Generally: a second implementation of a format is a defect the moment it is written, not when it drifts. The drift is only when it is noticed. (Operator, 2026-08-30.)
