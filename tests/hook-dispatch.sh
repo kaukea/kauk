@@ -234,6 +234,11 @@ REAL="$TMP/install"
 mkdir -p "$REAL"
 cp "$HOOKS" "$REAL/kai-hooks.sh"; chmod +x "$REAL/kai-hooks.sh"
 : > "$REAL/kaukea"; chmod +x "$REAL/kaukea"
+# A real install has bin/ and lib/ as siblings — kai-hooks.sh reads .ai.toml
+# through lib/aitoml.sh, the same reader the executable uses. Modelling an
+# install without it models something that cannot exist.
+mkdir -p "$TMP/lib"
+cp "$(dirname "$HOOKS")/../lib/"*.sh "$TMP/lib/" 2>/dev/null || true
 
 LINKDIR="$TMP/path-bin"
 mkdir -p "$LINKDIR"
