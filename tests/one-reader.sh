@@ -61,4 +61,21 @@ check "so is a path"                      'printf "%s" "$GOT" | grep -q "/home/m
 check "and that is all of them"           '[ "$(printf "%s\n" "$GOT" | grep -c .)" -eq 3 ]'
 check "the root table is still readable"  '[ "$(root_field "$TMP" type)" = "package" ]'
 
+echo "== and one resolution of where the tool lives =="
+# It was written three times in bin/kaukea, in three forms, two without a
+# fallback. Where `readlink -f` is unsupported those print nothing, `dirname ""`
+# is `.`, and the path becomes `./../lib` — relative to wherever the command was
+# run. That does not fail; it finds a stranger's library and sources it.
+check "resolved once in the executable"   '[ "$(grep -c "^[^#]*readlink -f" "$ROOT/bin/kaukea")" -eq 1 ]'
+check "and reused, not recomputed"        'grep -q "script_repo=\$KAI_HOME" "$ROOT/bin/kaukea"'
+check "with a fallback when -f is absent" 'grep -q "readlink -f .* 2>/dev/null || printf" "$ROOT/bin/kaukea"'
+check "the hook resolves the same way"    'grep -q "readlink -f .* 2>/dev/null || printf" "$ROOT/bin/kai-hooks.sh"'
+
+BSD="$TMP/bsd-bin"; mkdir -p "$BSD" "$TMP/decoy/lib" "$TMP/decoy/sub"
+printf '#!/bin/sh\nfor a in "$@"; do case "$a" in -f) exit 1 ;; esac; done\nexec /bin/readlink "$@"\n' > "$BSD/readlink"
+chmod +x "$BSD/readlink"
+printf 'echo DECOY >&2\n' > "$TMP/decoy/lib/names.sh"
+( cd "$TMP/decoy/sub" && PATH="$BSD:$PATH" "$ROOT/bin/kai" --help ) >/dev/null 2>"$TMP/decoy.err"
+check "a stranger library is never sourced" '! grep -q DECOY "$TMP/decoy.err"'
+
 summary one-reader
