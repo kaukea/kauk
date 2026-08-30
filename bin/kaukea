@@ -65,10 +65,18 @@ set -euo pipefail
 # be exercised without a repository, a package or a network — tests/unit-names.sh
 # asks it every question that has ever been got wrong here. Located through
 # whatever symlink the executable was invoked by, the way everything else does.
-KAI_LIB=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/../lib" 2>/dev/null && pwd) || KAI_LIB=""
+# Resolved ONCE, here, and reused. It was written three times in this file, in
+# three different forms, and two of them had no fallback: where `readlink -f` is
+# unsupported it prints nothing, `dirname ""` is `.`, and the path becomes
+# `./../lib` — relative to whatever directory the command happened to be run
+# from. That does not fail; it finds somebody else's library and sources it.
+KAI_SELF=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")
+case "$KAI_SELF" in /*) ;; *) KAI_SELF="$PWD/$KAI_SELF" ;; esac
+KAI_HOME=$(cd "$(dirname "$KAI_SELF")/.." 2>/dev/null && pwd) || KAI_HOME=""
+KAI_LIB="${KAI_HOME:+$KAI_HOME/lib}"
 if [ -z "$KAI_LIB" ] || [ ! -f "$KAI_LIB/names.sh" ]; then
   printf 'kai: cannot find its own library beside the executable (expected %s).\n' \
-         "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo "${BASH_SOURCE[0]}")")/../lib/names.sh" >&2
+         "${KAI_HOME:-$(dirname "$KAI_SELF")/..}/lib/names.sh" >&2
   printf 'kai: the bin and lib directories travel together — reinstall or check the symlink.\n' >&2
   exit 1
 fi
@@ -993,7 +1001,7 @@ cmd_init() {
   [ "$as_package" = 1 ] && declare_package "$root"
   ensure_gitignore "$root"
   stamp_install_watermark "$root"
-  script_repo=$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)
+  script_repo=$KAI_HOME
   if same_path "$script_repo" "$root"; then
     publish_own "$root"
     prune_links "$root"
