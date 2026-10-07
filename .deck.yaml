@@ -5,3 +5,6 @@
 title: kauk
 background:
   color: "#2B1E5C"
+# The mark for the tmux status bar: a status line is cells and styles, so
+# this is the same decision as the deck art, in the medium that surface has.
+glyph: "🐻"

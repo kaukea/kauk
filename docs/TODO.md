@@ -10,6 +10,7 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · · queued · artifact-model · gh#15` [Survey each runtime's extension points (prompt + code injection) and pick kauk's integration model — likely a Claude plugin](TODO.md.d/extension-point-survey.md) ~runtime-topology
 - `feature · functional · critical · complete · artifact-model ·` [package.toml: a repository declares what it is](TODO.md.d/package-toml.md) ~self-publishing
 - `feature · todo · low · plan-ready · artifact-model · gh#16` [Hooks become declarative artifacts with a per-runtime transpiler](TODO.md.d/hooks-declarative.md) ⊘runtime-detection ~claude-marketplace
+- `refactor · todo · · blocked-on-answers · artifact-model ·` [Extract the Claude renderer behind an adapter contract, behaviour unchanged](TODO.md.d/claude-adapter-extraction.md) ~runtime-topology ~hooks-declarative
 - `feature · todo · critical · plan-ready · · gh#17` [Templates: beginning, end, inline, with a tracked marker](TODO.md.d/templates-spec.md)
   - `feature · todo · · blocked-on-answers · artifact-model · gh#18` [Generated config headers ship as templates, not hardcoded strings](TODO.md.d/config-headers-as-templates.md) ⊘templates-spec
 - `feature · functional · critical · plan-ready · · gh#19` [`roles:` becomes `categories:` — reader shipped; orchard's declarations remain](TODO.md.d/categories-rename.md)
@@ -37,6 +38,9 @@ sidecars (`TODO.md.d/<id>.md`). Functionality = heading; component = Taxonomy le
 - `feature · todo · · queued · cli-core · gh#4` [Build the real kauk CLI (0.1.0), replacing the bash stopgap](TODO.md.d/cli-mvp.md)
 - `feature · done ·  · complete · cli-core · ` [Interim bash `kauk` CLI that vendors and syncs packages](TODO.md.d/kauk-sync-stopgap.md) ~cli-mvp
 - `feature · todo · · blocked-on-answers · cmd-install · gh#5` [Only install the skills that match a repo's role (dev/infra/org)](TODO.md.d/role-aware-delivery.md) ~cli-mvp
+- `bug · todo · critical · blocked-on-answers · cli-core ·` [An ordinary repository with a tools/ directory is accepted as a package](TODO.md.d/package-detection.md)
+- `feature · todo · · blocked-on-answers · cli-core ·` [Show a package's name and description where packages are reported](TODO.md.d/listing-shows-identity.md) ~package-detection
+- `housekeeping · todo · · blocked-on-answers · cli-core ·` [Settle the register of everything the tool prints, and apply it](TODO.md.d/message-ux.md) ~package-detection
 - `bug · cancelled · · complete · cmd-install · gh#6` [~~Installing from a local path drags in the source repo's leftover git objects~~](TODO.md.d/clone-local-object-leak.md) ~role-aware-delivery ~migrations-at-sync
 - `bug · functional · critical · complete · cli-core · gh#21` [Stale laid links survive layout changes — heal shipped; estate walk past the SignMc pilot outstanding](TODO.md.d/stale-laid-links.md) ~estate-converge ~migrations-at-sync
 - `bug · done · critical · complete · cmd-install · gh#90` [NEVER-EVENT: the laid settings.json takes over the user's — retire it behind spawn-time settings](TODO.md.d/settings-lay-clobbers.md) ⊘fleet-settings-wiring ~claude-marketplace

@@ -634,7 +634,16 @@ publish_own() { # publish_own <root> — a repository whose root table says
              # holds a link into the convention directory, so editing the source
              # is immediately what runs.
   local root=$1 ns rt runtimes
-  is_package "$root" || { say "nothing to publish: this repository has no package contents at its root"; return 0; }
+  if ! is_package "$root"; then
+    say "publish: this repository says it is a package, but there is nothing here to ship."
+    say "  A package publishes from skills/, agents/, hooks/, tools/, files/ or"
+    say "  templates/, and none of those exist yet — so nothing was published, and a"
+    say "  repository installing this one would receive nothing."
+    say "  Adding whichever one you want to ship from is all it needs. If it turns"
+    say "  out not to be a package after all, type = \"package\" can come back out of"
+    say "  the root table of .ai.toml."
+    return 0
+  fi
   ns=$(pkg_namespace "$root" "$(owner_repo "$root")")
   runtimes=$(detect_runtimes "$root")
   if [ -z "$runtimes" ]; then
@@ -961,7 +970,14 @@ install_source() { # install_source <root> <tablekey-or-id> — register, clone,
   fi
   src="$clone"
   [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead || true
-  is_package "$src" || { say "  WARN $id has no package contents — not a kai package (expects any of: $KINDS)"; return 1; }
+  if ! is_package "$src"; then
+    say "install: $id was fetched, but it does not look like a kai package."
+    say "  A kai package ships from skills/, agents/, hooks/, tools/, files/ or"
+    say "  templates/, and none of those are in it."
+    say "  Nothing was laid into your repository, and the clone is still in place"
+    say "  if you want to look at it."
+    return 1
+  fi
 
   # A destination the user owns is REPORTED AND SKIPPED (Decision-016); a name
   # collision is namespaced (Decision-042); nothing is dispatched (Decision-041).
@@ -976,7 +992,7 @@ cmd_install() {
   validate_config "$root"
   ensure_gitignore "$root"
   stamp_install_watermark "$root"
-  install_source "$root" "$ref" || die "install: $ref failed"
+  install_source "$root" "$ref" || exit 1   # every failure path above says what happened
   resolve_xdeps "$root"
   prune_links "$root"
   local id bare; bare=$(without_ref "$ref")
