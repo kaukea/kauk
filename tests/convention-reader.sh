@@ -303,6 +303,11 @@ check "--pull with --push is refused"   'grep -q "taking and giving are separate
 check "and it published nothing"        '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UPSTREAM_BEFORE" ]'
 
 echo "== init declares kai from git, whatever the machine =="
+# init clones kaukea/kauk from GitHub, and fails when it cannot. GitHub is
+# redirected to a copy of this working tree so the suite never needs the network.
+export GIT_CONFIG_GLOBAL="$TMP/gitconfig"
+mkdir -p "$TMP/mirror/kaukea"; git clone -q --no-local "$KAIPKG" "$TMP/mirror/kaukea/kauk"
+git config --file "$GIT_CONFIG_GLOBAL" url."$TMP/mirror/".insteadOf https://github.com/
 INITC="$TMP/init-consumer"; git_init "$INITC"; mkdir -p "$INITC/.claude"; commit_all "$INITC"
 ( cd "$INITC" && "$KAUK" init ) >"$TMP/outR1" 2>&1 || true
 check "it declares the published name"      'grep -q "^source = \"kaukea/kauk\"$" "$INITC/.ai.toml"'

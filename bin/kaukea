@@ -210,6 +210,9 @@ register_dependency() { # append one [[dependency]] after the last one — idemp
   local root=$1 raw=$2 f last end
   f=$(ai_file "$root")
   dep_sources "$root" | grep -qxF "$raw" && return 0
+  # A last line without its newline is not counted by wc -l, and the entry
+  # would land inside the table before it (declare_package's rewrite left one).
+  [ -s "$f" ] && [ -n "$(tail -c 1 "$f")" ] && printf '\n' >> "$f"
   last=$(grep -n '^[ \t]*\[\[dependency\]\][ \t]*$' "$f" 2>/dev/null | tail -1 | cut -d: -f1)
   if [ -z "$last" ]; then
     [ -s "$f" ] && printf '\n' >> "$f"
@@ -963,7 +966,12 @@ install_source() { # install_source <root> <tablekey-or-id> — register, clone,
   clone=$(clone_of "$root" "$id")
   if [ ! -d "$clone/.git" ]; then
     mkdir -p "$(dirname "$clone")"
-    git clone --quiet "$origin" "$clone" 2>/dev/null || { say "  WARN $id: clone failed from $origin"; return 1; }
+    local err
+    if ! err=$(git clone --quiet "$origin" "$clone" 2>&1); then
+      say "  WARN $id: clone failed from $origin"
+      [ -z "$err" ] || printf '%s\n' "$err" | sed 's/^/    git: /'
+      return 1
+    fi
     say "clone: $clone"
   else
     say "clone: already present"
@@ -1026,7 +1034,12 @@ cmd_init() {
   fi
   # Where kai is published, always. A declaration is committed and read by
   # everyone, so it never names a path on the machine that happened to run init.
-  install_source "$root" "kaukea/kauk" || true
+  # Without it the repository has no kai skill, so init has not done its job:
+  # say so and fail, rather than finishing with "done" over a warning.
+  if ! install_source "$root" "kaukea/kauk"; then
+    say "init: not done — kai's own package (kaukea/kauk) could not be installed, so this repository has no kai skill. Fix what is reported above and run 'kai init' again"
+    exit 1
+  fi
   # Declaring a repository a package changes what its existing sources should
   # lay into it — the authoring skill is laid only here — so they are laid again
   # rather than waiting for the next update to notice.
