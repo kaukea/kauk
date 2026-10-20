@@ -221,6 +221,17 @@ or as event-plus-matcher, per target.
 **The transpiler owns the mapping**, including fallbacks where a target has no native
 event. Package authors declare the neutral event and never learn any runtime.
 
+The events kai dispatches today, and what each is on Claude:
+
+| Event | When | Claude |
+|---|---|---|
+| `session.start` | a session starts or resumes | `SessionStart` |
+| `session.end` | a session ends | `SessionEnd` |
+| `prompt.submit` | the user submits a prompt | `UserPromptSubmit` |
+| `response.end` | the agent finishes responding | `Stop` |
+| `tool.shell.before` | before a shell command runs | `PreToolUse` on `Bash` |
+| `notification` | the runtime notifies the user | `Notification` |
+
 **`settings.json` is never shipped, and never written either.** On the Claude target a
 package renders as a **plugin**, which owns its own hook wiring — see *The Claude
 target* below.

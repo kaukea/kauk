@@ -1313,3 +1313,8 @@ The dispatcher reads a package's `hooks/` from its clone, and the links laid int
 #bootstrap #sources
 
 `kai init` keeps declaring `kaukea/kauk`, resolved to GitHub (Decision-083 stands). A machine that cannot read it was the problem, not the declaration: the repository is made public. When the clone fails, init says it is not done and exits non-zero. (Operator, 2026-10-21, choosing "Make GitHub public" when asked where init should take kai from.)
+
+## [2026-10-21 00:00 CEST] Decision-098: a neutral event for the end of each response
+#hooks #events
+
+kai gains `response.end`, dispatched when the agent finishes responding — `Stop` on Claude. house.sl's memory-sync pushes after every response, and none of kai's events came close. (Operator, 2026-10-21, choosing "Add a response event" over pushing at session end.) The name follows `session.end`; it is the agent's, and the operator may rename it.

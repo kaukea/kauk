@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fixture test for bin/kai-hooks.sh — the static hook dispatcher installed
 # beside the kai executable — and for bin/kai.settings.json, the settings
-# file whose five hook commands resolve kai-hooks.sh next to kai itself.
+# file whose six hook commands resolve kai-hooks.sh next to kai itself.
 # Builds a throwaway source + consumer repo pair under a temp dir, points
 # the consumer's .ai.toml at the source, and asserts on what the dispatcher
 # does for each event/action case. No case here is allowed to SKIP: every
@@ -232,16 +232,17 @@ printf 'name = "self-package"\n' > "$SELFP/.ai.toml"
 echo '{}' | ( cd "$SELFP" && SELF_OUT="$SELF_OUT2" "$HOOKS" session.start ) >/dev/null 2>&1
 check "but not in a repository that is not a package" '[ ! -f "$SELF_OUT2" ]'
 
-echo "== settings.json: all five hook entries carry a timeout (courier-init.sh was unbounded) =="
+echo "== settings.json: all six hook entries carry a timeout (courier-init.sh was unbounded) =="
 expect_timeout() {  # expect_timeout <event> -> the timeout it must carry (matches the
                      # settings file kai.settings.json replaced: 10s for session
-                     # start/end, 5s for the rest). No bash arrays, kept 3.2-safe.
+                     # start/end and the end of each response, 5s for the rest).
+                     # No bash arrays, kept 3.2-safe.
   case "$1" in
-    SessionStart|SessionEnd) printf '10' ;;
-    *)                       printf '5' ;;
+    SessionStart|SessionEnd|Stop) printf '10' ;;
+    *)                            printf '5' ;;
   esac
 }
-for evt in SessionStart SessionEnd PreToolUse UserPromptSubmit Notification; do
+for evt in SessionStart SessionEnd PreToolUse UserPromptSubmit Notification Stop; do
   to=$(settings_field "$evt" timeout)
   want=$(expect_timeout "$evt")
   check "$evt timeout is ${want}s"  '[ "$to" = "$want" ]'
@@ -251,7 +252,7 @@ echo "== defect 1: kai symlink resolution survives a BSD readlink with no -f sup
 # Reproduction rig: a fake 'kai' that is a SYMLINK on PATH (as a real install
 # has it, e.g. ~/.local/bin/kai -> the repo where kai-hooks.sh lives), and a
 # fake 'readlink' shadowing PATH ahead of it that rejects -f exactly like
-# BSD/macOS readlink does. Every one of the five settings.json commands must
+# BSD/macOS readlink does. Every one of the six settings.json commands must
 # still find and run kai-hooks.sh under this rig.
 REAL="$TMP/install"
 mkdir -p "$REAL"
@@ -289,7 +290,7 @@ OLD_MARK="$TMP/old-stub.out"
 ( cd "$CON" && PATH="$BSDBIN:$LINKDIR:$PATH" STUB_OUT="$OLD_MARK" sh -c "$OLD_CMD" ) >/dev/null 2>&1
 check "rig reproduces the pre-fix bug (old resolution finds nothing under it)" '[ ! -f "$OLD_MARK" ]'
 
-for evt in SessionStart SessionEnd PreToolUse UserPromptSubmit Notification; do
+for evt in SessionStart SessionEnd PreToolUse UserPromptSubmit Notification Stop; do
   CMD=$(settings_command "$evt")
   OUT=$( cd "$CON" && PATH="$BSDBIN:$LINKDIR:$PATH" sh -c "$CMD" 2>&1 ); RC=$?
   check "$evt: exits 0 under a BSD readlink"          '[ "$RC" -eq 0 ]'
@@ -303,10 +304,10 @@ SS_MARK="$TMP/bsd-session.start.out"
 ( cd "$CON" && PATH="$BSDBIN:$LINKDIR:$PATH" STUB_OUT="$SS_MARK" sh -c "$SS_CMD" ) >/dev/null 2>&1
 check "SessionStart under a BSD readlink actually ran kai-hooks.sh's dispatch" '[ -f "$SS_MARK" ]'
 
-echo "== all five settings.json commands use the identical resolution logic =="
+echo "== all six settings.json commands use the identical resolution logic =="
 FIRST_RESOLUTION=""
 DIVERGED=0
-for evt in SessionStart SessionEnd PreToolUse UserPromptSubmit Notification; do
+for evt in SessionStart SessionEnd PreToolUse UserPromptSubmit Notification Stop; do
   CMD=$(settings_command "$evt")
   RES=${CMD%%h=*}   # everything up to the "h=" that builds the kai-hooks.sh path
   if [ -z "$FIRST_RESOLUTION" ]; then
@@ -315,7 +316,7 @@ for evt in SessionStart SessionEnd PreToolUse UserPromptSubmit Notification; do
     DIVERGED=1
   fi
 done
-check "resolution prefix is identical across all five hook commands" '[ "$DIVERGED" -eq 0 ]'
+check "resolution prefix is identical across all six hook commands" '[ "$DIVERGED" -eq 0 ]'
 
 printf '\n%s passed, %s failed\n' "$PASS" "$FAIL"
 [ "$FAIL" -eq 0 ]

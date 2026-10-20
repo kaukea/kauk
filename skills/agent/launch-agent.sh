@@ -4,7 +4,7 @@
 # A running Claude session cannot re-apply its own --settings, so the only way
 # to pick up bin/kai.settings.json is a fresh `claude` process started with it.
 # This script resolves that file EXACTLY the way bin/kai.settings.json's own
-# SessionStart/SessionEnd/PreToolUse/UserPromptSubmit/Notification hooks resolve
+# SessionStart/SessionEnd/PreToolUse/UserPromptSubmit/Notification/Stop hooks resolve
 # bin/kai-hooks.sh: command -v kai on PATH, then readlink -f the result with a
 # graceful fallback to the unresolved path, then dirname.
 #
