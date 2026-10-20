@@ -145,11 +145,11 @@ check "setup: horph laid before removal"       '[ -L "$CON_STALE/.claude/skills/
 # a true orphan.
 mv "$PKGG" "$TMP/test/pkgg-ren"
 printf '[[dependency]]\nsource = "%s"\n' "$TMP/test/pkgg-ren" > "$CON_STALE/.ai.toml"
-rm -rf "$CON_STALE/.ai/repositories/test/pkgg"
-rm -rf "$CON_STALE/.ai/repositories/test/pkgh"
+rm -rf "$CON_STALE/.ai/repositories/path/%2E%2E%2Ftest%2Fpkgg"
+rm -rf "$CON_STALE/.ai/repositories/path/%2E%2E%2Ftest%2Fpkgh"
 ( cd "$CON_STALE" && "$KAUK" sync ) >"$TMP/out-stale" 2>&1 || true
 check "renamed source's link resolves into the new store path" \
-  '[ -e "$CON_STALE/.claude/skills/gfoo" ] && readlink "$CON_STALE/.claude/skills/gfoo" | grep -q "test/pkgg-ren"'
+  '[ -e "$CON_STALE/.claude/skills/gfoo" ] && readlink "$CON_STALE/.claude/skills/gfoo" | grep -q "test%2Fpkgg-ren"'
 check "no dangling link into .ai/repositories/ remains" \
   '[ -z "$(find "$CON_STALE/.claude" -type l ! -exec test -e {} \; -print 2>/dev/null)" ]'
 check "a link whose tail exists in no source is removed as an orphan" \
@@ -168,9 +168,9 @@ mkdir -p "$CON_REL/sub/dir"
 ln -s "../../.ai/repositories/test/gone/skills/j1/SKILL.md" "$CON_REL/sub/dir/rel-nested.md"
 ( cd "$CON_REL" && "$KAUK" sync ) >"$TMP/out-rel" 2>&1 || true
 check "relative dead link repointed to the one source carrying its tail" \
-  '[ -e "$CON_REL/rel-toplevel.md" ] && readlink "$CON_REL/rel-toplevel.md" | grep -q "repositories/test/pkgj/skills/j1/SKILL.md"'
+  '[ -e "$CON_REL/rel-toplevel.md" ] && readlink "$CON_REL/rel-toplevel.md" | grep -q "repositories/path/%2E%2E%2Ftest%2Fpkgj/skills/j1/SKILL.md"'
 check "nested ../.. relative dead link normalized and repointed too" \
-  '[ -e "$CON_REL/sub/dir/rel-nested.md" ] && readlink "$CON_REL/sub/dir/rel-nested.md" | grep -q "repositories/test/pkgj/skills/j1/SKILL.md"'
+  '[ -e "$CON_REL/sub/dir/rel-nested.md" ] && readlink "$CON_REL/sub/dir/rel-nested.md" | grep -q "repositories/path/%2E%2E%2Ftest%2Fpkgj/skills/j1/SKILL.md"'
 
 echo "== live prune_links: a TRACKED dangling link with no candidate is reported, never removed =="
 CON_DEBRIS="$TMP/consumer-debris"; git_init "$CON_DEBRIS"; mkdir -p "$CON_DEBRIS/.claude"; printf "placeholder\n" > "$CON_DEBRIS/.claude/.keep"; commit_all "$CON_DEBRIS"
@@ -197,7 +197,7 @@ check "sweep reported"                        'grep -q "SWEEP orichea/orchids" "
 check "undeclared clone with unpushed commit kept" '[ -d "$CON_SWEEP/.ai/repositories/orchea/diverged/.git" ]'
 check "diverged clone reported as ORPHAN"     'grep -q "ORPHAN orchea/diverged" "$TMP/out-sweep"'
 check "undeclared dirty clone kept"           '[ -d "$CON_SWEEP/.ai/repositories/orchea/dirty/.git" ]'
-check "declared source clone untouched"       '[ -d "$CON_SWEEP/.ai/repositories/test/pkgj/.git" ]'
+check "declared source clone untouched"       '[ -d "$CON_SWEEP/.ai/repositories/path/%2E%2E%2Ftest%2Fpkgj/.git" ]'
 
 echo "== migration move-links: heals RELATIVE serialseb targets =="
 CON_MOVE="$TMP/consumer-mig-rel"; git_init "$CON_MOVE"
@@ -213,10 +213,10 @@ echo "== nothing readable in .ai.toml means nothing can be swept =="
 CON_UNREAD="$TMP/consumer-unreadable"; git_init "$CON_UNREAD"; mkdir -p "$CON_UNREAD/.claude"
 printf "placeholder\n" > "$CON_UNREAD/.claude/.keep"; commit_all "$CON_UNREAD"
 ( cd "$CON_UNREAD" && "$KAUK" install "$PKGJ" ) >/dev/null 2>&1 || true
-check "setup: the clone is there"      '[ -d "$CON_UNREAD/.ai/repositories/test/pkgj/.git" ]'
+check "setup: the clone is there"      '[ -d "$CON_UNREAD/.ai/repositories/path/%2E%2E%2Ftest%2Fpkgj/.git" ]'
 printf '[sources."test/pkgj"]\n' > "$CON_UNREAD/.ai.toml"
 ( cd "$CON_UNREAD" && "$KAUK" sync ) >"$TMP/out-unread" 2>&1 || true
-check "the store survives an unreadable file" '[ -d "$CON_UNREAD/.ai/repositories/test/pkgj/.git" ]'
+check "the store survives an unreadable file" '[ -d "$CON_UNREAD/.ai/repositories/path/%2E%2E%2Ftest%2Fpkgj/.git" ]'
 check "the skipped sweep is announced"        'grep -q "sweep skipped" "$TMP/out-unread"'
 
 echo "== a retired source is renamed in a dependency block, not only in the old table syntax =="

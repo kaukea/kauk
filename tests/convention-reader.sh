@@ -22,7 +22,8 @@ git_init() {
 commit_all() { git -C "$1" add -A && git -C "$1" commit -qm "${2:-fixture}"; }
 
 # ---------------------------------------------------------------- the package
-# Path $TMP/test/pkg so the derived identity is test/pkg.
+# A local repository has no owner: its clone is named after its path relative
+# to the consumer, so $TMP/test/pkg is path/%2E%2E%2Ftest%2Fpkg from $TMP/consumer.
 PKG="$TMP/test/pkg"
 git_init "$PKG"
 mkdir -p "$PKG/skills/alpha" "$PKG/agents" "$PKG/hooks" "$PKG/tools" \
@@ -49,7 +50,7 @@ echo "== install a path source; identity derives from the path =="
 ( cd "$CON" && "$KAUK" install "$PKG" ) >"$TMP/out1" 2>&1 || true
 sed 's/^/     /' "$TMP/out1" | head -8
 
-check "identity is test/pkg"           '[ -d "$CON/.ai/repositories/test/pkg/.git" ]'
+check "named after its relative path"  '[ -d "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/.git" ]'
 check "skill laid from skills/"        '[ -L "$CON/.claude/skills/alpha" ]'
 check "agent laid from agents/"        '[ -L "$CON/.claude/agents/beta.md" ]'
 check "hook laid from hooks/"          '[ -L "$CON/.claude/hooks/on-start.sh" ]'
@@ -64,10 +65,10 @@ echo "== idempotence, and sync never pushes local clone edits =="
 check "second run keeps the skill"     '[ -L "$CON/.claude/skills/alpha" ]'
 check "second run reports no error"    '! grep -qi "error\|refusing" "$TMP/out2"'
 BEFORE=$(git -C "$PKG" rev-parse HEAD)
-printf 'edited by consumer\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
+printf 'edited by consumer\n' >> "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/skills/alpha/SKILL.md"
 ( cd "$CON" && "$KAUK" sync ) >"$TMP/out3" 2>&1 || true
 check "local edit stays local on sync"  '[ "$(git -C "$PKG" rev-parse HEAD)" = "$BEFORE" ]'
-( cd "$CON/.ai/repositories/test/pkg" && git checkout -q -- . )
+( cd "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg" && git checkout -q -- . )
 
 echo "== sync pulls with rebase; migrations run; removals warn =="
 # Seed the consumer's watermark BEFORE the new migration is introduced, so it
@@ -93,10 +94,10 @@ check "removal warned"                 'grep -q "s/gamma" "$TMP/outP2"'
 check "removed skill pruned"           '[ ! -e "$CON/.claude/skills/gamma" ]'
 
 echo "== local edits stay local on sync; --push publishes =="
-printf 'consumer note\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
+printf 'consumer note\n' >> "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/skills/alpha/SKILL.md"
 UP=$(git -C "$PKG" rev-parse HEAD)
 ( cd "$CON" && "$KAUK" sync ) >"$TMP/outP3" 2>&1 || true
-check "sync kept the edit local"       '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UP" ] && grep -q "consumer note" "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"'
+check "sync kept the edit local"       '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UP" ] && grep -q "consumer note" "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/skills/alpha/SKILL.md"'
 mkdir -p "$PKG/skills/zeta"
 printf -- '---\nname: zeta\n---\nz\n' > "$PKG/skills/zeta/SKILL.md"
 commit_all "$PKG" "zeta upstream"
@@ -108,29 +109,29 @@ check "zeta arrived via the rebase"    '[ -L "$CON/.claude/skills/zeta" ]'
 echo "== a conflicting rebase stops and reports =="
 printf 'upstream line\n' >> "$PKG/skills/alpha/SKILL.md"
 commit_all "$PKG" "upstream touches alpha"
-printf 'conflicting local line\n' >> "$CON/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
+printf 'conflicting local line\n' >> "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/skills/alpha/SKILL.md"
 UP=$(git -C "$PKG" rev-parse HEAD)
 ( cd "$CON" && "$KAUK" sync --push ) >"$TMP/outP5" 2>&1 || true
 check "the update says it is waiting"  'grep -q "waiting on you" "$TMP/outP5"'
 check "source repository untouched"    '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UP" ]'
-check "the rebase is left open to act on" '[ -d "$CON/.ai/repositories/test/pkg/.git/rebase-merge" ] || [ -d "$CON/.ai/repositories/test/pkg/.git/rebase-apply" ]'
+check "the rebase is left open to act on" '[ -d "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/.git/rebase-merge" ] || [ -d "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/.git/rebase-apply" ]'
 ( cd "$CON" && "$KAUK" update ) >"$TMP/outP5b" 2>&1 || true
 check "and says so again until it is settled" 'grep -q "already waiting on you" "$TMP/outP5b"'
 check "it offers the three ways out"   'grep -q -- "--abort" "$TMP/outP5b" && grep -q -- "--automerge" "$TMP/outP5b" && grep -q -- "--resolve" "$TMP/outP5b"'
 ( cd "$CON" && "$KAUK" update --abort ) >"$TMP/outP5c" 2>&1 || true
-check "abort puts it back"             '[ ! -d "$CON/.ai/repositories/test/pkg/.git/rebase-merge" ] && [ ! -d "$CON/.ai/repositories/test/pkg/.git/rebase-apply" ]'
+check "abort puts it back"             '[ ! -d "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/.git/rebase-merge" ] && [ ! -d "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/.git/rebase-apply" ]'
 check "abort says what it did"         'grep -q "put back as it was" "$TMP/outP5c"'
-( cd "$CON/.ai/repositories/test/pkg" && git reset -q --hard origin/main 2>/dev/null && git pull -q --rebase origin main 2>/dev/null || true )
+( cd "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg" && git reset -q --hard origin/main 2>/dev/null && git pull -q --rebase origin main 2>/dev/null || true )
 
 echo "== a source naming anything but @HEAD is left untouched =="
 git -C "$PKG" tag vREF
-BEFORE_REF=$(git -C "$CON/.ai/repositories/test/pkg" rev-parse HEAD)
+BEFORE_REF=$(git -C "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg" rev-parse HEAD)
 mkdir -p "$PKG/skills/afterref"
 printf -- '---\nname: afterref\n---\nlate\n' > "$PKG/skills/afterref/SKILL.md"
 commit_all "$PKG" "after the ref"
 sed -i "s|^source = \"$PKG\"$|source = \"$PKG@vREF\"|" "$CON/.ai.toml"
 ( cd "$CON" && "$KAUK" sync ) >"$TMP/outP6" 2>&1 || true
-check "clone not moved"                '[ "$(git -C "$CON/.ai/repositories/test/pkg" rev-parse HEAD)" = "$BEFORE_REF" ]'
+check "clone not moved"                '[ "$(git -C "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg" rev-parse HEAD)" = "$BEFORE_REF" ]'
 check "untouched is announced"         'grep -q "waits for the versioning work" "$TMP/outP6"'
 check "still lays what is there"       '[ -L "$CON/.claude/skills/alpha" ]'
 sed -i "s|^source = \"$PKG@vREF\"$|source = \"$PKG\"|" "$CON/.ai.toml"
@@ -294,10 +295,10 @@ echo "== --pull takes and never gives, and refuses to be paired with --push =="
 PULLC="$TMP/pull-consumer"; git_init "$PULLC"; mkdir -p "$PULLC/.claude"; commit_all "$PULLC"
 ( cd "$PULLC" && "$KAUK" install "$PKG" ) >/dev/null 2>&1 || true
 UPSTREAM_BEFORE=$(git -C "$PKG" rev-parse HEAD)
-printf 'a local edit\n' >> "$PULLC/.ai/repositories/test/pkg/skills/alpha/SKILL.md"
+printf 'a local edit\n' >> "$PULLC/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/skills/alpha/SKILL.md"
 ( cd "$PULLC" && "$KAUK" update --pull ) >"$TMP/outPull" 2>&1 || true
 check "--pull publishes nothing"        '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UPSTREAM_BEFORE" ]'
-check "and the edit stays local"        'grep -q "a local edit" "$PULLC/.ai/repositories/test/pkg/skills/alpha/SKILL.md"'
+check "and the edit stays local"        'grep -q "a local edit" "$PULLC/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/skills/alpha/SKILL.md"'
 ( cd "$PULLC" && "$KAUK" update --pull --push ) >"$TMP/outBoth" 2>&1 || true
 check "--pull with --push is refused"   'grep -q "taking and giving are separate acts" "$TMP/outBoth"'
 check "and it published nothing"        '[ "$(git -C "$PKG" rev-parse HEAD)" = "$UPSTREAM_BEFORE" ]'
@@ -372,7 +373,7 @@ printf -- '---\nname: own\n---\nself\n' > "$SELF/skills/own/SKILL.md"
 printf 'name = "selfpkg"\ntype = "package"\n' > "$SELF/.ai.toml"
 commit_all "$SELF"
 ( cd "$SELF" && "$KAUK" sync ) >"$TMP/outG" 2>&1 || true
-check "package repo is not cloned into itself" '[ ! -d "$SELF/.ai/repositories/test/selfpkg" ]'
+check "package repo is not cloned into itself" '[ ! -d "$SELF/.ai/repositories/path" ]'
 check "its own skill is published by link"   '[ -L "$SELF/.claude/skills/own" ]'
 check "the link reaches its own source"     '[ "$(readlink "$SELF/.claude/skills/own")" = "../../skills/own" ]'
 check "and the artifact reads through it"   '[ -f "$SELF/.claude/skills/own/SKILL.md" ]'
@@ -400,7 +401,7 @@ CONHD="$TMP/consumer-head"
 git_init "$CONHD"; mkdir -p "$CONHD/.claude"
 commit_all "$CONHD"
 ( cd "$CONHD" && "$KAUK" install "$PKG@HEAD" ) >"$TMP/outI" 2>&1 || true
-check "@HEAD source cloned"            '[ -d "$CONHD/.ai/repositories/test/pkg/.git" ]'
+check "@HEAD source cloned"            '[ -d "$CONHD/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg/.git" ]'
 check "@HEAD source laid"              '[ -L "$CONHD/.claude/skills/alpha" ]'
 check "@HEAD is not parked"            '! grep -q "waits for the versioning work" "$TMP/outI"'
 check "@HEAD kept as written"          'grep -qF "source = \"$PKG@HEAD\"" "$CONHD/.ai.toml"'

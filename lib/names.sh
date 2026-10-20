@@ -52,6 +52,41 @@ owner_repo() {
 
 # --- paths -------------------------------------------------------------------
 
+# relative_to <from-dir> <to> -> <to> relative to <from-dir>, both absolute and
+# collapsed, by text alone (see collapse for why never readlink -f)
+relative_to() {
+  awk -v a="$1" -v b="$2" 'BEGIN {
+    na = split(a, x, "/"); nb = split(b, y, "/")
+    i = 1; while (i <= na && i <= nb && x[i] == y[i]) i++
+    s = ""
+    for (j = i; j <= na; j++) if (x[j] != "") s = s "../"
+    for (j = i; j <= nb; j++) if (y[j] != "") s = s y[j] "/"
+    sub(/\/$/, "", s); print (s == "" ? "." : s)
+  }'
+}
+
+# path_id <root> <path-as-written> -> the store slot of a local path source.
+# A local repository has no owner, so it is named after its path relative to the
+# repository that declares it, percent-encoded to keep it one folder: moving the
+# package is a rename, like a renamed GitHub repository, and .ai.toml says so
+# (operator, 2026-10-21).
+# Both sides are compared physically when they exist: git answers the root
+# physically (/private/var on macOS), and a path written through a symlink would
+# otherwise climb to / and back down.
+path_id() {
+  local from to rel
+  from=$(collapse "$1" .); to=$(collapse "$1" "$(without_ref "$2")")
+  [ -d "$from" ] && from=$(cd "$from" && pwd -P)
+  [ -d "$to" ] && to=$(cd "$to" && pwd -P)
+  rel=$(relative_to "$from" "$to")
+  rel=${rel%.git}
+  # A name starting with a dot is hidden, and globs skip it: the dots of ".."
+  # and a leading dot are written %2E too.
+  rel=$(printf '%s\n' "$rel" | awk -F/ -v OFS=/ '{ for (i = 1; i <= NF; i++) if ($i == "..") $i = "%2E%2E"; sub(/^\./, "%2E"); print }')
+  printf 'path/%s\n' "${rel//\//%2F}"
+}
+
+
 # absolute <base> <path> -> <path> made absolute against <base>, no resolution
 absolute() {
   case "$2" in

@@ -48,10 +48,12 @@ source = "kaukea/orchard"
 |---|---|---|
 | `owner/repo` | `"kaukea/orchard"` | resolved to GitHub |
 | a git URI | `"git@github.com:kaukea/orchard.git"` | used as given |
-| a path | `"/home/you/src/orchard"`, `"./packages/mine"` | a working tree on this machine |
+| a path | `"/home/you/src/orchard"`, `"./packages/mine"` | a git repository on this machine |
 
-A path is a development convenience: you are pointing at a checkout you are editing, so
-kai reads it where it lies and never clones it.
+A path is a development convenience: you are pointing at a checkout you are editing. It
+is cloned like any other source, so it has to be a git repository with at least one
+commit, and kai takes what is committed there, never what is lying uncommitted in its
+working tree.
 
 ### Taking only part of a package
 

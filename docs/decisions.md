@@ -1296,3 +1296,20 @@ Some duplication is forced. Finding where the tool lives is what an entry point 
 Where duplication cannot be removed, it is pinned: a test asserts the copies agree. The settings file's five commands already had one. The three in `bin/kaukea` had none, were not forced, and were not the same — two lacked the fallback the others use, which where `readlink -f` is unsupported does not fail but silently sources a library found relative to the working directory.
 
 So: remove duplication where it can be removed, and where it cannot, make disagreement fail a test. An unforced copy is a defect; a forced copy that nothing checks is the same defect waiting. (Operator, 2026-08-30, asking for a duplication audit before a version bump.)
+
+## [2026-10-21 00:00 CEST] Decision-095: a local path is a git repository, cloned like any other source, and named after its relative path
+#sources #paths #store
+
+A path in `.ai.toml` is a git repository with at least one commit, and kai clones it with the same code as any other source. Reading it where it lies was considered and rejected: changes made behind kai's back are never seen at a moment kai can act on — nothing is compared before and after, no migration runs from the watermark, a removed artifact is not warned about. (Operator, 2026-10-21: "Can you not just limit local paths to git repos and use the default code we have now?")
+
+A local repository has no owner, so its clone is not given one: it is named after its path relative to the repository that declares it, under `.ai/repositories/path/`, percent-encoded so the name stays one folder and never starts with a dot. Moving the package is a rename, like a renamed GitHub repository, and its `source` in `.ai.toml` is updated. (Operator, 2026-10-21: "you cant have owner/repo to a repository that;s local"; "naned after the relatie path. Just like if github changes a repository name.")
+
+## [2026-10-21 00:00 CEST] Decision-096: hooks are still laid into the repository, for the user to edit
+#hooks #laying
+
+The dispatcher reads a package's `hooks/` from its clone, and the links laid into `.claude/hooks` are not what runs. They stay: "We pass the hooks to downstream agent, the hoooks are a nicety to the user so they can edit them from their repository nd push them up." (Operator, 2026-10-21, asked why they are laid when nothing reads them.)
+
+## [2026-10-21 00:00 CEST] Decision-097: kai is declared from GitHub, and GitHub is public
+#bootstrap #sources
+
+`kai init` keeps declaring `kaukea/kauk`, resolved to GitHub (Decision-083 stands). A machine that cannot read it was the problem, not the declaration: the repository is made public. When the clone fails, init says it is not done and exits non-zero. (Operator, 2026-10-21, choosing "Make GitHub public" when asked where init should take kai from.)

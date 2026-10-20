@@ -31,6 +31,7 @@ AITOML="$ROOT/.ai.toml"
 KAI_SELF=$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || printf '%s' "${BASH_SOURCE[0]}")
 KAI_LIB=$(cd "$(dirname "$KAI_SELF")/../lib" 2>/dev/null && pwd) || KAI_LIB=""
 if [ -n "$KAI_LIB" ] && [ -f "$KAI_LIB/aitoml.sh" ]; then
+  . "$KAI_LIB/names.sh"
   . "$KAI_LIB/aitoml.sh"
 else
   # A hook must never break a session, so this exits 0 — but silence here means
@@ -82,6 +83,9 @@ capture_file() {
 # stderr, not stdout: unlike kaukea, this process's stdout IS the hook-output
 # channel the harness parses, never a place for free text.
 source_dirs() {
+  # A self-published package is a package (docs/package-format.md): its own
+  # hooks/ run here like any dependency's.
+  [ "$(root_field "$ROOT" type)" = package ] && printf '%s\n' "$ROOT"
   ai_package_sources "$ROOT" |
   while IFS= read -r src; do
     [ -n "$src" ] || continue
@@ -92,8 +96,7 @@ source_dirs() {
         bare=${src%.git}; bare=${bare%/}; tail=${bare##*:}
         case "$tail" in */*) ;; *) tail=$bare ;; esac
         printf '%s\n' "$ROOT/.ai/repositories/$(basename "$(dirname "$tail")")/$(basename "$tail")" ;;
-      /*)   printf '%s\n' "$src" ;;
-      ./*|../*) printf '%s\n' "$ROOT/${src#./}" ;;
+      /*|./*|../*) printf '%s\n' "$ROOT/.ai/repositories/$(path_id "$ROOT" "$src")" ;;  # cloned by kai install
       */*)  printf '%s\n' "$ROOT/.ai/repositories/$src" ;;
       *)    printf 'kai-hooks: .ai.toml: source "%s" is not <owner>/<repo>, a git URI, or a path — ignored\n' "$src" >&2 ;;
     esac
@@ -164,7 +167,7 @@ ensure_sources() {
     tail=${src##*/}
     case "$tail" in *@*) src=${src%@*} ;; esac
     case "$src" in
-      /*|./*|../*) continue ;;                                  # used where it lies
+      /*|./*|../*) continue ;;                                  # cloned by kai install
       *://*|git@*) id=$(uri_id_of "$src"); origin=$src ;;
       */*)         id=$src; origin="https://github.com/$src" ;;
       *)           continue ;;                                  # source_dirs reports it

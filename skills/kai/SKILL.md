@@ -56,7 +56,11 @@ You will find files you did not put there. Each one has a plain answer:
 - `kai init` — bootstrap this repository (creates `.ai.toml`, registers the
   tool's own source, lays).
 - `kai install <owner>/<repo> | <path>` — add a source. An `owner/repo` key
-  resolves to GitHub; a full path is a local working tree. After an install
+  resolves to GitHub; a path is a local git repository, cloned like any other
+  source, so it needs at least one commit and kai takes only what is committed.
+  A local repository has no owner, so its clone is named after its path
+  relative to this repository: **whenever a package's path changes, update its
+  `source` in `.ai.toml`** — a moved package is a renamed one. After an install
   with no selection, kai prints the package's category tree — propose a
   `select` list to the operator based on the repository and the work in play.
 - `kai update` — the manual convergence: pull with rebase, run pending

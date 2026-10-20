@@ -117,12 +117,19 @@ notify = { text = "hi", level = "warn" }
 EOF
 
 # --------------------------------------------------------------- the consumer
+# A local path is a git repository, cloned like any other source (operator,
+# 2026-10-21): the dispatcher reads the clone, so the fixture is committed and
+# installed rather than pointed at where it lies.
+git_init "$SRC"
+git -C "$SRC" add -A
+git -C "$SRC" -c user.email=t@example.com -c user.name=Test commit -qm fixture
 CON="$TMP/consumer"
 git_init "$CON"
 cat > "$CON/.ai.toml" <<EOF
 [[dependency]]
 source = "$SRC"
 EOF
+( cd "$CON" && "$KAUKEA" install "$SRC" ) >/dev/null 2>&1
 
 echo "== a scripts action runs the matching script, stdin passed through =="
 STUB_OUT="$TMP/stub.out"
@@ -193,6 +200,7 @@ source = "$SRC"
 [[dependency]]
 source = "bogus"
 EOF
+( cd "$CON3" && "$KAUKEA" install "$SRC" ) >/dev/null 2>&1
 STUB_OUT10="$TMP/stub10.out"
 OUT10=$( cd "$CON3" && STUB_OUT="$STUB_OUT10" "$HOOKS" session.start 2>&1 >/dev/null ); RC10=$?
 check "exits 0"                            '[ "$RC10" -eq 0 ]'
@@ -208,6 +216,21 @@ check "bin/kaukea accepts an absolute path the same way"   'printf "%s" "$KSRC_F
 check "bin/kaukea accepts owner/repo the same way"         'printf "%s" "$KSRC_FN" | grep -q '"'"'\*/\*)'"'"''
 check "bin/kaukea warns on anything else, same as kai-hooks.sh" \
   'printf "%s" "$KSRC_FN" | grep -q "is not <owner>/<repo>, a git URI, or a path"'
+
+echo "== a self-published package runs its own hooks =="
+# Found by house.sl.oracle (2026-10-21): only .ai.toml's dependencies were read,
+# so a package's own hooks/ never ran in the package's own repository.
+SELFP="$TMP/self-package"; git_init "$SELFP"; mkdir -p "$SELFP/hooks/session.start"
+printf 'name = "self-package"\ntype = "package"\n' > "$SELFP/.ai.toml"
+printf '[[actions]]\nscripts = ["*.sh"]\n' > "$SELFP/hooks/session.start/index.toml"
+printf '#!/bin/sh\n: > "$SELF_OUT"\n' > "$SELFP/hooks/session.start/own.sh"; chmod +x "$SELFP/hooks/session.start/own.sh"
+SELF_OUT="$TMP/self.out"
+echo '{}' | ( cd "$SELFP" && SELF_OUT="$SELF_OUT" "$HOOKS" session.start ) >/dev/null 2>&1
+check "its own session.start hook ran"     '[ -f "$SELF_OUT" ]'
+SELF_OUT2="$TMP/self2.out"
+printf 'name = "self-package"\n' > "$SELFP/.ai.toml"
+echo '{}' | ( cd "$SELFP" && SELF_OUT="$SELF_OUT2" "$HOOKS" session.start ) >/dev/null 2>&1
+check "but not in a repository that is not a package" '[ ! -f "$SELF_OUT2" ]'
 
 echo "== settings.json: all five hook entries carry a timeout (courier-init.sh was unbounded) =="
 expect_timeout() {  # expect_timeout <event> -> the timeout it must carry (matches the

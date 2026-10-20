@@ -116,8 +116,7 @@ deps_list() { # deps_list <root> -> "<id> <origin> <source-as-written>" per line
       *://*|git@*)
         echo "$(owner_repo "$bare") $bare $raw" ;;
       /*|./*|../*)
-        bare=$(absolute "$root" "$bare")
-        echo "$(owner_repo "$bare") $bare $raw" ;;
+        echo "$(path_id "$root" "$bare") $(collapse "$root" "$bare") $raw" ;;
       */*)
         echo "$bare https://github.com/$bare $raw" ;;
       *)
@@ -247,8 +246,9 @@ same_path() { [ -d "$1" ] && [ -d "$2" ] && [ "$(cd "$1" && pwd -P)" = "$(cd "$2
 source_tree()  { clone_of "$1" "$2"; }
 
 pkg_namespace() { # the package's own name, else the repo half of <owner>/<repo>
-  local src=$1 id=$2 n; n=$(root_field "$src" name)
-  echo "${n:-${id##*/}}"
+  local src=$1 id=$2 n r; n=$(root_field "$src" name)
+  r=${id##*/}; r=${r##*%2F}               # a local path's slot: its last segment
+  echo "${n:-$r}"
 }
 
 # ---------- frontmatter ----------
@@ -953,12 +953,34 @@ announce_reload() { # unconditional at the end of every sync, package or not
 # today: a consumer declares every package it wants in its own .ai.toml.
 
 # ---------- install ----------
+# A local path is cloned like any other source (operator, 2026-10-21), so it
+# has to be a git repository with something committed: kai takes commits, and
+# never what is lying uncommitted in somebody's working tree.
+path_is_repo() { # path_is_repo <abs-path> <as-written> -> 0 when it can be cloned
+  local at=$1 ref=$2 top
+  [ -d "$at" ] || { say "install: $ref is not a directory on this machine"; return 1; }
+  top=$(git -C "$at" rev-parse --show-toplevel 2>/dev/null)
+  if [ -z "$top" ] || ! same_path "$top" "$at"; then
+    say "install: $ref is not a git repository. A local path is cloned like any"
+    say "  other source, so it has to be one: run 'git init' there and commit what"
+    say "  it should publish."
+    return 1
+  fi
+  git -C "$at" rev-parse --verify --quiet HEAD >/dev/null || {
+    say "install: $ref has no commits yet. kai takes what is committed, so commit"
+    say "  the package there and install again."
+    return 1
+  }
+}
+
 install_source() { # install_source <root> <tablekey-or-id> — register, clone, lay
   local root=$1 ref=$2 id origin clone src bare
   bare=$(without_ref "$ref")
   case "$bare" in
     *://*|git@*) register_dependency "$root" "$ref"; id=$(owner_repo "$bare") ;;
-    /*|./*|../*) register_dependency "$root" "$ref"; id=$(owner_repo "$(absolute "$root" "$bare")") ;;
+    /*|./*|../*)
+      path_is_repo "$(collapse "$root" "$bare")" "$ref" || return 1
+      register_dependency "$root" "$ref"; id=$(path_id "$root" "$bare") ;;
     */*)         register_dependency "$root" "$ref"; id=$bare ;;
     *) say "  WARN install: '$ref' is not <owner>/<repo>, a git URI, or a path"; return 1 ;;
   esac
@@ -978,6 +1000,11 @@ install_source() { # install_source <root> <tablekey-or-id> — register, clone,
   fi
   src="$clone"
   [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead || true
+  if ! git -C "$src" rev-parse --verify --quiet HEAD >/dev/null; then
+    say "install: $id is declared, but its source has no commits yet, so there is"
+    say "  nothing to lay. Commit the package there; 'kai update' then takes it."
+    return 1
+  fi
   if ! is_package "$src"; then
     say "install: $id was fetched, but it does not look like a kai package."
     say "  A kai package ships from skills/, agents/, hooks/, tools/, files/ or"
@@ -1006,7 +1033,7 @@ cmd_install() {
   local id bare; bare=$(without_ref "$ref")
   case "$bare" in
     *://*|git@*) id=$(owner_repo "$bare") ;;
-    /*|./*|../*) id=$(owner_repo "$(absolute "$root" "$bare")") ;;
+    /*|./*|../*) id=$(path_id "$root" "$bare") ;;
     *)           id=$bare ;;
   esac
   say "install: $id done"
@@ -1082,7 +1109,12 @@ sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
     origin=$(dep_origin "$root" "$id")
     [ -n "$origin" ] || { say "$id: no origin for this package — skipped"; return 0; }
     mkdir -p "$(dirname "$clone")"
-    git clone --quiet "$origin" "$clone" 2>/dev/null || { say "$id: clone failed from $origin (offline?)"; return 0; }
+    local err
+    if ! err=$(git clone --quiet "$origin" "$clone" 2>&1); then
+      say "$id: clone failed from $origin"
+      [ -z "$err" ] || printf '%s\n' "$err" | sed 's/^/  git: /'
+      return 0
+    fi
     say "clone: $clone"
     [ -d "$origin/.git" ] && git -C "$origin" config receive.denyCurrentBranch updateInstead || true
   fi
@@ -1101,6 +1133,16 @@ sync_source() { # sync_source <root> <id> <pull:0|1> <push:0|1>
   target=main
   git -C "$clone" rev-parse --verify --quiet origin/main >/dev/null && target=origin/main
 
+  # A clone of a repository that had no commit yet has nothing of its own to
+  # keep: it takes the first commit the source has, rather than rebasing.
+  if ! git -C "$clone" rev-parse --verify --quiet HEAD >/dev/null; then
+    if git -C "$clone" rev-parse --verify --quiet "$target" >/dev/null; then
+      git -C "$clone" checkout --quiet -B main "$target"
+    else
+      say "$id: the source has no commits yet — nothing to take"
+      return 0
+    fi
+  fi
   before=$(pkg_artifact_names "$clone")
   commit_local_edits "$clone"
   if ! rebase_onto "$id" "$clone" "$target"; then

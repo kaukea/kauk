@@ -94,3 +94,12 @@ mig_seq	migrations/2026-08-28-12-a-thing.md	12	a two-digit sequence
 mig_seq	migrations/2026-08-28-08-a-thing.md	8	REGRESSION a leading zero is not octal
 mig_seq	migrations/2026-08-19-relative-symlinks.md	0	REGRESSION the older form has no sequence
 mig_seq	2026-08-28-02-x.md	2	a bare filename works too
+
+# --- a local repository has no owner: named after its path from the declaring repository ---
+path_id	/w/house/oracle|../kaukai	path/%2E%2E%2Fkaukai	a sibling, written relative
+path_id	/w/house/oracle|/w/house/kaukai	path/%2E%2E%2Fkaukai	written absolute, the same slot
+path_id	/w/house/oracle|./packages/mine/	path/packages%2Fmine	inside the repository, trailing slash dropped
+path_id	/w/house/oracle|../../x/y.git@HEAD	path/%2E%2E%2F%2E%2E%2Fx%2Fy	a reference and .git are not part of the name
+relative_to	/w/a/b|/w/c	../../c	up and across
+relative_to	/w/a|/w/a	.	the same place
+path_id	/w/house/oracle|./.pkgs/mine	path/%2Epkgs%2Fmine	a leading dot would hide the clone from the globs that read the store
