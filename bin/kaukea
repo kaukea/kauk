@@ -1039,15 +1039,42 @@ cmd_install() {
   say "install: $id done"
   offer_tree "$root" "$id"
 }
+# Where no agent is detected, the user is asked at initialisation which one they
+# will use (docs/package-format.md, Runtime detection). An agent running init
+# has no terminal to answer in, so it is told the flag instead (operator,
+# 2026-10-21). Claude is the only agent kai lays for today.
+choose_runtime() { # choose_runtime <root> <from --runtime, or empty>
+  local root=$1 rt=$2
+  if [ -z "$rt" ]; then
+    [ -z "$(detect_runtimes "$root")" ] || return 0
+    if [ -t 0 ] && [ -t 1 ]; then
+      say "No agent is set up in this repository (no .claude/ and no CLAUDE.md)."
+      printf 'Which agent will you use here? [claude] '
+      read -r rt || rt=""
+      rt=${rt:-claude}
+    else
+      die "init: no agent is set up in this repository (no .claude/ and no CLAUDE.md), so there is nowhere to lay anything. Run 'kai init --runtime claude' to say which agent you will use"
+    fi
+  fi
+  case "$rt" in
+    claude) [ -d "$root/.claude" ] || { mkdir -p "$root/.claude"; say "init: created .claude/ for claude"; } ;;
+    *) die "init: kai lays for claude only today, not \"$rt\"" ;;
+  esac
+}
+
 cmd_init() {
   local root; root=$(repo_root)
-  local script_repo as_package=0 a
-  for a in "$@"; do
-    case "$a" in
-      --package) as_package=1 ;;
-      *) die "init does not take \"$a\". It takes --package, for a repository that publishes artifacts as well as consuming them. See kai --help" ;;
+  local script_repo as_package=0 runtime=""
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --package)   as_package=1 ;;
+      --runtime)   [ $# -gt 1 ] || die "--runtime needs the agent's name: --runtime claude"; runtime=$2; shift ;;
+      --runtime=*) runtime=${1#--runtime=} ;;
+      *) die "init does not take \"$1\". It takes --package, for a repository that publishes artifacts as well as consuming them, and --runtime <agent>. See kai --help" ;;
     esac
+    shift
   done
+  choose_runtime "$root" "$runtime"
   ensure_aitoml "$root"
   [ "$as_package" = 1 ] && declare_package "$root"
   ensure_gitignore "$root"
@@ -1405,6 +1432,9 @@ usage: kai <command> [options]
   init                  Set this repository up. Creates .ai.toml if it is
                         missing, ignores the package store, and declares the kai
                         package, which every managed repository needs.
+      --runtime <agent> The agent this repository uses, when none is set up yet
+                        (no .claude/ and no CLAUDE.md). Asked for in a terminal;
+                        required otherwise. claude is the only one today.
       --package         Also declare that this repository publishes artifacts of
                         its own, not only consumes them. Writes the root table
                         saying so, which in turn satisfies any artifact that

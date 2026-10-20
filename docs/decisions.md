@@ -1318,3 +1318,8 @@ The dispatcher reads a package's `hooks/` from its clone, and the links laid int
 #hooks #events
 
 kai gains `response.end`, dispatched when the agent finishes responding — `Stop` on Claude. house.sl's memory-sync pushes after every response, and none of kai's events came close. (Operator, 2026-10-21, choosing "Add a response event" over pushing at session end.) The name follows `session.end`; it is the agent's, and the operator may rename it.
+
+## [2026-10-21 00:00 CEST] Decision-099: init asks for the agent in a terminal, and takes a flag otherwise
+#init #runtimes
+
+Where no agent is set up (no `.claude/`, no `CLAUDE.md`), init asks which one will be used, as the spec says. Run without a terminal — by an agent, which cannot answer — it stops and says to rerun with `--runtime claude`. Either way it creates `.claude/`. (Operator, 2026-10-21, choosing "Ask, or take a flag".)
