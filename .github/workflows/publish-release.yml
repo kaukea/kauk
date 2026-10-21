@@ -1,0 +1,38 @@
+# Release tags only (v0.1.0-preview.1, v0.1.0, ...): the formula goes to the
+# public tap kaukea/homebrew-tap, so anyone can `brew install kaukea/tap/kauk`.
+# Builds between tags never come here; they go to the house's beta tap
+# (.forgejo/workflows/publish-beta.yml). Nothing is published unless every
+# suite passes.
+#
+# The tap is written with the secret TAP_DEPLOY_KEY, a deploy key with write
+# access on kaukea/homebrew-tap: the run's own token cannot reach it.
+name: publish-release
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kauk
+      - uses: ./kauk/.ci/actions/test
+
+  brew:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kauk
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          repository: kaukea/homebrew-tap
+          ssh-key: ${{ secrets.TAP_DEPLOY_KEY }}
+          path: tap
+      - uses: ./kauk/.ci/actions/publish-brew
+        with:
+          source: https://github.com/kaukea/kauk.git

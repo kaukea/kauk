@@ -1,0 +1,29 @@
+# Writes the kauk formula into a tap checkout and pushes it, shared by
+# publish-beta and publish-release: they differ only in which tap is checked
+# out and where Homebrew fetches kai from.
+name: publish kauk to a Homebrew tap
+description: Write the formula for this commit (packaging/publish-brew) and push the tap
+inputs:
+  kauk:
+    description: where kaukea/kauk is checked out, with its tags (fetch-depth 0)
+    default: kauk
+  tap:
+    description: where the tap is checked out, with push access
+    default: tap
+  source:
+    description: the git address Homebrew fetches kai from
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Write the formula
+      shell: bash
+      run: |
+        git -C "${{ inputs.tap }}" config user.name "kauk publish"
+        git -C "${{ inputs.tap }}" config user.email "kauk-publish@kauk.ai"
+        "${{ inputs.kauk }}/packaging/publish-brew" "$PWD/${{ inputs.tap }}" "${{ inputs.source }}"
+    - name: Push the tap
+      shell: bash
+      run: |
+        grep -E '^  (url|version) ' "${{ inputs.tap }}/Formula/kauk.rb"
+        git -C "${{ inputs.tap }}" push origin HEAD:main

@@ -1323,3 +1323,14 @@ kai gains `response.end`, dispatched when the agent finishes responding — `Sto
 #init #runtimes
 
 Where no agent is set up (no `.claude/`, no `CLAUDE.md`), init asks which one will be used, as the spec says. Run without a terminal — by an agent, which cannot answer — it stops and says to rerun with `--runtime claude`. Either way it creates `.claude/`. (Operator, 2026-10-21, choosing "Ask, or take a flag".)
+
+## [2026-10-21 00:00 CEST] Decision-100: kai is installed with Homebrew; every build goes to the house's tap, tagged ones also to GitHub
+#install #release #brew #ci
+
+kai arrives on a machine through Homebrew, and nowhere else: an install script installs one version and can never be upgraded when the user wants, and nobody installs a tool by following a README. Brew keeps the version and upgrades when asked. (Operator, 2026-10-21: "the only thing you have is brew".)
+
+- The version is SemVer from git tags alone, per the house's versioning skill (`packaging/version`).
+- One script writes the formula (`packaging/publish-brew TAP GIT_URL`); the channels differ only by tap and by where Homebrew fetches from. The commands are symlinks into the formula's `libexec`, so `kai.settings.json` and `kai-hooks.sh` are found beside `kai`.
+- `publish-beta` (Forgejo): every push to main and every tag, to `serialseb/packages-beta`. `publish-release` (GitHub): tags only, to the public `kaukea/homebrew-tap`. Untagged builds never go to GitHub. Both run the same two shared steps (`.ci/actions/`), not copies.
+- Nothing is published unless every suite passes (`tests/run`). "Failure means no package." (Operator, 2026-10-21.)
+- `v0.1.0-preview.1` is approved as the first tag once the gate passes; 0.1.0 waits until the bugs are fixed and kai has been used successfully.

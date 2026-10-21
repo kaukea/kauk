@@ -1,0 +1,39 @@
+# Every push to main and every release tag, for the house's own machines:
+# the formula goes to the beta tap serialseb/packages-beta on git.sl.house,
+# with this commit's version (packaging/version), and `brew upgrade kauk`
+# sees it. Nothing is published unless every suite passes.
+#
+# The tap is written with the secret PACKAGES_TOKEN (write on repositories):
+# the run's own token cannot reach another repository.
+name: publish-beta
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kauk
+      - uses: ./kauk/.ci/actions/test
+
+  brew:
+    needs: test
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: kauk
+          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with:
+          repository: serialseb/packages-beta
+          token: ${{ secrets.PACKAGES_TOKEN }}
+          path: tap
+      - uses: ./kauk/.ci/actions/publish-brew
+        with:
+          source: https://git.sl.house/kaukea/kauk.git

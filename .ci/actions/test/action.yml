@@ -1,0 +1,25 @@
+# The gate, shared by publish-beta (Forgejo) and publish-release (GitHub):
+# every suite runs, and a single failure fails the job, so nothing is published.
+name: kai tests
+description: Run every kai test suite (tests/run)
+inputs:
+  kauk:
+    description: where kaukea/kauk is checked out
+    default: kauk
+runs:
+  using: composite
+  steps:
+    - name: Install jq, which the hook dispatcher merges hook output with
+      shell: bash
+      run: |
+        command -v jq >/dev/null && exit 0
+        sudo=""; [ "$(id -u)" = 0 ] || sudo=sudo
+        $sudo apt-get update && $sudo apt-get install -y jq
+    - name: Give git a name, for the commits the suites make in their fixtures
+      shell: bash
+      run: |
+        git config --global user.name >/dev/null || git config --global user.name "kai tests"
+        git config --global user.email >/dev/null || git config --global user.email "kai-tests@kauk.ai"
+    - name: Run every suite
+      shell: bash
+      run: ${{ inputs.kauk }}/tests/run

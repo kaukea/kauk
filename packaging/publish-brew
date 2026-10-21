@@ -1,0 +1,53 @@
+#!/bin/sh
+# Write the kauk formula for this commit into a Homebrew tap checkout, and
+# commit it there. Pushing the tap is the caller's.
+#
+#   packaging/publish-brew TAP_DIR GIT_URL
+#
+# GIT_URL is where Homebrew fetches kai from: git.sl.house for the house's
+# beta tap, GitHub for the public one. Nothing else differs between them.
+#
+# The formula pins this exact commit with its version (packaging/version), so
+# `brew upgrade kauk` sees each published build as newer, when the user asks.
+#
+# The commands are symlinks into libexec, never wrapper scripts: kai, its hook
+# commands and the agent skill find kai-hooks.sh and kai.settings.json by
+# following the kai link back to bin/, and lib/ beside it.
+set -eu
+tap=${1:?usage: publish-brew TAP_DIR GIT_URL}
+source=${2:?usage: publish-brew TAP_DIR GIT_URL}
+cd "$(dirname "$0")/.."
+version=$(packaging/version)
+revision=$(git rev-parse HEAD)
+mkdir -p "$tap/Formula"
+cat > "$tap/Formula/kauk.rb" <<FORMULA
+# Written by packaging/publish-brew in kaukea/kauk: edit it there.
+class Kauk < Formula
+  desc "kai: one command for a repository's agents, skills, hooks and tools"
+  homepage "https://kauk.ai"
+  url "$source", using: :git, revision: "$revision"
+  version "$version"
+  license "MIT"
+  head "$source", branch: "main"
+
+  depends_on "bash"
+  depends_on "jq"
+
+  def install
+    libexec.install "bin", "lib"
+    %w[kaukea kai kauk].each { |c| bin.install_symlink libexec/"bin"/c }
+  end
+
+  test do
+    assert_match "usage: kai", shell_output("#{bin}/kai --help")
+  end
+end
+FORMULA
+cd "$tap"
+git add Formula/kauk.rb
+if git diff --cached --quiet; then
+    echo "kauk $version: formula unchanged"
+else
+    git commit -q -m "kauk $version"
+    echo "kauk $version"
+fi
