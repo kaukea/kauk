@@ -27,7 +27,7 @@ class Kauk < Formula
   homepage "https://kauk.ai"
   url "$source", using: :git, revision: "$revision"
   version "$version"
-  license "MIT"
+  license "AGPL-3.0-only"
   head "$source", branch: "main"
 
   depends_on "bash"
