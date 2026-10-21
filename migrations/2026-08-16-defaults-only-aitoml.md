@@ -30,7 +30,7 @@ awk '
 
 while read -r _ id path; do
   [ -n "$id" ] || continue
-  sed -i "s|^\[sources\.\"$id\"\]|[sources.\"$path\"]|" "$f.new"
+  sed "s|^\[sources\.\"$id\"\]|[sources.\"$path\"]|" "$f.new" > "$f.kai-tmp" && mv "$f.kai-tmp" "$f.new"
   echo "re-keyed $id -> $path"
 done < "$f.rekeys"
 

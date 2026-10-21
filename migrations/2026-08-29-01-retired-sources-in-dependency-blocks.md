@@ -26,13 +26,16 @@ before=$(cat "$f")
 # Only `source =` values inside dependency blocks, and only the retired names.
 # A path is matched wherever it lives: what identifies it is its last two
 # components, not the home directory in front of them.
-sed -i \
-  -e 's|^\([ \t]*source[ \t]*=[ \t]*"\)serialseb/kauk\(@[^"]*\)\?"|\1kaukea/kauk\2"|' \
-  -e 's|^\([ \t]*source[ \t]*=[ \t]*"\)serialseb/orchids\(@[^"]*\)\?"|\1kaukea/orchard\2"|' \
-  -e 's|^\([ \t]*source[ \t]*=[ \t]*"\)kaukea/orchids\(@[^"]*\)\?"|\1kaukea/orchard\2"|' \
-  -e 's|^\([ \t]*source[ \t]*=[ \t]*"\)[^"]*/serialseb/kauk\(@[^"]*\)\?"|\1kaukea/kauk\2"|' \
-  -e 's|^\([ \t]*source[ \t]*=[ \t]*"\)[^"]*/serialseb/orchids\(@[^"]*\)\?"|\1kaukea/orchard\2"|' \
-  "$f"
+# sed -E with [[:blank:]], and a file written then moved: BSD sed (macOS) has
+# no -i without a suffix, no \? in a basic expression and no \t in brackets.
+s='^([[:blank:]]*source[[:blank:]]*=[[:blank:]]*")'
+sed -E \
+  -e "s|${s}serialseb/kauk(@[^\"]*)?\"|\\1kaukea/kauk\\2\"|" \
+  -e "s|${s}serialseb/orchids(@[^\"]*)?\"|\\1kaukea/orchard\\2\"|" \
+  -e "s|${s}kaukea/orchids(@[^\"]*)?\"|\\1kaukea/orchard\\2\"|" \
+  -e "s|${s}[^\"]*/serialseb/kauk(@[^\"]*)?\"|\\1kaukea/kauk\\2\"|" \
+  -e "s|${s}[^\"]*/serialseb/orchids(@[^\"]*)?\"|\\1kaukea/orchard\\2\"|" \
+  "$f" > "$f.kai-tmp" && mv "$f.kai-tmp" "$f"
 
 if [ "$before" = "$(cat "$f")" ]; then
   echo "no retired source named in a dependency block — nothing to do"

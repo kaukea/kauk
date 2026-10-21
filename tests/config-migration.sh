@@ -72,7 +72,7 @@ check "the date file changed name"     '[ -f "$R/.ai/migrations.toml" ] && [ ! -
 check "the date itself is untouched"   'grep -qx "watermark = \"2026-08-19-04\"" "$R/.ai/migrations.toml"'
 check "the rewrite is staged"          'git -C "$R" diff --cached --name-only | grep -q "^.ai.toml$"'
 check "the removal is staged"          'git -C "$R" diff --cached --name-only --diff-filter=D | grep -q "^package.toml$"'
-check "nothing was committed"          '[ "$(git -C "$R" log --oneline | wc -l)" = 1 ]'
+check "nothing was committed"          '[ "$(git -C "$R" rev-list --count HEAD)" = 1 ]'
 
 echo "== the new reader agrees with what the migration wrote =="
 check "kai reads both dependencies"    '[ "$(cd "$R" && "$HERE/bin/kai" sync --status 2>&1 | grep -c "no clone")" = 2 ]'

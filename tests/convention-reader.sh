@@ -20,6 +20,8 @@ git_init() {
   git -C "$1" config user.name Test
 }
 commit_all() { git -C "$1" add -A && git -C "$1" commit -qm "${2:-fixture}"; }
+# sed -i is GNU's; BSD sed reads its next argument as a backup suffix
+sed_in_place() { sed "$1" "$2" > "$2.sed-tmp" && mv "$2.sed-tmp" "$2"; }
 
 # ---------------------------------------------------------------- the package
 # A local repository has no owner: its clone is named after its path relative
@@ -129,12 +131,12 @@ BEFORE_REF=$(git -C "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg" rev-parse H
 mkdir -p "$PKG/skills/afterref"
 printf -- '---\nname: afterref\n---\nlate\n' > "$PKG/skills/afterref/SKILL.md"
 commit_all "$PKG" "after the ref"
-sed -i "s|^source = \"$PKG\"$|source = \"$PKG@vREF\"|" "$CON/.ai.toml"
+sed_in_place "s|^source = \"$PKG\"$|source = \"$PKG@vREF\"|" "$CON/.ai.toml"
 ( cd "$CON" && "$KAUK" sync ) >"$TMP/outP6" 2>&1 || true
 check "clone not moved"                '[ "$(git -C "$CON/.ai/repositories/path/%2E%2E%2Ftest%2Fpkg" rev-parse HEAD)" = "$BEFORE_REF" ]'
 check "untouched is announced"         'grep -q "waits for the versioning work" "$TMP/outP6"'
 check "still lays what is there"       '[ -L "$CON/.claude/skills/alpha" ]'
-sed -i "s|^source = \"$PKG@vREF\"$|source = \"$PKG\"|" "$CON/.ai.toml"
+sed_in_place "s|^source = \"$PKG@vREF\"$|source = \"$PKG\"|" "$CON/.ai.toml"
 ( cd "$CON" && "$KAUK" sync ) >/dev/null 2>&1 || true
 
 echo "== a source that is no known form is reported and ignored =="
@@ -194,7 +196,7 @@ check "agent outside not laid"         '[ ! -e "$CON5/.claude/agents/aux.md" ]'
 check "tools lay unfiltered"           '[ -L "$CON5/.claude/tools/t.py" ]'
 
 echo "== reselection: flat-key closure pulls, deselection prunes =="
-sed -i 's|include = \["dev/x"\]|include = ["ops/y"]|' "$CON5/.ai.toml"
+sed_in_place 's|include = \["dev/x"\]|include = ["ops/y"]|' "$CON5/.ai.toml"
 ( cd "$CON5" && "$KAUK" sync ) >"$TMP/out7" 2>&1 || true
 check "roles: fallback selects"        '[ -L "$CON5/.claude/skills/opsy" ]'
 check "dependencies-skills: pulled"    '[ -L "$CON5/.claude/skills/helper" ]'
@@ -205,7 +207,7 @@ check "deselected agent pruned"        '[ ! -e "$CON5/.claude/agents/aget.md" ]'
 check "unplaced artifact survives"     '[ -L "$CON5/.claude/skills/plain" ]'
 
 echo "== a leaf entry picks one artifact =="
-sed -i 's|include = \["ops/y"\]|include = ["misc/h/helper"]|' "$CON5/.ai.toml"
+sed_in_place 's|include = \["ops/y"\]|include = ["misc/h/helper"]|' "$CON5/.ai.toml"
 ( cd "$CON5" && "$KAUK" sync ) >"$TMP/out8" 2>&1 || true
 check "leaf-picked artifact laid"      '[ -L "$CON5/.claude/skills/helper" ]'
 check "everything else pruned"         '[ ! -e "$CON5/.claude/skills/opsy" ] && [ ! -e "$CON5/.claude/skills/devx" ]'

@@ -166,7 +166,7 @@ FAKEPATH="$KAIONPATH:$PATH"
 
 ORACLE=$(resolve_like_dispatch_agent "$FAKEPATH")
 check "oracle resolves through the symlink to the real kai.settings.json" \
-  '[ "$ORACLE" = "$KAIREAL/kai.settings.json" ]'
+  '[ -n "$ORACLE" ] && [ "$ORACLE" -ef "$KAIREAL/kai.settings.json" ]'
 
 CON10="$TMP/con10"; git_init "$CON10"; commit_all "$CON10" "fixture: no settings.json yet"
 OUT10=$(run_migration "$MIG05" "$CON10" "$FAKEPATH" 2>&1) || true

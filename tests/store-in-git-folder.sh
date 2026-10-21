@@ -72,7 +72,7 @@ check "the ignored directory now exists"              '[ -d "$CON/.ai/repositori
 check "it explains itself with a README"              '[ -f "$CON/.ai/repositories/README.md" ]'
 check "the README is not committed"                   '[ -z "$(git -C "$CON" ls-files .ai/)" ]'
 check "the clone landed in the git folder"            '[ -d "$CON/.git/kai/repositories/kaukea/orchard/.git" ]'
-check "the checkout links to that clone"              '[ "$(readlink "$CON/.ai/repositories/kaukea/orchard")" = "$CON/.git/kai/repositories/kaukea/orchard" ]'
+check "the checkout links to that clone"              '[ -L "$CON/.ai/repositories/kaukea/orchard" ] && [ "$CON/.ai/repositories/kaukea/orchard" -ef "$CON/.git/kai/repositories/kaukea/orchard" ]'
 check "a skill resolves through the chain"            'grep -q "SKILL BODY" "$CON/.claude/skills/enforcing-rules/SKILL.md"'
 check "an agent resolves through the chain"           'grep -q "AGENT BODY" "$CON/.claude/agents/gardener.md"'
 check "the tree is clean"                             '[ -z "$(git -C "$CON" status --porcelain)" ]'
@@ -95,7 +95,7 @@ check "and it is dead until the hook runs"            '[ ! -e "$WT/.claude/skill
 run_hook "$WT"
 check "a skill resolves in the worktree"              'grep -q "SKILL BODY" "$WT/.claude/skills/enforcing-rules/SKILL.md"'
 check "an agent resolves in the worktree"             'grep -q "AGENT BODY" "$WT/.claude/agents/gardener.md"'
-check "it reuses the one clone in the git folder"     '[ "$(readlink "$WT/.ai/repositories/kaukea/orchard")" = "$CON/.git/kai/repositories/kaukea/orchard" ]'
+check "it reuses the one clone in the git folder"     '[ -L "$WT/.ai/repositories/kaukea/orchard" ] && [ "$WT/.ai/repositories/kaukea/orchard" -ef "$CON/.git/kai/repositories/kaukea/orchard" ]'
 check "there is still exactly one clone"              '[ "$(find "$CON/.git/kai/repositories" -maxdepth 3 -name .git | wc -l)" -eq 1 ]'
 check "the worktree tree is clean"                    '[ -z "$(git -C "$WT" status --porcelain)" ]'
 check "the worktree kept its own branch"              '[ "$(git -C "$WT" rev-parse --abbrev-ref HEAD)" = "f/feat" ]'
@@ -233,7 +233,7 @@ check "the committed link resolves before"            'grep -q "SKILL BODY" "$CO
 run_migration "$ROOT/migrations/2026-08-27-02-store-moves-into-the-git-folder.md" "$CON8" >"$TMP/mig2" 2>&1
 check "the clone now lives in the git folder"         '[ -d "$CON8/.git/kai/repositories/kaukea/orchard/.git" ]'
 check "a link was left in its place"                  '[ -L "$CON8/.ai/repositories/kaukea/orchard" ]'
-check "the link points at the moved clone"            '[ "$(readlink "$CON8/.ai/repositories/kaukea/orchard")" = "$CON8/.git/kai/repositories/kaukea/orchard" ]'
+check "the link points at the moved clone"            '[ -L "$CON8/.ai/repositories/kaukea/orchard" ] && [ "$CON8/.ai/repositories/kaukea/orchard" -ef "$CON8/.git/kai/repositories/kaukea/orchard" ]'
 check "the committed link still resolves"             'grep -q "SKILL BODY" "$CON8/.claude/skills/enforcing-rules/SKILL.md"'
 check "the committed link was not rewritten"          '[ "$(readlink "$CON8/.claude/skills/enforcing-rules")" = "../../.ai/repositories/kaukea/orchard/skills/enforcing-rules" ]'
 check "nothing new appears to commit"                 '[ -z "$(git -C "$CON8" status --porcelain)" ]'

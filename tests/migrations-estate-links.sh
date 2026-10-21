@@ -18,7 +18,8 @@ KAUK="$ROOT/bin/kai"
 MIG01="$ROOT/migrations/2026-08-19-01-estate-link-repoint.md"
 MIG02="$ROOT/migrations/2026-08-19-02-relative-symlinks.md"
 MIG_MOVE="$ROOT/migrations/2026-08-18-kaukea-move-links.md"
-TMP=$(mktemp -d)
+# physical, as git answers it: macOS reaches mktemp's folder through /var -> /private/var
+TMP=$(cd "$(mktemp -d)" && pwd -P)
 trap 'rm -rf "$TMP"' EXIT
 
 . "$(dirname "$0")/harness.sh"

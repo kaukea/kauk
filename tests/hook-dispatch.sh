@@ -270,15 +270,18 @@ ln -s "$REAL/kaukea" "$LINKDIR/kai"
 
 BSDBIN="$TMP/bsd-bin"
 mkdir -p "$BSDBIN"
-cat > "$BSDBIN/readlink" <<'EOF'
+# It hands everything else to the machine's own readlink, wherever that is:
+# /bin on Debian, /usr/bin on macOS.
+REAL_READLINK=$(command -v readlink)
+cat > "$BSDBIN/readlink" <<EOF
 #!/bin/sh
 # Stands in for BSD/macOS readlink: no -f extension at all.
-for a in "$@"; do
-  case "$a" in
+for a in "\$@"; do
+  case "\$a" in
     -f) echo "readlink: illegal option -- f" >&2; exit 1 ;;
   esac
 done
-exec /bin/readlink "$@"
+exec "$REAL_READLINK" "\$@"
 EOF
 chmod +x "$BSDBIN/readlink"
 

@@ -47,9 +47,12 @@ is "a file carries nothing"          ""                 "$(fs_target "$TMP/afile
 is "nothing carries nothing"         ""                 "$(fs_target "$TMP/not-here")"
 
 echo "== the difference the port exists to preserve =="
-# This is the defect, demonstrated: the resolver that was used answers with
-# silence, so a caller comparing paths concluded the link belonged elsewhere.
-is "the old way answers nothing"     ""  "$(readlink -f "$TMP/dead-through-missing-dir" 2>/dev/null)"
+# This is the defect, demonstrated: the resolver that was used cannot tell a
+# dead link from a live one. GNU answers with silence, macOS with a path that
+# does not exist; either way a caller comparing paths concluded the link
+# belonged elsewhere.
+check "the old way cannot tell it is dead" '[ ! -e "$(readlink -f "$TMP/dead-through-missing-dir" 2>/dev/null)" ]'
+
 is "the port answers with a kind"    "dead-link" "$(fs_kind "$TMP/dead-through-missing-dir")"
 is "and with what it carries"        "missing/deeper/x" "$(fs_target "$TMP/dead-through-missing-dir")"
 

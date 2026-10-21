@@ -22,16 +22,16 @@ maindir=$(dirname "$(git rev-parse --path-format=absolute --git-common-dir)")
 grep -o '^\[sources\."/[^"]*"\]' "$f" | sed 's/^\[sources\."//;s/"\]$//' | while read -r p; do
   rp=$(realpath -m "$p" 2>/dev/null || echo "$p")
   if [ "$rp" = "$(realpath "$maindir")" ]; then
-    sed -i "s|^\[sources\.\"$p\"\]|[sources.\"$maindir\"]|" "$f"
+    sed "s|^\[sources\.\"$p\"\]|[sources.\"$maindir\"]|" "$f" > "$f.kai-tmp" && mv "$f.kai-tmp" "$f"
   fi
 done
 
-sed -i \
+sed \
   -e 's|^\[sources\."/home/[^"]*/serialseb/orchids"\]|[sources."kaukea/orchard"]|' \
   -e 's|^\[sources\."serialseb/orchids"\]|[sources."kaukea/orchard"]|' \
   -e 's|^\[sources\."/home/[^"]*/serialseb/kauk"\]|[sources."kaukea/kauk"]|' \
   -e 's|^\[sources\."serialseb/kauk"\]|[sources."kaukea/kauk"]|' \
-  "$f"
+  "$f" > "$f.kai-tmp" && mv "$f.kai-tmp" "$f"
 
 gcd=$(git rev-parse --git-common-dir)
 case "$gcd" in /*) ;; *) gcd="$root/$gcd" ;; esac
